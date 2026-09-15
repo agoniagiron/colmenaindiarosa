@@ -1,0 +1,38 @@
+{
+  "name": "@india-rosa/api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "lint": "eslint . && prettier --check .",
+    "test": "vitest run",
+    "seed": "tsx prisma/seed.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "bcrypt": "^6.0.0",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.10.0",
+    "@types/bcrypt": "^6.0.0",
+    "@types/express": "^5.0.2",
+    "@types/node": "^20.14.0",
+    "@types/supertest": "^6.0.2",
+    "eslint": "^9.10.0",
+    "eslint-config-prettier": "^9.1.0",
+    "globals": "^15.9.0",
+    "prettier": "^3.3.3",
+    "prisma": "^6.19.3",
+    "supertest": "^7.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.5.0",
+    "vitest": "^4.1.0"
+  }
+}

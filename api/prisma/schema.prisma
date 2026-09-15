@@ -1,0 +1,336 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum RolUsuario {
+  cliente
+  admin
+}
+
+enum TipoCupon {
+  porcentaje
+  monto
+  envio
+}
+
+enum EstadoPedido {
+  pendiente
+  confirmado
+  despachado
+  entregado
+  cancelado
+}
+
+enum EstadoOrdenCompra {
+  borrador
+  enviada
+  recibida_parcial
+  recibida
+  cancelada
+}
+
+enum TipoMovimientoInventario {
+  entrada
+  salida
+  ajuste
+  reserva
+  liberacion
+}
+
+// ---------------------------------------------------------------------------
+// Usuarios
+// ---------------------------------------------------------------------------
+
+model Usuario {
+  id            String     @id @default(cuid())
+  nombre        String
+  correo        String     @unique
+  claveHash     String
+  rol           RolUsuario @default(cliente)
+  telefono      String?
+  activo        Boolean    @default(true)
+  creadoEn      DateTime   @default(now())
+  actualizadoEn DateTime   @updatedAt
+
+  pedidos               Pedido[]
+  movimientosInventario MovimientoInventario[]
+
+  @@index([creadoEn])
+}
+
+// ---------------------------------------------------------------------------
+// Catálogo
+// ---------------------------------------------------------------------------
+
+model Categoria {
+  id     String  @id @default(cuid())
+  nombre String
+  slug   String  @unique
+  orden  Int     @default(0)
+  activa Boolean @default(true)
+
+  productos Producto[]
+}
+
+model Producto {
+  id              String   @id @default(cuid())
+  nombre          String
+  slug            String   @unique
+  descripcion     String
+  categoriaId     String
+  // precioBase es solo para mostrar en el catálogo (listados, tarjetas de
+  // producto, precio "desde"). El precio que realmente se cobra es siempre
+  // el de VarianteProducto.precio: el backend calcula totales a partir de
+  // la variante elegida, nunca de este campo.
+  precioBase      Int
+  precioAntes     Int?
+  calificacion    Float    @default(0)
+  cantidadResenas Int      @default(0)
+  destacado       Boolean  @default(false)
+  activo          Boolean  @default(true)
+  creadoEn        DateTime @default(now())
+  actualizadoEn   DateTime @updatedAt
+
+  categoria Categoria           @relation(fields: [categoriaId], references: [id])
+  imagenes  ImagenProducto[]
+  variantes VarianteProducto[]
+
+  @@index([categoriaId])
+  @@index([creadoEn])
+}
+
+model ImagenProducto {
+  id         String @id @default(cuid())
+  productoId String
+  url        String
+  altTexto   String?
+  orden      Int    @default(0)
+
+  producto Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+
+  @@index([productoId])
+}
+
+// ---------------------------------------------------------------------------
+// Atributos y valores (tipo de base, longitud, color, talla de gorro,
+// densidad)
+// ---------------------------------------------------------------------------
+
+model Atributo {
+  id     String @id @default(cuid())
+  nombre String @unique
+
+  valores ValorAtributo[]
+}
+
+model ValorAtributo {
+  id         String  @id @default(cuid())
+  atributoId String
+  valor      String
+  // hex solo lo usa el atributo "color": lo necesitan los swatches del
+  // catálogo. Para el resto de atributos queda en null.
+  hex        String?
+  orden      Int     @default(0)
+
+  atributo  Atributo                 @relation(fields: [atributoId], references: [id])
+  variantes VarianteValorAtributo[]
+
+  @@unique([atributoId, valor])
+}
+
+// ---------------------------------------------------------------------------
+// Variantes de producto
+// ---------------------------------------------------------------------------
+
+// Semántica de stock en VarianteProducto:
+// - stockActual: unidades físicas en bodega. NO se modifica al reservar.
+// - stockReservado: unidades comprometidas en pedidos sin despachar.
+// - disponible = stockActual - stockReservado. Calculado, nunca persistido.
+// Reservar (crear pedido) suma a stockReservado. Confirmar el pedido resta
+// de ambos (stockActual y stockReservado). Cancelar el pedido resta solo de
+// stockReservado.
+model VarianteProducto {
+  id             String  @id @default(cuid())
+  productoId     String
+  sku            String  @unique
+  precio         Int
+  stockActual    Int     @default(0)
+  stockReservado Int     @default(0)
+  puntoReorden   Int     @default(0)
+  activa         Boolean @default(true)
+
+  producto              Producto                @relation(fields: [productoId], references: [id])
+  valores               VarianteValorAtributo[]
+  pedidoItems           PedidoItem[]
+  ordenCompraItems      OrdenCompraItem[]
+  movimientosInventario MovimientoInventario[]
+
+  @@index([productoId])
+}
+
+model VarianteValorAtributo {
+  id              String @id @default(cuid())
+  varianteId      String
+  valorAtributoId String
+
+  variante      VarianteProducto @relation(fields: [varianteId], references: [id], onDelete: Cascade)
+  valorAtributo ValorAtributo    @relation(fields: [valorAtributoId], references: [id])
+
+  @@unique([varianteId, valorAtributoId])
+}
+
+// ---------------------------------------------------------------------------
+// Cupones
+// ---------------------------------------------------------------------------
+
+model Cupon {
+  id            String    @id @default(cuid())
+  codigo        String    @unique
+  tipo          TipoCupon
+  valor         Int
+  montoMinimo   Int       @default(0)
+  usosMaximos   Int?
+  usosActuales  Int       @default(0)
+  vigenteDesde  DateTime?
+  vigenteHasta  DateTime?
+  activo        Boolean   @default(true)
+
+  pedidos Pedido[]
+}
+
+// ---------------------------------------------------------------------------
+// Pedidos
+// ---------------------------------------------------------------------------
+
+model Pedido {
+  id               String       @id @default(cuid())
+  numero           String       @unique
+  usuarioId        String?
+  estado           EstadoPedido @default(pendiente)
+  subtotal         Int
+  descuento        Int          @default(0)
+  envio            Int
+  total            Int
+  cuponId          String?
+  // Copia histórica del código del cupón: si el cupón se borra o cambia de
+  // código después, el pedido conserva el que se usó en el momento.
+  cuponCodigo      String?
+  telefonoContacto String
+  mensajeWhatsapp  String
+  creadoEn         DateTime     @default(now())
+  actualizadoEn    DateTime     @updatedAt
+
+  usuario Usuario?     @relation(fields: [usuarioId], references: [id])
+  cupon   Cupon?       @relation(fields: [cuponId], references: [id])
+  items   PedidoItem[]
+
+  @@index([usuarioId])
+  @@index([estado])
+  @@index([creadoEn])
+}
+
+model PedidoItem {
+  id                  String @id @default(cuid())
+  pedidoId            String
+  varianteId          String
+  // nombreProducto, descripcionVariante y precioUnitario son copias
+  // históricas: el pedido debe seguir siendo correcto aunque el producto o
+  // la variante cambien (o se desactiven) después.
+  nombreProducto      String
+  descripcionVariante String
+  precioUnitario      Int
+  cantidad            Int
+  subtotal            Int
+
+  pedido   Pedido           @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  variante VarianteProducto @relation(fields: [varianteId], references: [id])
+
+  @@index([pedidoId])
+  @@index([varianteId])
+}
+
+// ---------------------------------------------------------------------------
+// Proveedores y abastecimiento
+// ---------------------------------------------------------------------------
+
+model Proveedor {
+  id           String  @id @default(cuid())
+  nombre       String
+  contacto     String?
+  telefono     String?
+  correo       String?
+  diasEntrega  Int
+  activo       Boolean @default(true)
+
+  ordenesCompra OrdenCompra[]
+}
+
+model OrdenCompra {
+  id            String            @id @default(cuid())
+  numero        String            @unique
+  proveedorId   String
+  estado        EstadoOrdenCompra @default(borrador)
+  fechaEsperada DateTime?
+  total         Int               @default(0)
+  notas         String?
+  creadoEn      DateTime          @default(now())
+  actualizadoEn DateTime          @updatedAt
+
+  proveedor Proveedor         @relation(fields: [proveedorId], references: [id])
+  items     OrdenCompraItem[]
+
+  @@index([proveedorId])
+  @@index([estado])
+  @@index([creadoEn])
+}
+
+model OrdenCompraItem {
+  id                String @id @default(cuid())
+  ordenCompraId     String
+  varianteId        String
+  cantidadPedida    Int
+  cantidadRecibida  Int    @default(0)
+  costoUnitario     Int
+
+  ordenCompra OrdenCompra      @relation(fields: [ordenCompraId], references: [id], onDelete: Cascade)
+  variante    VarianteProducto @relation(fields: [varianteId], references: [id])
+
+  @@index([ordenCompraId])
+  @@index([varianteId])
+}
+
+// ---------------------------------------------------------------------------
+// Inventario
+// ---------------------------------------------------------------------------
+
+model MovimientoInventario {
+  id               String                   @id @default(cuid())
+  varianteId       String
+  tipo             TipoMovimientoInventario
+  cantidad         Int
+  stockResultante  Int
+  // referenciaTipo/referenciaId apuntan genéricamente a lo que originó el
+  // movimiento (por ejemplo "pedido" u "orden_compra") sin acoplar este
+  // modelo a una FK específica.
+  referenciaTipo   String?
+  referenciaId     String?
+  usuarioId        String?
+  motivo           String?
+  fecha            DateTime                 @default(now())
+
+  variante VarianteProducto @relation(fields: [varianteId], references: [id])
+  usuario  Usuario?         @relation(fields: [usuarioId], references: [id])
+
+  @@index([varianteId])
+  @@index([fecha])
+  @@index([referenciaTipo, referenciaId])
+}

@@ -1,0 +1,26 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-hueso: #fbf7f4;
+  --color-arena: #efe3da;
+  --color-rosa-palo: #ebc9c6;
+  --color-rosa: #b02e58;
+  --color-tinta: #2a1f1d;
+  --color-texto-secundario: #8a7a73;
+  --color-linea: #e4d8d0;
+  --color-whatsapp: #1fa855;
+
+  --font-serif: Georgia, 'Times New Roman', serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
