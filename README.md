@@ -43,3 +43,4 @@ Credenciales de desarrollo (ya reflejadas en `api/.env.example` como `DATABASE_U
 
 - `api/` — backend (Node, Express, TypeScript).
 - `web/` — frontend (React, Vite, TypeScript, Tailwind CSS).
+# colmenaindiarosa
