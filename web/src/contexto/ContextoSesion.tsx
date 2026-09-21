@@ -1,10 +1,16 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
+import * as apiAuth from './apiAuth.ts';
 import type { Usuario } from '../tipos/index.ts';
 
 interface ContextoSesionValor {
   usuario: Usuario | null;
-  entrar: (usuario: Usuario) => void;
+  accessToken: string | null;
+  // true mientras se intenta restaurar la sesión desde el refresh token al
+  // cargar la app; las páginas lo usan para no mostrar "no hay sesión" antes
+  // de tiempo.
+  restaurando: boolean;
+  entrar: (usuario: Usuario, accessToken: string) => void;
   salir: () => void;
 }
 
@@ -12,18 +18,45 @@ const ContextoSesion = createContext<ContextoSesionValor | null>(null);
 
 export function ProveedorSesion({ children }: { children: ReactNode }) {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [restaurando, setRestaurando] = useState(true);
 
-  const entrar = useCallback((usuarioNuevo: Usuario) => {
+  useEffect(() => {
+    let vigente = true;
+
+    (async () => {
+      try {
+        const { accessToken: token } = await apiAuth.refrescarSesion();
+        const usuarioRestaurado = await apiAuth.obtenerYo(token);
+        if (!vigente) return;
+        setAccessToken(token);
+        setUsuario(usuarioRestaurado);
+      } catch {
+        // No había sesión activa (o expiró): se queda deslogueado, sin error visible.
+      } finally {
+        if (vigente) setRestaurando(false);
+      }
+    })();
+
+    return () => {
+      vigente = false;
+    };
+  }, []);
+
+  const entrar = useCallback((usuarioNuevo: Usuario, token: string) => {
     setUsuario(usuarioNuevo);
+    setAccessToken(token);
   }, []);
 
   const salir = useCallback(() => {
+    apiAuth.cerrarSesion().catch(() => {});
     setUsuario(null);
+    setAccessToken(null);
   }, []);
 
   const valor = useMemo<ContextoSesionValor>(
-    () => ({ usuario, entrar, salir }),
-    [usuario, entrar, salir],
+    () => ({ usuario, accessToken, restaurando, entrar, salir }),
+    [usuario, accessToken, restaurando, entrar, salir],
   );
 
   return <ContextoSesion.Provider value={valor}>{children}</ContextoSesion.Provider>;

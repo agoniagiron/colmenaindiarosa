@@ -11,7 +11,7 @@ const CLASES_BASE =
 
 const CLASES_VARIANTE: Record<VarianteBoton, string> = {
   rosa: 'bg-rosa text-hueso hover:bg-rosa/90',
-  tinta: 'bg-tinta text-hueso hover:bg-tinta/90',
+  tinta: 'bg-negro text-hueso hover:bg-rosa',
   fantasma: 'border border-linea bg-transparent text-tinta hover:bg-arena',
   whatsapp: 'bg-whatsapp text-hueso hover:bg-whatsapp/90',
 };

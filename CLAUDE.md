@@ -75,3 +75,18 @@ todavía no existen. Reglas mientras dure esta fase:
 - La sesión se simula en memoria y se pierde al recargar. Es intencional.
 
 Cuando el backend exista, esta sección se elimina.
+
+## Prisma y la base de datos
+
+La base de datos en Supabase es la ÚNICA fuente de verdad. Fue creada con
+scripts SQL y contiene 45 tablas.
+
+- NUNCA ejecutes prisma db push, prisma migrate dev, prisma migrate reset
+  ni prisma migrate deploy. Ninguno. Esos comandos hacen que la base se
+  parezca al schema.prisma, y schema.prisma siempre está incompleto
+  respecto a la base.
+- El ÚNICO comando permitido es prisma db pull, que hace lo contrario:
+  actualiza schema.prisma a partir de la base.
+- Si un modelo o columna falta en schema.prisma, la respuesta es correr
+  db pull, nunca escribirlo a mano ni empujarlo a la base.
+- Los cambios de esquema se hacen con SQL en Supabase y después db pull.

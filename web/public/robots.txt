@@ -1,0 +1,10 @@
+User-agent: *
+Disallow: /admin
+Sitemap: https://www.indiarosa.co/sitemap.xml
+
+# La ruta de acceso administrativo (VITE_RUTA_ADMIN) NO se lista acá a
+# propósito. Un Disallow es información pública: cualquiera puede leer
+# este archivo, así que escribir la ruta secreta aquí la publicaría en
+# vez de ocultarla. Su única protección es no estar enlazada en ningún
+# lado y llevar <meta name="robots" content="noindex, nofollow">
+# (ver utilidades/useNoIndex.ts).

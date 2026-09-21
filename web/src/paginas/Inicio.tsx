@@ -1,382 +1,517 @@
-import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Boton } from '../componentes/Boton.tsx';
 import { EsqueletoCarga } from '../componentes/EsqueletoCarga.tsx';
-import { TarjetaProducto } from '../componentes/TarjetaProducto.tsx';
+import { ImagenProducto } from '../componentes/ImagenProducto.tsx';
+import { useCarrito } from '../contexto/ContextoCarrito.tsx';
+import { useConfiguracion } from '../contexto/ContextoConfiguracion.tsx';
 import { repositorio } from '../datos/index.ts';
-import { formatearPesos } from '../utilidades/formatearPesos.ts';
-import type { Categoria, Cupon, Producto } from '../tipos/index.ts';
-
-const CANTIDAD_DESTACADOS = 4;
-
-const NUMERO_WHATSAPP = import.meta.env.VITE_NUMERO_WHATSAPP as string | undefined;
-const MENSAJE_ASESORIA_WHATSAPP = 'Hola, quiero asesoría para elegir una peluca';
+import type { TonoConConteo } from '../datos/repositorio.ts';
+import { estimarEntrega } from '../dominio/estimarEntrega.ts';
+import type { ReglasEntrega } from '../dominio/estimarEntrega.ts';
+import type { Combo, EdicionLimitada } from '../tipos/index.ts';
 
 export function Inicio() {
-  const [destacados, setDestacados] = useState<Producto[]>([]);
-  const [cargandoDestacados, setCargandoDestacados] = useState(true);
-
-  const [categorias, setCategorias] = useState<Categoria[]>([]);
-  const [cargandoCategorias, setCargandoCategorias] = useState(true);
-
-  const [cuponPorcentaje, setCuponPorcentaje] = useState<Cupon | null>(null);
-  const [cuponMontoMinimo, setCuponMontoMinimo] = useState<Cupon | null>(null);
-  const [cargandoCupones, setCargandoCupones] = useState(true);
-
-  useEffect(() => {
-    let vigente = true;
-
-    repositorio
-      .listarProductos({ destacado: true }, 'relevancia', {
-        pagina: 1,
-        porPagina: CANTIDAD_DESTACADOS,
-      })
-      .then((resultado) => {
-        if (vigente) setDestacados(resultado.datos);
-      })
-      .finally(() => {
-        if (vigente) setCargandoDestacados(false);
-      });
-
-    return () => {
-      vigente = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let vigente = true;
-
-    repositorio
-      .listarCategorias()
-      .then((resultado) => {
-        if (vigente) setCategorias(resultado);
-      })
-      .finally(() => {
-        if (vigente) setCargandoCategorias(false);
-      });
-
-    return () => {
-      vigente = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let vigente = true;
-
-    Promise.all([repositorio.buscarCupon('INDIAROSA10'), repositorio.buscarCupon('ROSA20')])
-      .then(([porcentaje, montoMinimo]) => {
-        if (vigente) {
-          setCuponPorcentaje(porcentaje);
-          setCuponMontoMinimo(montoMinimo);
-        }
-      })
-      .finally(() => {
-        if (vigente) setCargandoCupones(false);
-      });
-
-    return () => {
-      vigente = false;
-    };
-  }, []);
-
   return (
-    <div className="flex flex-col gap-16 pb-16 sm:gap-24">
-      <SeccionHero productos={destacados.slice(0, 3)} cargando={cargandoDestacados} />
-      <BarraBeneficios />
-      <SeccionMasPedido productos={destacados} cargando={cargandoDestacados} />
-      <SeccionDescuentos
-        cuponPorcentaje={cuponPorcentaje}
-        cuponMontoMinimo={cuponMontoMinimo}
-        cargando={cargandoCupones}
-      />
-      <SeccionCategorias categorias={categorias} cargando={cargandoCategorias} />
+    <div className="flex flex-col">
+      <SeccionHeroe />
+      <BarraEntrega />
+      <SeccionLimitadas />
+      <SeccionKits />
+      <SeccionMarca />
     </div>
   );
 }
 
-// --- Sección 1: hero partido -------------------------------------------
+// --- Héroe: tonos + retrato --------------------------------------------------
 
-function SeccionHero({ productos, cargando }: { productos: Producto[]; cargando: boolean }) {
-  const navigate = useNavigate();
+function SeccionHeroe() {
+  const [tonos, setTonos] = useState<TonoConConteo[] | null>(null);
+  const [tonoActivo, setTonoActivo] = useState<string | null>(null);
 
-  function abrirAsesoriaWhatsapp() {
-    if (!NUMERO_WHATSAPP) return;
-    const url = `https://wa.me/${NUMERO_WHATSAPP}?text=${encodeURIComponent(MENSAJE_ASESORIA_WHATSAPP)}`;
-    window.open(url, '_blank', 'noopener,noreferrer');
-  }
+  useEffect(() => {
+    let vigente = true;
+
+    repositorio.listarFacetas({}).then((facetas) => {
+      if (!vigente) return;
+      setTonos(facetas.colores);
+      setTonoActivo((actual) => actual ?? facetas.colores[0]?.nombre ?? null);
+    });
+
+    return () => {
+      vigente = false;
+    };
+  }, []);
+
+  // Sin ningún color publicado en el catálogo no hay héroe que armar: nada
+  // de titular con una hilera vacía debajo. Mientras carga (tonos === null)
+  // sigue sin saberse si va a quedar vacío, así que el titular ya se
+  // muestra (con la hilera y el retrato en esqueleto).
+  if (tonos !== null && tonos.length === 0) return null;
+
+  const cargando = tonos === null;
+  const tono = cargando ? null : (tonos.find((t) => t.nombre === tonoActivo) ?? tonos[0]!);
 
   return (
-    <section className="mx-auto grid max-w-6xl gap-10 px-4 pt-10 sm:px-6 lg:grid-cols-2 lg:items-center lg:gap-16">
-      <div className="flex flex-col gap-5">
-        <h1 className="font-serif text-3xl text-tinta sm:text-4xl">
-          Cabello 100% humano, con asesoría en cada paso
-        </h1>
-        <p className="max-w-md text-texto-secundario">
-          Pelucas y extensiones de cabello 100% humano, elegidas contigo. Te acompañamos por
-          WhatsApp para encontrar el color, la base y la densidad correctas antes de comprar.
-        </p>
-        <div className="flex flex-wrap gap-3">
-          <Boton type="button" variante="rosa" onClick={() => navigate('/catalogo')}>
-            Ver catálogo
-          </Boton>
-          {NUMERO_WHATSAPP ? (
-            <Boton type="button" variante="fantasma" onClick={abrirAsesoriaWhatsapp}>
-              Escríbenos por WhatsApp
-            </Boton>
-          ) : null}
-        </div>
-      </div>
+    <section className="mx-auto max-w-6xl px-4 pt-14 pb-20 sm:px-6">
+      <div className="grid gap-16 lg:grid-cols-2 lg:items-center">
+        <div>
+          <h1 className="font-serif text-4xl text-tinta sm:text-5xl lg:text-6xl">
+            Elige tu tono
+            <br />y nosotras el resto
+          </h1>
+          <p className="mt-5 max-w-[38ch] text-[15.5px] text-texto-secundario">
+            Cabello 100% humano, seleccionado uno por uno. Empieza por el color: todo lo demás se
+            acomoda a él.
+          </p>
 
-      <div>
-        {cargando ? (
-          <div className="mx-auto flex max-w-xs flex-col items-center gap-4">
-            <EsqueletoCarga alto="aspect-[3/4] h-auto" redondeado="rounded-2xl" />
-            <EsqueletoCarga ancho="w-2/3" alto="h-4" />
-            <EsqueletoCarga ancho="w-1/3" alto="h-4" />
-          </div>
+          {cargando || !tono ? (
+            <div className="mt-8 flex flex-col gap-2">
+              {Array.from({ length: 4 }).map((_, indice) => (
+                <EsqueletoCarga key={indice} alto="h-11" redondeado="rounded-full" />
+              ))}
+            </div>
+          ) : (
+            <>
+              <div role="group" aria-label="Elegir tono de cabello" className="mt-8 flex flex-col">
+                {tonos!.map((item) => {
+                  const activo = item.nombre === tono.nombre;
+                  return (
+                    <button
+                      key={item.nombre}
+                      type="button"
+                      aria-pressed={activo}
+                      onClick={() => setTonoActivo(item.nombre)}
+                      className={`flex items-center gap-4 rounded-full px-3 py-2.5 text-left transition-colors hover:bg-arena focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa ${
+                        activo ? 'bg-arena ring-1 ring-linea' : ''
+                      }`}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={`h-10 w-10 shrink-0 rounded-full shadow-[0_0_0_1px_var(--color-linea)] transition-transform ${
+                          activo ? 'scale-110 shadow-[0_0_0_2px_var(--color-rosa)]' : ''
+                        }`}
+                        style={{ backgroundColor: item.hex }}
+                      />
+                      <span
+                        className={`text-sm tracking-wide ${activo ? 'font-normal text-tinta' : 'text-texto-secundario'}`}
+                      >
+                        {item.nombre}
+                      </span>
+                      <span className="ml-auto text-xs text-texto-secundario">
+                        {item.conteo} {item.conteo === 1 ? 'pieza' : 'piezas'}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <Link
+                to={`/catalogo?color=${encodeURIComponent(tono.nombre)}`}
+                className="mt-8 inline-block"
+              >
+                <Boton type="button" variante="tinta" className="uppercase tracking-[0.14em]">
+                  Ver {tono.conteo} {tono.conteo === 1 ? 'pieza' : 'piezas'} en {tono.nombre}
+                </Boton>
+              </Link>
+            </>
+          )}
+        </div>
+
+        {cargando || !tono ? (
+          <EsqueletoCarga alto="aspect-[3/4] h-auto" redondeado="rounded-lg" />
         ) : (
-          <CarruselHero productos={productos} />
+          <figure className="relative">
+            <ImagenProducto
+              nombre={tono.nombre}
+              colorHex={tono.hex}
+              className="rounded-tl-[999px] rounded-tr-[999px] rounded-bl-lg rounded-br-lg"
+            />
+            <figcaption className="absolute bottom-5 left-5 rounded-full bg-white px-4 py-2 text-xs tracking-[0.1em] text-tinta shadow-lg">
+              {tono.nombre}
+            </figcaption>
+          </figure>
         )}
       </div>
     </section>
   );
 }
 
-function CarruselHero({ productos }: { productos: Producto[] }) {
-  const [indice, setIndice] = useState(0);
+// --- Barra de entrega ---------------------------------------------------------
 
-  if (productos.length === 0) return null;
+function BarraEntrega() {
+  const { cargando, obtenerNumero, obtenerBooleano, obtenerTexto, formatearMonto } =
+    useConfiguracion();
+  const [ciudad, setCiudad] = useState('Cali');
 
-  const indiceSeguro = indice % productos.length;
-  const producto = productos[indiceSeguro];
+  const envioCosto = obtenerNumero('envio.costo');
+  const descuentoUmbral = obtenerNumero('descuento.umbral');
+  const descuentoPorcentaje = obtenerNumero('descuento.porcentaje');
+  const descuentoActivo = obtenerBooleano('descuento.activo');
+  const diasCali = obtenerNumero('entrega.dias_cali');
+  const diasPrincipales = obtenerNumero('entrega.dias_principales');
+  const diasResto = obtenerNumero('entrega.dias_resto');
+  const ciudadesPrincipales = useMemo(
+    () =>
+      (obtenerTexto('entrega.ciudades_principales') ?? '')
+        .split(',')
+        .map((c) => c.trim())
+        .filter(Boolean),
+    [obtenerTexto],
+  );
 
-  function irAAnterior() {
-    setIndice((actual) => (actual - 1 + productos.length) % productos.length);
+  if (cargando) {
+    return (
+      <section className="border-y border-linea py-5">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <EsqueletoCarga ancho="w-2/3" alto="h-5" />
+        </div>
+      </section>
+    );
   }
 
-  function irASiguiente() {
-    setIndice((actual) => (actual + 1) % productos.length);
+  // El envío nunca falta (es una regla de negocio fija): si no llegó esta
+  // clave, algo anda mal con configuracion y mejor no mostrar nada mal
+  // calculado.
+  if (
+    envioCosto === undefined ||
+    diasCali === undefined ||
+    diasPrincipales === undefined ||
+    diasResto === undefined
+  ) {
+    return null;
   }
+
+  const reglas: ReglasEntrega = {
+    diasCali,
+    diasPrincipales,
+    diasResto,
+    ciudadesPrincipales,
+  };
+  const estimacion = estimarEntrega(ciudad, reglas);
+  const hayDescuento =
+    descuentoActivo === true && descuentoUmbral !== undefined && descuentoPorcentaje !== undefined;
 
   return (
-    <div className="mx-auto flex max-w-xs flex-col items-center gap-4">
-      <div className="w-full">
-        <TarjetaProducto producto={producto} />
-      </div>
+    <section className="border-y border-linea py-5">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3.5 px-4 text-[14.5px] sm:px-6">
+        <span>
+          Envío de <strong className="font-medium text-rosa">{formatearMonto(envioCosto)}</strong> a
+          todo el país.
+        </span>
 
-      <div className="flex items-center gap-4">
-        <button
-          type="button"
-          onClick={irAAnterior}
-          aria-label="Producto anterior"
-          className="rounded-full p-2 text-tinta hover:bg-arena focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa"
-        >
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            className="h-5 w-5"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
+        <label className="flex items-center gap-2">
+          <span className="sr-only">Elegir ciudad de entrega</span>
+          <select
+            value={ciudad}
+            onChange={(evento) => setCiudad(evento.target.value)}
+            className="rounded-full border border-linea bg-white px-4 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 6l-6 6 6 6" />
-          </svg>
-        </button>
+            <option value="Cali">Cali</option>
+            {ciudadesPrincipales.map((nombreCiudad) => (
+              <option key={nombreCiudad} value={nombreCiudad}>
+                {nombreCiudad}
+              </option>
+            ))}
+            <option value="Otra ciudad">Otra ciudad</option>
+          </select>
+        </label>
 
-        <div className="flex gap-2">
-          {productos.map((item, posicion) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setIndice(posicion)}
-              aria-label={`Ver ${item.nombre}`}
-              aria-current={posicion === indiceSeguro}
-              className={`h-2.5 w-2.5 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa ${
-                posicion === indiceSeguro ? 'bg-rosa' : 'bg-linea'
-              }`}
-            />
-          ))}
-        </div>
+        <span>
+          Tu pedido llega <strong className="font-medium text-rosa">{estimacion.texto}</strong>.
+        </span>
 
-        <button
-          type="button"
-          onClick={irASiguiente}
-          aria-label="Producto siguiente"
-          className="rounded-full p-2 text-tinta hover:bg-arena focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa"
-        >
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            className="h-5 w-5"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 6l6 6-6 6" />
-          </svg>
-        </button>
+        {hayDescuento ? (
+          <>
+            <span aria-hidden="true" className="h-5 w-px bg-linea" />
+            <span>
+              Desde{' '}
+              <strong className="font-medium text-rosa">{formatearMonto(descuentoUmbral)}</strong>{' '}
+              te descontamos el{' '}
+              <strong className="font-medium text-rosa">{descuentoPorcentaje}%</strong>.
+            </span>
+          </>
+        ) : null}
       </div>
-    </div>
+    </section>
   );
 }
 
-// --- Sección 2: barra de beneficios --------------------------------------
+// --- Ediciones limitadas -------------------------------------------------------
 
-const BENEFICIOS = [
-  { titulo: 'Envío nacional', descripcion: 'A toda Colombia' },
-  { titulo: 'Cabello humano', descripcion: '100% remy' },
-  { titulo: 'Cambios en 5 días', descripcion: 'Sin complicaciones' },
-  { titulo: 'Asesoría por WhatsApp', descripcion: 'Antes de comprar' },
-];
+function SeccionLimitadas() {
+  const { formatearDual } = useConfiguracion();
+  const [limitadas, setLimitadas] = useState<EdicionLimitada[] | null>(null);
 
-function BarraBeneficios() {
+  useEffect(() => {
+    let vigente = true;
+    repositorio.listarLimitadas().then((datos) => {
+      if (vigente) setLimitadas(datos);
+    });
+    return () => {
+      vigente = false;
+    };
+  }, []);
+
+  if (limitadas === null) {
+    return (
+      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+        <EsqueletoCarga ancho="w-1/3" alto="h-8" />
+        <div className="mt-7 grid gap-6 sm:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, indice) => (
+            <EsqueletoCarga key={indice} alto="h-80" redondeado="rounded-lg" />
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  if (limitadas.length === 0) return null;
+
   return (
-    <section className="bg-arena py-8">
-      <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 px-4 sm:px-6 lg:grid-cols-4">
-        {BENEFICIOS.map((beneficio) => (
-          <div key={beneficio.titulo} className="text-center">
-            <p className="font-serif text-sm text-tinta sm:text-base">{beneficio.titulo}</p>
-            <p className="text-xs text-texto-secundario sm:text-sm">{beneficio.descripcion}</p>
+    <section className="border-t border-linea bg-arena py-16 sm:py-20">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <div className="max-w-[46ch]">
+          <h2 className="font-serif text-3xl text-tinta sm:text-4xl">Ediciones limitadas</h2>
+          <p className="mt-2 text-sm text-texto-secundario">
+            Lotes que no se repiten. Cuando se acaban las unidades, la pieza sale del catálogo.
+          </p>
+        </div>
+
+        <div className="mt-8 grid gap-6 sm:grid-cols-3">
+          {limitadas.map((edicion) => (
+            <TarjetaLimitada key={edicion.id} edicion={edicion} formatearDual={formatearDual} />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function TarjetaLimitada({
+  edicion,
+  formatearDual,
+}: {
+  edicion: EdicionLimitada;
+  formatearDual: (precio: { cop: number; usd: number }) => string;
+}) {
+  const hayBarra = edicion.unidadesLote !== null && edicion.unidadesRestantes !== null;
+  const porcentaje = hayBarra
+    ? Math.min(100, Math.round((edicion.unidadesRestantes! / edicion.unidadesLote!) * 100))
+    : 0;
+
+  return (
+    <Link
+      to={`/producto/${edicion.producto.slug}`}
+      className="group flex flex-col overflow-hidden rounded-lg border border-linea bg-white transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa focus-visible:ring-offset-2"
+    >
+      <div className="overflow-hidden">
+        <div className="transition-transform group-hover:scale-105">
+          <ImagenProducto nombre={edicion.producto.nombre} />
+        </div>
+      </div>
+      <div className="flex flex-1 flex-col gap-2 p-5">
+        <h3 className="font-serif text-lg text-tinta">{edicion.nombre}</h3>
+        {hayBarra ? (
+          <div className="flex flex-col gap-1">
+            <span className="text-xs text-texto-secundario">
+              Quedan {edicion.unidadesRestantes} de {edicion.unidadesLote} unidades
+            </span>
+            <div className="h-1.5 overflow-hidden rounded-full bg-linea">
+              <div className="h-full rounded-full bg-rosa" style={{ width: `${porcentaje}%` }} />
+            </div>
           </div>
+        ) : null}
+        <span className="mt-auto pt-1 text-lg font-medium text-tinta">
+          {formatearDual(edicion.precio)}
+        </span>
+      </div>
+    </Link>
+  );
+}
+
+// --- Kits armados ---------------------------------------------------------------
+
+function SeccionKits() {
+  const { formatearDual } = useConfiguracion();
+  const { agregarCombo } = useCarrito();
+  const [combos, setCombos] = useState<Combo[] | null>(null);
+
+  useEffect(() => {
+    let vigente = true;
+    repositorio.listarCombos().then((datos) => {
+      if (vigente) setCombos(datos);
+    });
+    return () => {
+      vigente = false;
+    };
+  }, []);
+
+  if (combos === null) {
+    return (
+      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+        <EsqueletoCarga ancho="w-1/3" alto="h-8" />
+        <div className="mt-7 grid gap-6 sm:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, indice) => (
+            <EsqueletoCarga key={indice} alto="h-96" redondeado="rounded-lg" />
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  if (combos.length === 0) return null;
+
+  return (
+    <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+      <div className="max-w-[46ch]">
+        <h2 className="font-serif text-3xl text-tinta sm:text-4xl">Kits armados</h2>
+        <p className="mt-2 text-sm text-texto-secundario">
+          Lo que más se pide junto, a un precio mejor que por separado.
+        </p>
+      </div>
+
+      <div className="mt-8 grid gap-6 sm:grid-cols-3">
+        {combos.map((combo) => (
+          <TarjetaKit
+            key={combo.id}
+            combo={combo}
+            formatearDual={formatearDual}
+            onAgregar={() => agregarCombo(combo.id, 1)}
+          />
         ))}
       </div>
     </section>
   );
 }
 
-// --- Sección 3: lo más pedido este mes -----------------------------------
-
-function SeccionMasPedido({ productos, cargando }: { productos: Producto[]; cargando: boolean }) {
-  return (
-    <section className="mx-auto max-w-6xl px-4 sm:px-6">
-      <h2 className="font-serif text-2xl text-tinta">Lo más pedido este mes</h2>
-      <div className="mt-6 grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">
-        {cargando
-          ? Array.from({ length: CANTIDAD_DESTACADOS }).map((_, indice) => (
-              <div key={indice} className="flex flex-col gap-3">
-                <EsqueletoCarga alto="aspect-[3/4] h-auto" redondeado="rounded-2xl" />
-                <EsqueletoCarga ancho="w-3/4" alto="h-4" />
-                <EsqueletoCarga ancho="w-1/2" alto="h-4" />
-              </div>
-            ))
-          : productos.map((producto) => <TarjetaProducto key={producto.id} producto={producto} />)}
-      </div>
-    </section>
-  );
-}
-
-// --- Sección 4: descuentos activos ---------------------------------------
-
-function SeccionDescuentos({
-  cuponPorcentaje,
-  cuponMontoMinimo,
-  cargando,
+function TarjetaKit({
+  combo,
+  formatearDual,
+  onAgregar,
 }: {
-  cuponPorcentaje: Cupon | null;
-  cuponMontoMinimo: Cupon | null;
-  cargando: boolean;
+  combo: Combo;
+  formatearDual: (precio: { cop: number; usd: number }) => string;
+  onAgregar: () => Promise<void>;
 }) {
-  return (
-    <section className="mx-auto max-w-6xl px-4 sm:px-6">
-      <h2 className="font-serif text-2xl text-tinta">Descuentos activos</h2>
-      <div className="mt-6 grid gap-6 sm:grid-cols-2">
-        {cargando ? (
-          <>
-            <EsqueletoCarga alto="h-40" redondeado="rounded-2xl" />
-            <EsqueletoCarga alto="h-40" redondeado="rounded-2xl" />
-          </>
-        ) : (
-          <>
-            {cuponPorcentaje ? (
-              <BloqueDescuento
-                fondo="bg-rosa-palo"
-                titulo="En tu primera compra"
-                descripcion={`${cuponPorcentaje.valor}% de descuento con el código`}
-                cupon={cuponPorcentaje}
-              />
-            ) : null}
-            {cuponMontoMinimo ? (
-              <BloqueDescuento
-                fondo="bg-arena"
-                titulo="Compras grandes"
-                descripcion={`${cuponMontoMinimo.valor}% de descuento en pedidos desde ${formatearPesos(cuponMontoMinimo.montoMinimo)}`}
-                cupon={cuponMontoMinimo}
-              />
-            ) : null}
-          </>
-        )}
-      </div>
-    </section>
-  );
-}
+  const [estado, setEstado] = useState<'reposo' | 'agregando' | 'agregado' | 'error'>('reposo');
 
-function BloqueDescuento({
-  fondo,
-  titulo,
-  descripcion,
-  cupon,
-}: {
-  fondo: string;
-  titulo: string;
-  descripcion: string;
-  cupon: Cupon;
-}) {
-  const [copiado, setCopiado] = useState(false);
+  const ahorro =
+    combo.precioPiezasPorSeparado.cop > 0
+      ? Math.round((1 - combo.precio.cop / combo.precioPiezasPorSeparado.cop) * 100)
+      : 0;
 
-  async function copiarCodigo() {
+  async function alAgregar() {
+    setEstado('agregando');
     try {
-      await navigator.clipboard.writeText(cupon.codigo);
-      setCopiado(true);
-      setTimeout(() => setCopiado(false), 2000);
+      await onAgregar();
+      setEstado('agregado');
+      setTimeout(() => setEstado('reposo'), 2000);
     } catch {
-      // Sin acceso al portapapeles: el código sigue visible para copiarlo a mano.
+      setEstado('error');
     }
   }
 
   return (
-    <div className={`flex flex-col gap-3 rounded-2xl p-8 ${fondo}`}>
-      <h3 className="font-serif text-xl text-tinta">{titulo}</h3>
-      <p className="text-tinta/80">{descripcion}</p>
-      <div className="mt-2 flex flex-wrap items-center gap-3">
-        <span className="rounded-full bg-hueso px-4 py-1.5 font-mono text-sm text-tinta">
-          {cupon.codigo}
-        </span>
-        <Boton type="button" variante="tinta" onClick={() => void copiarCodigo()}>
-          {copiado ? '¡Copiado!' : 'Copiar código'}
-        </Boton>
+    <article className="flex flex-col overflow-hidden rounded-lg border border-linea bg-white">
+      <div className="relative overflow-hidden">
+        <ImagenProducto nombre={combo.nombre} />
+        {!combo.disponible ? (
+          <span className="absolute inset-0 flex items-center justify-center bg-tinta/40 text-sm font-medium text-hueso">
+            Agotado
+          </span>
+        ) : null}
       </div>
-    </div>
+      <div className="flex flex-1 flex-col gap-2 p-5">
+        <h3 className="font-serif text-lg text-tinta">{combo.nombre}</h3>
+        {combo.items.length > 0 ? (
+          <ul className="list-disc pl-4 text-[13.5px] leading-relaxed text-texto-secundario">
+            {combo.items.map((item) => (
+              <li key={item.varianteId}>
+                {item.cantidad > 1 ? `${item.cantidad} × ` : ''}
+                {item.nombreProducto}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        <div className="mt-auto flex flex-wrap items-baseline gap-2.5 pt-3">
+          <span className="text-lg font-medium text-tinta">{formatearDual(combo.precio)}</span>
+          <span className="text-sm text-texto-secundario line-through">
+            {formatearDual(combo.precioPiezasPorSeparado)}
+          </span>
+          {ahorro > 0 ? (
+            <span className="rounded-full bg-rosa px-2.5 py-0.5 text-xs text-hueso">
+              ahorras {ahorro}%
+            </span>
+          ) : null}
+        </div>
+
+        <Boton
+          type="button"
+          variante="rosa"
+          disabled={!combo.disponible || estado === 'agregando' || estado === 'agregado'}
+          onClick={() => void alAgregar()}
+          className="mt-3 w-full"
+        >
+          {!combo.disponible
+            ? 'Agotado'
+            : estado === 'agregado'
+              ? '¡Agregado al carrito!'
+              : estado === 'agregando'
+                ? 'Agregando…'
+                : 'Agregar al carrito'}
+        </Boton>
+        {estado === 'error' ? (
+          <p className="text-sm text-red-600">No pudimos agregar el kit al carrito.</p>
+        ) : null}
+      </div>
+    </article>
   );
 }
 
-// --- Sección 5: categorías -------------------------------------------------
+// --- La marca -------------------------------------------------------------------
 
-function SeccionCategorias({
-  categorias,
-  cargando,
-}: {
-  categorias: Categoria[];
-  cargando: boolean;
-}) {
+function SeccionMarca() {
+  const { obtenerNumero } = useConfiguracion();
+  const diasCali = obtenerNumero('entrega.dias_cali');
+  const diasResto = obtenerNumero('entrega.dias_resto');
+  const rangoEntrega =
+    diasCali !== undefined && diasResto !== undefined ? `${diasCali} a ${diasResto}` : null;
+
   return (
-    <section className="mx-auto max-w-6xl px-4 sm:px-6">
-      <h2 className="font-serif text-2xl text-tinta">Categorías</h2>
-      <div className="mt-6 grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">
-        {cargando
-          ? Array.from({ length: 4 }).map((_, indice) => (
-              <EsqueletoCarga key={indice} alto="aspect-square h-auto" redondeado="rounded-2xl" />
-            ))
-          : categorias.map((categoria) => (
-              <Link
-                key={categoria.id}
-                to={`/catalogo?categoria=${categoria.slug}`}
-                className="group flex aspect-square flex-col items-center justify-center gap-2 rounded-2xl bg-rosa-palo text-center transition-colors hover:bg-rosa hover:text-hueso focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa focus-visible:ring-offset-2"
-              >
-                <span className="font-serif text-lg text-tinta group-hover:text-hueso">
-                  {categoria.nombre}
-                </span>
-              </Link>
-            ))}
+    <section className="border-t border-linea py-16 sm:py-20">
+      <div className="mx-auto grid max-w-6xl gap-14 px-4 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+        <ImagenProducto nombre="India Rosa" className="aspect-square rounded-full" />
+        <div>
+          <h2 className="font-serif text-3xl text-tinta sm:text-4xl">Detrás de India Rosa</h2>
+          <p className="mt-4 max-w-[52ch] text-[15px] text-texto-secundario">
+            Empezamos en Cali vendiendo por WhatsApp a clientas que llegaban por recomendación.
+            Seguimos igual de cerca: cada peluca se revisa antes de salir y te acompañamos a elegir
+            la talla del gorro, la densidad y el tono.
+          </p>
+          <p className="mt-3 max-w-[52ch] text-[15px] text-texto-secundario">
+            Trabajamos con cabello humano remy, que se puede planchar, ondular y teñir. No vendemos
+            nada que no nos pondríamos.
+          </p>
+
+          <div className="mt-8 flex flex-wrap gap-11">
+            <div>
+              <p className="font-serif text-3xl text-rosa">+1.400</p>
+              <span className="text-[13px] text-texto-secundario">clientas desde 2021</span>
+            </div>
+            <div>
+              <p className="font-serif text-3xl text-rosa">4,8</p>
+              <span className="text-[13px] text-texto-secundario">calificación promedio</span>
+            </div>
+            {rangoEntrega ? (
+              <div>
+                <p className="font-serif text-3xl text-rosa">{rangoEntrega}</p>
+                <span className="text-[13px] text-texto-secundario">días hábiles de entrega</span>
+              </div>
+            ) : null}
+          </div>
+        </div>
       </div>
     </section>
   );

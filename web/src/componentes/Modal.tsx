@@ -40,7 +40,7 @@ export function Modal({ abierto, titulo, onCerrar, children }: ModalProps) {
         aria-modal="true"
         aria-labelledby={idTitulo}
         tabIndex={-1}
-        className="w-full max-w-md rounded-2xl bg-hueso p-6 shadow-xl focus-visible:outline-none"
+        className="w-full max-w-md rounded-lg bg-hueso p-6 shadow-xl focus-visible:outline-none"
         onClick={(evento) => evento.stopPropagation()}
       >
         <h2 id={idTitulo} className="font-serif text-xl text-tinta">

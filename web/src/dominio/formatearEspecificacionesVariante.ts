@@ -1,6 +1,5 @@
 // Módulo puro: único lugar que decide cómo se ve el resumen de atributos de
-// una variante (usado en la ficha de producto para armar la línea del
-// carrito, en el propio carrito y en construirMensajeWhatsapp). Omite los
+// una variante (usado en la ficha de producto y en el carrito). Omite los
 // atributos que no existan; si no hay ninguno, devuelve una cadena vacía.
 
 import type { ValorAtributo } from '../tipos/index.ts';

@@ -7,7 +7,7 @@ describe('App', () => {
     render(<App />);
 
     const encabezado = within(screen.getByRole('banner'));
-    expect(encabezado.getByText('Rosa', { selector: 'em' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /cabello 100% humano/i })).toBeInTheDocument();
+    expect(encabezado.getByText('India Rosa')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /elige tu tono/i })).toBeInTheDocument();
   });
 });

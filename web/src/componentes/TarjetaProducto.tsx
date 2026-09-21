@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Estrellas } from './Estrellas.tsx';
 import { ImagenProducto } from './ImagenProducto.tsx';
-import { formatearPesos } from '../utilidades/formatearPesos.ts';
+import { useConfiguracion } from '../contexto/ContextoConfiguracion.tsx';
 import type { Producto } from '../tipos/index.ts';
 
 interface TarjetaProductoProps {
@@ -9,20 +9,39 @@ interface TarjetaProductoProps {
 }
 
 export function TarjetaProducto({ producto }: TarjetaProductoProps) {
-  const precioDesde = Math.min(...producto.variantes.map((variante) => variante.precio));
+  const { formatearDual } = useConfiguracion();
+
+  // El "desde" con descuento ya lo trae el backend (producto.precioBase);
+  // el "antes" tachado se arma acá comparando contra la variante más
+  // barata, la misma que decide precioBase.
+  const varianteMasBarata = producto.variantes.reduce<Producto['variantes'][number] | null>(
+    (mejor, variante) =>
+      !mejor || variante.precioConDescuento.cop < mejor.precioConDescuento.cop ? variante : mejor,
+    null,
+  );
+  const hayDescuento =
+    varianteMasBarata &&
+    varianteMasBarata.precioOriginal.cop > varianteMasBarata.precioConDescuento.cop;
   const agotado = producto.variantes.every(
     (variante) => variante.stockActual - variante.stockReservado <= 0,
   );
   const colorPrincipal = producto.variantes.find((variante) => variante.color)?.color?.hex;
+  // La primera es la principal (mismo orden que ya trae el backend, por
+  // orden asc — ver catalogo/servicio.ts).
+  const imagenPrincipal = producto.imagenes[0];
 
   return (
     <Link
       to={`/producto/${producto.slug}`}
-      className="group flex flex-col overflow-hidden rounded-2xl border border-linea bg-white transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa focus-visible:ring-offset-2"
+      className="group flex flex-col overflow-hidden rounded-lg border border-linea bg-white transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa focus-visible:ring-offset-2"
     >
       <div className="relative overflow-hidden bg-arena">
         <div className="transition-transform group-hover:scale-105">
-          <ImagenProducto nombre={producto.nombre} colorHex={colorPrincipal} />
+          <ImagenProducto
+            nombre={producto.nombre}
+            colorHex={colorPrincipal}
+            url={imagenPrincipal?.url}
+          />
         </div>
         {producto.destacado ? (
           <span className="absolute left-3 top-3 rounded-full bg-rosa px-3 py-1 text-xs font-medium text-hueso">
@@ -42,10 +61,12 @@ export function TarjetaProducto({ producto }: TarjetaProductoProps) {
           <span className="text-texto-secundario">({producto.cantidadResenas})</span>
         </div>
         <div className="mt-auto flex items-baseline gap-2 pt-2">
-          <span className="text-lg font-semibold text-tinta">{formatearPesos(precioDesde)}</span>
-          {producto.precioAntes ? (
+          <span className="text-lg font-semibold text-tinta">
+            {formatearDual(producto.precioBase)}
+          </span>
+          {hayDescuento && varianteMasBarata ? (
             <span className="text-sm text-texto-secundario line-through">
-              {formatearPesos(producto.precioAntes)}
+              {formatearDual(varianteMasBarata.precioOriginal)}
             </span>
           ) : null}
         </div>

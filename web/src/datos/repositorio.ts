@@ -2,7 +2,15 @@
 // (que expone la instancia activa), nunca esta interfaz junto a una
 // implementación concreta ni datos/muestra.ts directamente.
 
-import type { Categoria, Cupon, Producto } from '../tipos/index.ts';
+import type {
+  Categoria,
+  Combo,
+  Cupon,
+  EdicionLimitada,
+  EntradaConfiguracion,
+  Producto,
+  ValorAtributo,
+} from '../tipos/index.ts';
 
 export interface FiltrosProducto {
   // Selección múltiple (casillas): un producto coincide si alguna de sus
@@ -39,6 +47,24 @@ export interface ResultadoPaginado<T> {
   paginacion: Paginacion;
 }
 
+// Valores de atributo disponibles para armar los filtros del catálogo (con
+// los mismos criterios de FiltrosProducto ya aplicados), sin tener que
+// traer el catálogo completo para derivarlos en el cliente.
+// Un color de catálogo con cuántos productos lo tienen (con los mismos
+// filtros ya aplicados que el resto de la búsqueda) — lo usa la portada
+// para la hilera de tonos, no solo el panel de filtros del catálogo.
+export interface TonoConConteo extends ValorAtributo {
+  conteo: number;
+}
+
+export interface Facetas {
+  tiposBase: string[];
+  longitudes: string[];
+  tallas: string[];
+  densidades: string[];
+  colores: TonoConConteo[];
+}
+
 export interface Repositorio {
   listarCategorias(): Promise<Categoria[]>;
   listarProductos(
@@ -46,7 +72,11 @@ export interface Repositorio {
     orden?: OrdenProducto,
     pagina?: Pagina,
   ): Promise<ResultadoPaginado<Producto>>;
+  listarFacetas(filtros?: FiltrosProducto): Promise<Facetas>;
   obtenerProducto(slug: string): Promise<Producto | null>;
   listarRelacionados(slug: string): Promise<Producto[]>;
   buscarCupon(codigo: string): Promise<Cupon | null>;
+  obtenerConfiguracionPublica(): Promise<EntradaConfiguracion[]>;
+  listarLimitadas(): Promise<EdicionLimitada[]>;
+  listarCombos(): Promise<Combo[]>;
 }

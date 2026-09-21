@@ -6,6 +6,7 @@ import { EstadoVacio } from '../componentes/EstadoVacio.tsx';
 import { TarjetaProducto } from '../componentes/TarjetaProducto.tsx';
 import { repositorio } from '../datos/index.ts';
 import type {
+  Facetas,
   FiltrosProducto,
   OrdenProducto,
   Paginacion,
@@ -86,38 +87,10 @@ function construirParametros(
   return params;
 }
 
-// --- Opciones de filtro (facetas), derivadas del catálogo completo --------
+// --- Opciones de filtro (facetas) ------------------------------------------
 
-interface OpcionesFiltro {
+interface OpcionesFiltro extends Facetas {
   categorias: Categoria[];
-  tiposBase: string[];
-  longitudes: string[];
-  tallas: string[];
-  colores: ValorAtributo[];
-}
-
-function derivarOpciones(categorias: Categoria[], productos: Producto[]): OpcionesFiltro {
-  const tiposBase = new Set<string>();
-  const longitudes = new Set<string>();
-  const tallas = new Set<string>();
-  const coloresPorNombre = new Map<string, ValorAtributo>();
-
-  for (const producto of productos) {
-    for (const variante of producto.variantes) {
-      if (variante.tipoBase) tiposBase.add(variante.tipoBase);
-      if (variante.longitud) longitudes.add(variante.longitud);
-      if (variante.talla) tallas.add(variante.talla);
-      if (variante.color) coloresPorNombre.set(variante.color.nombre, variante.color);
-    }
-  }
-
-  return {
-    categorias,
-    tiposBase: Array.from(tiposBase).sort(),
-    longitudes: Array.from(longitudes).sort(),
-    tallas: Array.from(tallas).sort(),
-    colores: Array.from(coloresPorNombre.values()),
-  };
 }
 
 // --- Página -----------------------------------------------------------------
@@ -137,12 +110,9 @@ export function Catalogo() {
   useEffect(() => {
     let vigente = true;
 
-    Promise.all([
-      repositorio.listarCategorias(),
-      repositorio.listarProductos({}, 'relevancia', { pagina: 1, porPagina: 1000 }),
-    ])
-      .then(([categorias, todos]) => {
-        if (vigente) setOpciones(derivarOpciones(categorias, todos.datos));
+    Promise.all([repositorio.listarCategorias(), repositorio.listarFacetas({})])
+      .then(([categorias, facetas]) => {
+        if (vigente) setOpciones({ categorias, ...facetas });
       })
       .finally(() => {
         if (vigente) setCargandoOpciones(false);
@@ -627,7 +597,7 @@ function GrillaEsqueleto() {
     <div className="grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">
       {Array.from({ length: PRODUCTOS_POR_PAGINA }).map((_, indice) => (
         <div key={indice} className="flex flex-col gap-3">
-          <EsqueletoCarga alto="aspect-[3/4] h-auto" redondeado="rounded-2xl" />
+          <EsqueletoCarga alto="aspect-[3/4] h-auto" redondeado="rounded-lg" />
           <EsqueletoCarga ancho="w-3/4" alto="h-4" />
           <EsqueletoCarga ancho="w-1/2" alto="h-4" />
         </div>

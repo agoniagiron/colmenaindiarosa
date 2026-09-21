@@ -1,6 +1,5 @@
-// Tipos compartidos de la capa de datos. Mientras dure la fase de datos
-// simulados (ver CLAUDE.md) son también los tipos que devuelve `Repositorio`;
-// cuando exista la API deben coincidir con la forma de sus respuestas.
+// Tipos compartidos de la capa de datos. Deben coincidir con la forma real
+// de las respuestas de la API (ver api/src/modulos/*).
 
 export interface Categoria {
   id: string;
@@ -20,10 +19,20 @@ export interface ValorAtributo {
   hex?: string;
 }
 
+// Precio en las dos monedas que maneja la tienda: cop es el valor
+// autoritativo (lo que se cobra), usd es un equivalente de referencia. El
+// backend ya hace la conversión; acá nunca se recalcula, solo se muestra.
+export interface PrecioDual {
+  cop: number;
+  usd: number;
+}
+
 export interface VarianteProducto {
   id: string;
   sku: string;
-  precio: number;
+  precioOriginal: PrecioDual;
+  precioConDescuento: PrecioDual;
+  precioAntes?: PrecioDual;
   stockActual: number;
   stockReservado: number;
   tipoBase?: string;
@@ -39,10 +48,9 @@ export interface Producto {
   slug: string;
   descripcion: string;
   categoriaId: string;
-  // Precio de referencia para el catálogo: el precio que se cobra es
-  // siempre el de la variante elegida (ver VarianteProducto.precio).
-  precioBase: number;
-  precioAntes?: number;
+  // "Desde $X" del listado: el menor precio ya con descuento entre las
+  // variantes (ver VarianteProducto.precioConDescuento).
+  precioBase: PrecioDual;
   calificacion: number;
   cantidadResenas: number;
   destacado: boolean;
@@ -51,20 +59,32 @@ export interface Producto {
 }
 
 export interface LineaCarrito {
-  varianteId: string;
-  productoId: string;
+  // Id de la línea en el backend (carrito_item), para cambiar cantidad o
+  // quitar por id. Ausente antes de que la API haya respondido una vez.
+  id?: string;
+  tipo: 'variante' | 'combo';
+  varianteId?: string;
+  comboId?: string;
+  productoId?: string;
   nombreProducto: string;
   // Atributos de la variante por separado, no una cadena ya armada: el
   // formato de presentación se decide en un único lugar
-  // (dominio/formatearEspecificacionesVariante.ts).
+  // (dominio/formatearEspecificacionesVariante.ts). Nunca presentes en una
+  // línea de combo.
   tipoBase?: string;
   longitud?: string;
   color?: ValorAtributo;
   talla?: string;
   densidad?: string;
+  // Siempre en COP: es el valor autoritativo de la línea. El equivalente en
+  // USD, cuando hace falta mostrarlo, se deriva con la tasa vigente (ver
+  // ContextoConfiguracion).
   precioUnitario: number;
   cantidad: number;
   imagenUrl?: string;
+  // Stock disponible (variante) o combos armables con el stock de sus
+  // piezas (combo), calculado por el backend al momento de la consulta.
+  disponible?: number;
 }
 
 export interface Carrito {
@@ -81,11 +101,21 @@ export interface Cupon {
   montoMinimo: number;
 }
 
+export type OrigenDescuento = 'automatico' | 'cupon' | 'ninguno';
+
 export interface TotalesCarrito {
   subtotal: number;
   descuento: number;
   envio: number;
   total: number;
+  descuentoAplicado: OrigenDescuento;
+  descuentoDescartado: { origen: OrigenDescuento; monto: number } | null;
+  usd: {
+    subtotal: number;
+    descuento: number;
+    envio: number;
+    total: number;
+  };
 }
 
 export type EstadoPedido = 'pendiente' | 'confirmado' | 'despachado' | 'entregado' | 'cancelado';
@@ -102,12 +132,55 @@ export interface Pedido {
   creadoEn: string;
 }
 
-export type RolUsuario = 'cliente' | 'admin';
-
 export interface Usuario {
   id: string;
   nombre: string;
   correo: string;
-  rol: RolUsuario;
   telefono?: string;
+}
+
+// --- Configuración pública, ediciones limitadas y kits (combos) -----------
+
+export interface EntradaConfiguracion {
+  clave: string;
+  valor: number | string | boolean;
+  grupo: string;
+  etiqueta: string;
+}
+
+export interface EdicionLimitada {
+  id: string;
+  nombre: string;
+  descripcion: string | null;
+  unidadesLote: number | null;
+  unidadesRestantes: number | null;
+  desde: string;
+  hasta: string | null;
+  producto: {
+    id: string;
+    nombre: string;
+    slug: string;
+    imagen: { url: string; altTexto: string } | null;
+  };
+  precio: PrecioDual;
+}
+
+export interface ItemCombo {
+  varianteId: string;
+  sku: string;
+  nombreProducto: string;
+  cantidad: number;
+  precioUnitario: PrecioDual;
+}
+
+export interface Combo {
+  id: string;
+  nombre: string;
+  slug: string;
+  descripcion: string | null;
+  imagenUrl: string | null;
+  precio: PrecioDual;
+  precioPiezasPorSeparado: PrecioDual;
+  disponible: boolean;
+  items: ItemCombo[];
 }

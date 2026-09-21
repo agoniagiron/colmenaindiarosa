@@ -8,8 +8,8 @@ import { Estrellas } from '../componentes/Estrellas.tsx';
 import { ImagenProducto } from '../componentes/ImagenProducto.tsx';
 import { TarjetaProducto } from '../componentes/TarjetaProducto.tsx';
 import { useCarrito } from '../contexto/ContextoCarrito.tsx';
+import { useConfiguracion } from '../contexto/ContextoConfiguracion.tsx';
 import { repositorio } from '../datos/index.ts';
-import { formatearPesos } from '../utilidades/formatearPesos.ts';
 import type { Producto, VarianteProducto } from '../tipos/index.ts';
 
 const PARAMETRO_VARIANTE = 'variante';
@@ -105,6 +105,7 @@ export function ProductoDetalle() {
 
   const [cantidad, setCantidad] = useState(1);
   const [agregado, setAgregado] = useState(false);
+  const [errorAgregar, setErrorAgregar] = useState<string | null>(null);
 
   useEffect(() => {
     let vigente = true;
@@ -175,24 +176,19 @@ export function ProductoDetalle() {
     setCantidad(1);
   }
 
-  function alAgregar() {
-    if (!producto || !varianteActual || disponibleDe(varianteActual) <= 0) return;
+  async function alAgregar() {
+    if (!varianteActual || disponibleDe(varianteActual) <= 0) return;
 
-    agregar({
-      varianteId: varianteActual.id,
-      productoId: producto.id,
-      nombreProducto: producto.nombre,
-      tipoBase: varianteActual.tipoBase,
-      longitud: varianteActual.longitud,
-      color: varianteActual.color,
-      talla: varianteActual.talla,
-      densidad: varianteActual.densidad,
-      precioUnitario: varianteActual.precio,
-      cantidad,
-    });
-
-    setAgregado(true);
-    setTimeout(() => setAgregado(false), DURACION_CONFIRMACION_MS);
+    setErrorAgregar(null);
+    try {
+      await agregar(varianteActual.id, cantidad);
+      setAgregado(true);
+      setTimeout(() => setAgregado(false), DURACION_CONFIRMACION_MS);
+    } catch (error) {
+      setErrorAgregar(
+        error instanceof Error ? error.message : 'No pudimos agregar el producto al carrito',
+      );
+    }
   }
 
   if (producto === undefined) {
@@ -227,7 +223,7 @@ export function ProductoDetalle() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
       <div className="grid gap-10 lg:grid-cols-2 lg:gap-16">
-        <GaleriaProducto producto={producto} colorHex={varianteActual.color?.hex} />
+        <GaleriaProducto producto={producto} variante={varianteActual} colorHex={varianteActual.color?.hex} />
 
         <div className="flex flex-col gap-6">
           <div>
@@ -240,7 +236,7 @@ export function ProductoDetalle() {
             </div>
           </div>
 
-          <BloquePrecio variante={varianteActual} precioAntes={producto.precioAntes} />
+          <BloquePrecio variante={varianteActual} />
 
           {hayAtributos ? (
             <div className="flex flex-col gap-5">
@@ -278,6 +274,7 @@ export function ProductoDetalle() {
             onAgregar={alAgregar}
             agregado={agregado}
           />
+          {errorAgregar ? <p className="text-sm text-red-600">{errorAgregar}</p> : null}
 
           <Acordeon
             secciones={[
@@ -285,7 +282,7 @@ export function ProductoDetalle() {
               {
                 titulo: 'Envío y entrega',
                 contenido:
-                  'Envío a toda Colombia. Gratis en pedidos que alcancen el umbral indicado en la barra superior. Entrega estimada de 3 a 7 días hábiles según tu ciudad, coordinada por WhatsApp una vez confirmado el pedido.',
+                  'Envío a toda Colombia. Desde cierto monto de compra aplicamos un descuento sobre el subtotal (lo ves en la barra superior). Entrega estimada según tu ciudad, coordinada por WhatsApp una vez confirmado el pedido.',
               },
               {
                 titulo: 'Cuidados',
@@ -303,12 +300,23 @@ export function ProductoDetalle() {
 }
 
 // --- Galería (miniaturas + imagen principal) ---------------------------------
-
-function GaleriaProducto({ producto, colorHex }: { producto: Producto; colorHex?: string }) {
+function GaleriaProducto({
+  producto,
+  variante,
+  colorHex,
+}: {
+  producto: any; // o usa el tipo Producto de tu index.ts
+  variante?: any; // o usa el tipo VarianteProducto de tu index.ts
+  colorHex?: string;
+}) {
   const [indiceActivo, setIndiceActivo] = useState(0);
-  const imagenes = producto.imagenes.length > 0 ? producto.imagenes : null;
-  const indiceSeguro = imagenes ? Math.min(indiceActivo, imagenes.length - 1) : 0;
 
+  // Lógica de prioridad: si la variante tiene imágenes, úsalas. Si no, usa las generales.
+  const imagenesVariante = variante?.imagenes && variante.imagenes.length > 0 ? variante.imagenes : null;
+  const imagenesProducto = producto.imagenes && producto.imagenes.length > 0 ? producto.imagenes : null;
+  const imagenes = imagenesVariante || imagenesProducto;
+
+  const indiceSeguro = imagenes ? Math.min(indiceActivo, imagenes.length - 1) : 0;
   return (
     <div className="flex flex-col gap-4 sm:flex-row">
       {imagenes && imagenes.length > 1 ? (
@@ -324,14 +332,18 @@ function GaleriaProducto({ producto, colorHex }: { producto: Producto; colorHex?
                 indice === indiceSeguro ? 'border-rosa' : 'border-transparent'
               }`}
             >
-              <ImagenProducto nombre={producto.nombre} colorHex={colorHex} />
+              <ImagenProducto nombre={producto.nombre} colorHex={colorHex} url={imagen.url} />
             </button>
           ))}
         </div>
       ) : null}
 
       <div className="order-1 flex-1 sm:order-2">
-        <ImagenProducto nombre={producto.nombre} colorHex={colorHex} />
+        <ImagenProducto
+          nombre={producto.nombre}
+          colorHex={colorHex}
+          url={imagenes?.[indiceSeguro]?.url}
+        />
       </div>
     </div>
   );
@@ -339,25 +351,35 @@ function GaleriaProducto({ producto, colorHex }: { producto: Producto; colorHex?
 
 // --- Precio ---------------------------------------------------------------------
 
-function BloquePrecio({
-  variante,
-  precioAntes,
-}: {
-  variante: VarianteProducto;
-  precioAntes?: number;
-}) {
-  const hayDescuento = precioAntes !== undefined && precioAntes > variante.precio;
-  const porcentaje = hayDescuento ? Math.round((1 - variante.precio / precioAntes) * 100) : 0;
-  const valorCuota = Math.round(variante.precio / 4);
+function BloquePrecio({ variante }: { variante: VarianteProducto }) {
+  const { formatearDual } = useConfiguracion();
+
+  // "Antes" cubre dos casos distintos que pueden convivir: una promoción
+  // vigente (precioOriginal vs. precioConDescuento) y un precio de lista
+  // anterior guardado a mano (precioAntes). Se muestra el más alto de los
+  // dos como tachado.
+  const hayPromocion = variante.precioOriginal.cop > variante.precioConDescuento.cop;
+  const antes = hayPromocion
+    ? variante.precioOriginal
+    : variante.precioAntes && variante.precioAntes.cop > variante.precioConDescuento.cop
+      ? variante.precioAntes
+      : null;
+  const porcentaje = antes
+    ? Math.round((1 - variante.precioConDescuento.cop / antes.cop) * 100)
+    : 0;
+  const valorCuotaCop = Math.round(variante.precioConDescuento.cop / 4);
+  const valorCuotaUsd = Math.round(variante.precioConDescuento.usd / 4);
 
   return (
     <div className="flex flex-col gap-1">
       <div className="flex flex-wrap items-baseline gap-3">
-        <span className="text-3xl font-semibold text-tinta">{formatearPesos(variante.precio)}</span>
-        {hayDescuento ? (
+        <span className="text-3xl font-semibold text-tinta">
+          {formatearDual(variante.precioConDescuento)}
+        </span>
+        {antes ? (
           <>
             <span className="text-lg text-texto-secundario line-through">
-              {formatearPesos(precioAntes)}
+              {formatearDual(antes)}
             </span>
             <span className="rounded-full bg-rosa px-2 py-0.5 text-sm font-medium text-hueso">
               -{porcentaje}%
@@ -366,7 +388,7 @@ function BloquePrecio({
         ) : null}
       </div>
       <p className="text-sm text-texto-secundario">
-        4 cuotas de {formatearPesos(valorCuota)} sin interés
+        4 cuotas de {formatearDual({ cop: valorCuotaCop, usd: valorCuotaUsd })} sin interés
       </p>
     </div>
   );
@@ -583,7 +605,7 @@ function SeccionRelacionados({
         {cargando
           ? Array.from({ length: 4 }).map((_, indice) => (
               <div key={indice} className="flex flex-col gap-3">
-                <EsqueletoCarga alto="aspect-[3/4] h-auto" redondeado="rounded-2xl" />
+                <EsqueletoCarga alto="aspect-[3/4] h-auto" redondeado="rounded-lg" />
                 <EsqueletoCarga ancho="w-3/4" alto="h-4" />
                 <EsqueletoCarga ancho="w-1/2" alto="h-4" />
               </div>

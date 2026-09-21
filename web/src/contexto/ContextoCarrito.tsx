@@ -1,8 +1,20 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { calcularTotales } from '../dominio/calcularTotales.ts';
-import { repositorio } from '../datos/index.ts';
+import * as apiCarrito from './apiCarrito.ts';
+import { ErrorCarrito } from './apiCarrito.ts';
+import { useSesion } from './ContextoSesion.tsx';
+import type { CarritoApi } from './apiCarrito.ts';
 import type { Cupon, LineaCarrito, TotalesCarrito } from '../tipos/index.ts';
+
+const TOTALES_VACIOS: TotalesCarrito = {
+  subtotal: 0,
+  descuento: 0,
+  envio: 0,
+  total: 0,
+  descuentoAplicado: 'ninguno',
+  descuentoDescartado: null,
+  usd: { subtotal: 0, descuento: 0, envio: 0, total: 0 },
+};
 
 interface ContextoCarritoValor {
   lineas: LineaCarrito[];
@@ -10,72 +22,121 @@ interface ContextoCarritoValor {
   totales: TotalesCarrito;
   cargandoCupon: boolean;
   errorCupon: string | null;
-  agregar: (linea: LineaCarrito) => void;
-  cambiarCantidad: (varianteId: string, cantidad: number) => void;
-  quitar: (varianteId: string) => void;
+  agregar: (varianteId: string, cantidad: number) => Promise<void>;
+  agregarCombo: (comboId: string, cantidad: number) => Promise<void>;
+  // Las dos toman el id de la línea (carrito_item), no el de la variante o
+  // el combo: es lo único que identifica una línea sin ambigüedad para
+  // ambos tipos.
+  cambiarCantidad: (itemId: string, cantidad: number) => Promise<void>;
+  quitar: (itemId: string) => Promise<void>;
   aplicarCupon: (codigo: string) => Promise<void>;
-  quitarCupon: () => void;
+  quitarCupon: () => Promise<void>;
 }
 
 const ContextoCarrito = createContext<ContextoCarritoValor | null>(null);
 
 export function ProveedorCarrito({ children }: { children: ReactNode }) {
+  const { accessToken } = useSesion();
+
   const [lineas, setLineas] = useState<LineaCarrito[]>([]);
   const [cupon, setCupon] = useState<Cupon | null>(null);
+  const [totales, setTotales] = useState<TotalesCarrito>(TOTALES_VACIOS);
   const [cargandoCupon, setCargandoCupon] = useState(false);
   const [errorCupon, setErrorCupon] = useState<string | null>(null);
 
-  const agregar = useCallback((linea: LineaCarrito) => {
-    setLineas((actuales) => {
-      const existente = actuales.find((item) => item.varianteId === linea.varianteId);
-      if (existente) {
-        return actuales.map((item) =>
-          item.varianteId === linea.varianteId
-            ? { ...item, cantidad: item.cantidad + linea.cantidad }
-            : item,
+  const aplicarRespuesta = useCallback((carrito: CarritoApi) => {
+    setLineas(carrito.lineas);
+    setCupon(carrito.cupon);
+    setTotales(carrito.totales);
+  }, []);
+
+  // Se vuelve a pedir cada vez que cambia el access token: al loguearse, el
+  // backend ya fusionó el carrito anónimo con el del usuario, así que esto
+  // trae el resultado ya fusionado.
+  useEffect(() => {
+    let vigente = true;
+
+    apiCarrito
+      .obtenerCarrito(accessToken)
+      .then((carrito) => {
+        if (vigente) aplicarRespuesta(carrito);
+      })
+      .catch(() => {
+        // Sin carrito todavía (o error de red): se queda vacío.
+      });
+
+    return () => {
+      vigente = false;
+    };
+  }, [accessToken, aplicarRespuesta]);
+
+  const agregar = useCallback(
+    async (varianteId: string, cantidad: number) => {
+      const carrito = await apiCarrito.agregarItem(accessToken, varianteId, cantidad);
+      aplicarRespuesta(carrito);
+    },
+    [accessToken, aplicarRespuesta],
+  );
+
+  const agregarCombo = useCallback(
+    async (comboId: string, cantidad: number) => {
+      const carrito = await apiCarrito.agregarCombo(accessToken, comboId, cantidad);
+      aplicarRespuesta(carrito);
+    },
+    [accessToken, aplicarRespuesta],
+  );
+
+  const cambiarCantidad = useCallback(
+    async (itemId: string, cantidad: number) => {
+      try {
+        const carrito = await apiCarrito.actualizarCantidad(accessToken, itemId, cantidad);
+        aplicarRespuesta(carrito);
+      } catch {
+        // El cambio no se pudo aplicar (p. ej. sin stock): resincroniza con el servidor.
+        apiCarrito
+          .obtenerCarrito(accessToken)
+          .then(aplicarRespuesta)
+          .catch(() => {});
+      }
+    },
+    [accessToken, aplicarRespuesta],
+  );
+
+  const quitar = useCallback(
+    async (itemId: string) => {
+      const carrito = await apiCarrito.eliminarItem(accessToken, itemId);
+      aplicarRespuesta(carrito);
+    },
+    [accessToken, aplicarRespuesta],
+  );
+
+  const aplicarCuponFn = useCallback(
+    async (codigo: string) => {
+      setCargandoCupon(true);
+      setErrorCupon(null);
+      try {
+        const carrito = await apiCarrito.aplicarCupon(accessToken, codigo);
+        aplicarRespuesta(carrito);
+      } catch (error) {
+        setErrorCupon(
+          error instanceof ErrorCarrito ? error.message : 'No pudimos aplicar el cupón',
         );
+      } finally {
+        setCargandoCupon(false);
       }
-      return [...actuales, linea];
-    });
-  }, []);
+    },
+    [accessToken, aplicarRespuesta],
+  );
 
-  const cambiarCantidad = useCallback((varianteId: string, cantidad: number) => {
-    setLineas((actuales) => {
-      if (cantidad <= 0) {
-        return actuales.filter((item) => item.varianteId !== varianteId);
-      }
-      return actuales.map((item) =>
-        item.varianteId === varianteId ? { ...item, cantidad } : item,
-      );
-    });
-  }, []);
-
-  const quitar = useCallback((varianteId: string) => {
-    setLineas((actuales) => actuales.filter((item) => item.varianteId !== varianteId));
-  }, []);
-
-  const aplicarCupon = useCallback(async (codigo: string) => {
-    setCargandoCupon(true);
+  const quitarCuponFn = useCallback(async () => {
     setErrorCupon(null);
     try {
-      const encontrado = await repositorio.buscarCupon(codigo);
-      if (!encontrado) {
-        setCupon(null);
-        setErrorCupon('Ese cupón no existe o ya no está activo.');
-        return;
-      }
-      setCupon(encontrado);
-    } finally {
-      setCargandoCupon(false);
+      const carrito = await apiCarrito.quitarCupon(accessToken);
+      aplicarRespuesta(carrito);
+    } catch {
+      // No crítico: el cupón sigue aplicado hasta el próximo refresco.
     }
-  }, []);
-
-  const quitarCupon = useCallback(() => {
-    setCupon(null);
-    setErrorCupon(null);
-  }, []);
-
-  const totales = useMemo(() => calcularTotales(lineas, cupon), [lineas, cupon]);
+  }, [accessToken, aplicarRespuesta]);
 
   const valor = useMemo<ContextoCarritoValor>(
     () => ({
@@ -85,10 +146,11 @@ export function ProveedorCarrito({ children }: { children: ReactNode }) {
       cargandoCupon,
       errorCupon,
       agregar,
+      agregarCombo,
       cambiarCantidad,
       quitar,
-      aplicarCupon,
-      quitarCupon,
+      aplicarCupon: aplicarCuponFn,
+      quitarCupon: quitarCuponFn,
     }),
     [
       lineas,
@@ -97,10 +159,11 @@ export function ProveedorCarrito({ children }: { children: ReactNode }) {
       cargandoCupon,
       errorCupon,
       agregar,
+      agregarCombo,
       cambiarCantidad,
       quitar,
-      aplicarCupon,
-      quitarCupon,
+      aplicarCuponFn,
+      quitarCuponFn,
     ],
   );
 

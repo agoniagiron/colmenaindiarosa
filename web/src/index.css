@@ -1,17 +1,30 @@
 @import 'tailwindcss';
 
 @theme {
-  --color-hueso: #fbf7f4;
-  --color-arena: #efe3da;
-  --color-rosa-palo: #ebc9c6;
-  --color-rosa: #b02e58;
-  --color-tinta: #2a1f1d;
-  --color-texto-secundario: #8a7a73;
-  --color-linea: #e4d8d0;
+  --color-hueso: #ffffff;
+  --color-arena: #faf8f6;
+  --color-rosa-palo: #f6deda;
+  --color-rosa: #a32050;
+  --color-tinta: #1a1513;
+  --color-texto-secundario: #7b7069;
+  --color-linea: #e9e4df;
   --color-whatsapp: #1fa855;
+  /* Negro de marca: solo cinta superior y botones primarios (nunca el
+     color de texto general, para eso está --color-tinta). */
+  --color-negro: #141110;
+  /* Semáforo de métricas (panel admin): sube/bien en verde, baja/mal en
+     rosa (ya existe), cero o atención en ámbar. */
+  --color-verde: #1f7a4d;
+  --color-verde-luz: #e4f1ea;
+  --color-ambar: #b07a12;
+  --color-ambar-luz: #fbf0dc;
 
-  --font-serif: Georgia, 'Times New Roman', serif;
-  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-serif: 'Yeseva One', Georgia, 'Times New Roman', serif;
+  --font-sans: 'Jost', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+body {
+  font-weight: 300;
 }
 
 @media (prefers-reduced-motion: reduce) {

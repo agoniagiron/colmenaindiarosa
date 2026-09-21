@@ -3,334 +3,1223 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
-// ---------------------------------------------------------------------------
-// Enums
-// ---------------------------------------------------------------------------
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Atributo {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre          String          @unique
+  slug            String          @unique
+  orden           Int             @default(0)
+  valoresAtributo ValorAtributo[]
 
-enum RolUsuario {
-  cliente
-  admin
+  @@map("atributo")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model BusquedaRegistro {
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  termino      String
+  resultados   Int           @default(0)
+  sesionId     String?       @map("sesion_id") @db.Uuid
+  creadoEn     DateTime      @default(now()) @map("creado_en") @db.Timestamptz(6)
+  sesionVisita SesionVisita? @relation(fields: [sesionId], references: [id], onUpdate: NoAction)
+
+  @@index([creadoEn], map: "idx_busqueda_creado")
+  @@index([termino], map: "idx_busqueda_termino")
+  @@map("busqueda_registro")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Carrito {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuarioId     String?       @map("usuario_id") @db.Uuid
+  visitanteId   String?       @map("visitante_id")
+  cuponId       String?       @map("cupon_id") @db.Uuid
+  convertidoEn  DateTime?     @map("convertido_en") @db.Timestamptz(6)
+  pedidoId      String?       @unique @map("pedido_id") @db.Uuid
+  creadoEn      DateTime      @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn DateTime      @default(now()) @map("actualizado_en") @db.Timestamptz(6)
+  cupon         Cupon?        @relation(fields: [cuponId], references: [id], onUpdate: NoAction)
+  pedido        Pedido?       @relation(fields: [pedidoId], references: [id], onUpdate: NoAction)
+  usuario       Usuario?      @relation(fields: [usuarioId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  items         CarritoItem[]
+
+  @@index([convertidoEn], map: "idx_carrito_convertido")
+  @@index([visitanteId], map: "idx_carrito_visitante")
+  @@map("carrito")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CarritoItem {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  carritoId        String            @map("carrito_id") @db.Uuid
+  varianteId       String?           @map("variante_id") @db.Uuid
+  cantidad         Int
+  agregadoEn       DateTime          @default(now()) @map("agregado_en") @db.Timestamptz(6)
+  comboId          String?           @map("combo_id") @db.Uuid
+  carrito          Carrito           @relation(fields: [carritoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  combo            Combo?            @relation(fields: [comboId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  varianteProducto VarianteProducto? @relation(fields: [varianteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  // Sin @@unique acá a propósito: la base ya no lo tiene (una fila es
+  // variante XOR combo, ver el check constraint). La idempotencia de
+  // "ya está esta variante/combo en el carrito" pasa a resolverse en
+  // modulos/carrito/servicio.ts (buscar antes de crear), no en la base.
+  @@map("carrito_item")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Categoria {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre              String
+  slug                String              @unique
+  descripcion         String?
+  imagenUrl           String?             @map("imagen_url")
+  orden               Int                 @default(0)
+  activa              Boolean             @default(true)
+  creadoEn            DateTime            @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn       DateTime            @default(now()) @map("actualizado_en") @db.Timestamptz(6)
+  eventosAnalitica    EventoAnalitica[]
+  productos           Producto[]
+  promocionesObjetivo PromocionObjetivo[]
+
+  @@map("categoria")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Cupon {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  codigo       String    @unique
+  descripcion  String?
+  tipo         TipoCupon
+  valor        Int
+  montoMinimo  Int       @default(0) @map("monto_minimo")
+  usosMaximos  Int?      @map("usos_maximos")
+  usosActuales Int       @default(0) @map("usos_actuales")
+  destacado    Boolean   @default(false)
+  vigenteDesde DateTime? @map("vigente_desde") @db.Timestamptz(6)
+  vigenteHasta DateTime? @map("vigente_hasta") @db.Timestamptz(6)
+  activo       Boolean   @default(true)
+  creadoEn     DateTime  @default(now()) @map("creado_en") @db.Timestamptz(6)
+  carritos     Carrito[]
+  pedidos      Pedido[]
+
+  @@index([activo, destacado], map: "idx_cupon_activo")
+  @@map("cupon")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model DireccionUsuario {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuarioId     String   @map("usuario_id") @db.Uuid
+  etiqueta      String?
+  nombreRecibe  String   @map("nombre_recibe")
+  telefono      String
+  departamento  String
+  ciudad        String
+  direccion     String
+  complemento   String?
+  esPrincipal   Boolean  @default(false) @map("es_principal")
+  creadoEn      DateTime @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn DateTime @default(now()) @map("actualizado_en") @db.Timestamptz(6)
+  usuario       Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([usuarioId], map: "idx_direccion_usuario")
+  @@map("direccion_usuario")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model EventoAnalitica {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sesionId         String            @map("sesion_id") @db.Uuid
+  tipo             TipoEvento
+  productoId       String?           @map("producto_id") @db.Uuid
+  varianteId       String?           @map("variante_id") @db.Uuid
+  categoriaId      String?           @map("categoria_id") @db.Uuid
+  pedidoId         String?           @map("pedido_id") @db.Uuid
+  valor            Int?
+  metadatos        Json?
+  ruta             String?
+  creadoEn         DateTime          @default(now()) @map("creado_en") @db.Timestamptz(6)
+  categoria        Categoria?        @relation(fields: [categoriaId], references: [id], onUpdate: NoAction)
+  pedido           Pedido?           @relation(fields: [pedidoId], references: [id], onUpdate: NoAction)
+  producto         Producto?         @relation(fields: [productoId], references: [id], onUpdate: NoAction)
+  sesionVisita     SesionVisita      @relation(fields: [sesionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  varianteProducto VarianteProducto? @relation(fields: [varianteId], references: [id], onUpdate: NoAction)
+
+  @@index([productoId, tipo, creadoEn], map: "idx_evento_producto")
+  @@index([sesionId, creadoEn], map: "idx_evento_sesion")
+  @@index([tipo, creadoEn], map: "idx_evento_tipo")
+  @@map("evento_analitica")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model EventoPasarela {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pasarela        String
+  idEventoExterno String    @unique @map("id_evento_externo")
+  tipo            String?
+  pagoId          String?   @map("pago_id") @db.Uuid
+  cuerpo          Json
+  firmaValida     Boolean   @default(false) @map("firma_valida")
+  procesadoEn     DateTime? @map("procesado_en") @db.Timestamptz(6)
+  errorProceso    String?   @map("error_proceso")
+  recibidoEn      DateTime  @default(now()) @map("recibido_en") @db.Timestamptz(6)
+  pago            Pago?     @relation(fields: [pagoId], references: [id], onUpdate: NoAction)
+
+  @@index([procesadoEn], map: "idx_evento_pasarela_pendiente")
+  @@index([pasarela, recibidoEn], map: "idx_evento_pasarela_recibido")
+  @@map("evento_pasarela")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ImagenProducto {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productoId       String            @map("producto_id") @db.Uuid
+  varianteId       String?           @map("variante_id") @db.Uuid
+  url              String
+  urlMiniatura     String?           @map("url_miniatura")
+  altTexto         String            @map("alt_texto")
+  tipo             TipoImagen        @default(galeria)
+  orden            Int               @default(0)
+  ancho            Int?
+  alto             Int?
+  creadoEn         DateTime          @default(now()) @map("creado_en") @db.Timestamptz(6)
+  producto         Producto          @relation(fields: [productoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  varianteProducto VarianteProducto? @relation(fields: [varianteId], references: [id], onUpdate: NoAction)
+
+  @@index([productoId, orden], map: "idx_imagen_producto")
+  @@index([varianteId], map: "idx_imagen_variante")
+  @@map("imagen_producto")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model MetricaDiaria {
+  fecha               DateTime @id @db.Date
+  sesiones            Int      @default(0)
+  visitantesUnicos    Int      @default(0) @map("visitantes_unicos")
+  vistasPagina        Int      @default(0) @map("vistas_pagina")
+  usuariosNuevos      Int      @default(0) @map("usuarios_nuevos")
+  productosVistos     Int      @default(0) @map("productos_vistos")
+  carritosCreados     Int      @default(0) @map("carritos_creados")
+  carritosAbandonados Int      @default(0) @map("carritos_abandonados")
+  checkoutsIniciados  Int      @default(0) @map("checkouts_iniciados")
+  pagosIntentados     Int      @default(0) @map("pagos_intentados")
+  pagosAprobados      Int      @default(0) @map("pagos_aprobados")
+  pagosRechazados     Int      @default(0) @map("pagos_rechazados")
+  pedidosCreados      Int      @default(0) @map("pedidos_creados")
+  pedidosPagados      Int      @default(0) @map("pedidos_pagados")
+  pedidosCancelados   Int      @default(0) @map("pedidos_cancelados")
+  ingresos            BigInt   @default(0)
+  comisiones          BigInt   @default(0)
+  ingresosNetos       BigInt   @default(0) @map("ingresos_netos")
+  costos              BigInt   @default(0)
+  unidadesVendidas    Int      @default(0) @map("unidades_vendidas")
+  actualizadoEn       DateTime @default(now()) @map("actualizado_en") @db.Timestamptz(6)
+
+  @@map("metrica_diaria")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model MovimientoInventario {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  varianteId       String           @map("variante_id") @db.Uuid
+  tipo             TipoMovimiento
+  cantidad         Int
+  stockResultante  Int              @map("stock_resultante")
+  referenciaTipo   String?          @map("referencia_tipo")
+  referenciaId     String?          @map("referencia_id") @db.Uuid
+  usuarioId        String?          @map("usuario_id") @db.Uuid
+  motivo           String?
+  creadoEn         DateTime         @default(now()) @map("creado_en") @db.Timestamptz(6)
+  usuario          UsuarioAdmin?    @relation(fields: [usuarioId], references: [id], onUpdate: NoAction)
+  varianteProducto VarianteProducto @relation(fields: [varianteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tipo, creadoEn], map: "idx_movimiento_tipo")
+  @@index([varianteId, creadoEn], map: "idx_movimiento_variante")
+  @@map("movimiento_inventario")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model OrdenCompra {
+  id            String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  numero        String            @unique
+  proveedorId   String            @map("proveedor_id") @db.Uuid
+  estado        EstadoOrdenCompra @default(borrador)
+  fechaEsperada DateTime?         @map("fecha_esperada") @db.Timestamptz(6)
+  recibidaEn    DateTime?         @map("recibida_en") @db.Timestamptz(6)
+  total         Int               @default(0)
+  notas         String?
+  creadoEn      DateTime          @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn DateTime          @default(now()) @map("actualizado_en") @db.Timestamptz(6)
+  proveedor     Proveedor         @relation(fields: [proveedorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  items         OrdenCompraItem[]
+
+  @@index([estado, creadoEn], map: "idx_orden_compra_estado")
+  @@map("orden_compra")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model OrdenCompraItem {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ordenCompraId    String           @map("orden_compra_id") @db.Uuid
+  varianteId       String           @map("variante_id") @db.Uuid
+  cantidadPedida   Int              @map("cantidad_pedida")
+  cantidadRecibida Int              @default(0) @map("cantidad_recibida")
+  costoUnitario    Int              @map("costo_unitario")
+  ordenCompra      OrdenCompra      @relation(fields: [ordenCompraId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  varianteProducto VarianteProducto @relation(fields: [varianteId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([ordenCompraId], map: "idx_oci_orden")
+  @@map("orden_compra_item")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Pago {
+  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pedidoId          String           @map("pedido_id") @db.Uuid
+  pasarela          String
+  referenciaExterna String?          @unique @map("referencia_externa")
+  referenciaInterna String           @unique @map("referencia_interna")
+  metodo            MetodoPago
+  estado            EstadoPago       @default(iniciado)
+  monto             Int
+  comision          Int?
+  montoNeto         Int?             @map("monto_neto")
+  moneda            String           @default("COP")
+  ultimosCuatro     String?          @map("ultimos_cuatro")
+  franquicia        String?
+  bancoPse          String?          @map("banco_pse")
+  cuotas            Int?
+  mensajeError      String?          @map("mensaje_error")
+  codigoError       String?          @map("codigo_error")
+  aprobadoEn        DateTime?        @map("aprobado_en") @db.Timestamptz(6)
+  rechazadoEn       DateTime?        @map("rechazado_en") @db.Timestamptz(6)
+  expiraEn          DateTime?        @map("expira_en") @db.Timestamptz(6)
+  creadoEn          DateTime         @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn     DateTime         @default(now()) @map("actualizado_en") @db.Timestamptz(6)
+  eventosPasarela   EventoPasarela[]
+  pedido            Pedido           @relation(fields: [pedidoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  reembolsos        Reembolso[]
+
+  @@index([estado, creadoEn], map: "idx_pago_estado")
+  @@index([pedidoId], map: "idx_pago_pedido")
+  @@map("pago")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Pedido {
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  numero            String            @unique
+  usuarioId         String?           @map("usuario_id") @db.Uuid
+  sesionId          String?           @map("sesion_id") @db.Uuid
+  nombreContacto    String            @map("nombre_contacto")
+  telefonoContacto  String            @map("telefono_contacto")
+  correoContacto    String?           @map("correo_contacto")
+  envioNombre       String            @map("envio_nombre")
+  envioTelefono     String            @map("envio_telefono")
+  envioDepartamento String            @map("envio_departamento")
+  envioCiudad       String            @map("envio_ciudad")
+  envioDireccion    String            @map("envio_direccion")
+  envioComplemento  String?           @map("envio_complemento")
+  envioNotas        String?           @map("envio_notas")
+  transportadora    String?
+  numeroGuia        String?           @map("numero_guia")
+  urlSeguimiento    String?           @map("url_seguimiento")
+  subtotal          Int
+  descuento         Int               @default(0)
+  envio             Int               @default(0)
+  total             Int
+  costoTotal        Int?              @map("costo_total")
+  cuponId           String?           @map("cupon_id") @db.Uuid
+  cuponCodigo       String?           @map("cupon_codigo")
+  estado            EstadoPedido      @default(esperandoPago)
+  pagadoEn          DateTime?         @map("pagado_en") @db.Timestamptz(6)
+  despachadoEn      DateTime?         @map("despachado_en") @db.Timestamptz(6)
+  entregadoEn       DateTime?         @map("entregado_en") @db.Timestamptz(6)
+  canceladoEn       DateTime?         @map("cancelado_en") @db.Timestamptz(6)
+  motivoCancelacion String?           @map("motivo_cancelacion")
+  creadoEn          DateTime          @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn     DateTime          @default(now()) @map("actualizado_en") @db.Timestamptz(6)
+  monedaMostrada    String            @default("COP") @map("moneda_mostrada")
+  tasaUsdUsada      Int?              @map("tasa_usd_usada")
+  carrito           Carrito?
+  eventosAnalitica  EventoAnalitica[]
+  pagos             Pago[]
+  cupon             Cupon?            @relation(fields: [cuponId], references: [id], onUpdate: NoAction)
+  sesionVisita      SesionVisita?     @relation(fields: [sesionId], references: [id], onUpdate: NoAction)
+  usuario           Usuario?          @relation(fields: [usuarioId], references: [id], onUpdate: NoAction)
+  historial         PedidoHistorial[]
+  items             PedidoItem[]
+  resenas           Resena[]
+  reservasStock     ReservaStock[]
+
+  @@index([creadoEn], map: "idx_pedido_creado")
+  @@index([estado, creadoEn], map: "idx_pedido_estado")
+  @@index([usuarioId], map: "idx_pedido_usuario")
+  @@map("pedido")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model PedidoHistorial {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pedidoId       String        @map("pedido_id") @db.Uuid
+  estadoAnterior EstadoPedido? @map("estado_anterior")
+  estadoNuevo    EstadoPedido  @map("estado_nuevo")
+  usuarioId      String?       @map("usuario_id") @db.Uuid
+  nota           String?
+  creadoEn       DateTime      @default(now()) @map("creado_en") @db.Timestamptz(6)
+  pedido         Pedido        @relation(fields: [pedidoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  usuario        UsuarioAdmin? @relation(fields: [usuarioId], references: [id], onUpdate: NoAction)
+
+  @@index([pedidoId, creadoEn], map: "idx_pedido_historial")
+  @@map("pedido_historial")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model PedidoItem {
+  id               String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pedidoId         String                   @map("pedido_id") @db.Uuid
+  varianteId       String?                  @map("variante_id") @db.Uuid
+  nombreProducto   String                   @map("nombre_producto")
+  sku              String
+  tipoBase         String?                  @map("tipo_base")
+  longitud         String?
+  colorNombre      String?                  @map("color_nombre")
+  colorHex         String?                  @map("color_hex")
+  talla            String?
+  densidad         String?
+  precioUnitario   Int                      @map("precio_unitario")
+  costoUnitario    Int?                     @map("costo_unitario")
+  cantidad         Int
+  subtotal         Int
+  comboId          String?                  @map("combo_id") @db.Uuid
+  nombreCombo      String?                  @map("nombre_combo")
+  combo            Combo?                   @relation(fields: [comboId], references: [id], onUpdate: NoAction)
+  pedido           Pedido                   @relation(fields: [pedidoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  varianteProducto VarianteProducto?        @relation(fields: [varianteId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  detallesCombo    PedidoItemComboDetalle[]
+
+  @@index([pedidoId], map: "idx_pedido_item_pedido")
+  @@index([varianteId], map: "idx_pedido_item_variante")
+  @@map("pedido_item")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model PrecioVariante {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  varianteId       String           @map("variante_id") @db.Uuid
+  precio           Int
+  precioAntes      Int?             @map("precio_antes")
+  costo            Int?
+  motivo           String?
+  creadoPorId      String?          @map("creado_por_id") @db.Uuid
+  creadoEn         DateTime         @default(now()) @map("creado_en") @db.Timestamptz(6)
+  precioUsd        Int?             @map("precio_usd")
+  usuario          UsuarioAdmin?    @relation(fields: [creadoPorId], references: [id], onUpdate: NoAction)
+  varianteProducto VarianteProducto @relation(fields: [varianteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([varianteId, creadoEn(sort: Desc)], map: "idx_precio_variante")
+  @@map("precio_variante")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Producto {
+  id                  String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre              String
+  slug                String                  @unique
+  descripcionCorta    String?                 @map("descripcion_corta")
+  descripcion         String                  @default("")
+  cuidados            String?
+  envioNotas          String?                 @map("envio_notas")
+  categoriaId         String                  @map("categoria_id") @db.Uuid
+  estado              EstadoPublicacion       @default(borrador)
+  publicadoEn         DateTime?               @map("publicado_en") @db.Timestamptz(6)
+  seoTitulo           String?                 @map("seo_titulo")
+  seoDescripcion      String?                 @map("seo_descripcion")
+  creadoPorId         String?                 @map("creado_por_id") @db.Uuid
+  creadoEn            DateTime                @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn       DateTime                @default(now()) @map("actualizado_en") @db.Timestamptz(6)
+  edicionesLimitadas  EdicionLimitada[]
+  eventosAnalitica    EventoAnalitica[]
+  imagenes            ImagenProducto[]
+  categoria           Categoria               @relation(fields: [categoriaId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  usuario             UsuarioAdmin?           @relation(fields: [creadoPorId], references: [id], onUpdate: NoAction)
+  destacados          ProductoDestacado[]
+  metricasDiarias     ProductoMetricaDiaria[]
+  resumen             ProductoResumen?
+  promocionesObjetivo PromocionObjetivo[]
+  resenas             Resena[]
+  variantes           VarianteProducto[]
+
+  @@index([creadoEn], map: "idx_producto_creado_en")
+  @@index([estado, categoriaId], map: "idx_producto_estado_categoria")
+  @@map("producto")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ProductoDestacado {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productoId String    @map("producto_id") @db.Uuid
+  seccion    String    @default("inicio")
+  orden      Int       @default(0)
+  desde      DateTime  @default(now()) @db.Timestamptz(6)
+  hasta      DateTime? @db.Timestamptz(6)
+  producto   Producto  @relation(fields: [productoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([productoId], map: "idx_destacado_producto")
+  @@index([seccion, orden], map: "idx_destacado_seccion")
+  @@map("producto_destacado")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ProductoMetricaDiaria {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productoId       String   @map("producto_id") @db.Uuid
+  fecha            DateTime @db.Date
+  vistas           Int      @default(0)
+  agregadosCarrito Int      @default(0) @map("agregados_carrito")
+  pedidos          Int      @default(0)
+  unidadesVendidas Int      @default(0) @map("unidades_vendidas")
+  ingresos         BigInt   @default(0)
+  producto         Producto @relation(fields: [productoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([productoId, fecha])
+  @@index([fecha], map: "idx_pmd_fecha")
+  @@map("producto_metrica_diaria")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ProductoResumen {
+  productoId           String   @id @map("producto_id") @db.Uuid
+  calificacionPromedio Decimal  @default(0) @map("calificacion_promedio") @db.Decimal(3, 2)
+  cantidadResenas      Int      @default(0) @map("cantidad_resenas")
+  actualizadoEn        DateTime @default(now()) @map("actualizado_en") @db.Timestamptz(6)
+  producto             Producto @relation(fields: [productoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("producto_resumen")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Promocion {
+  id               String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre           String
+  descripcion      String?
+  tipo             TipoPromocion
+  valor            Int                 @default(0)
+  alcance          AlcancePromocion
+  bannerTitulo     String?             @map("banner_titulo")
+  bannerTexto      String?             @map("banner_texto")
+  bannerImagenUrl  String?             @map("banner_imagen_url")
+  bannerColorFondo String?             @map("banner_color_fondo")
+  prioridad        Int                 @default(0)
+  acumulable       Boolean             @default(false)
+  vigenteDesde     DateTime            @map("vigente_desde") @db.Timestamptz(6)
+  vigenteHasta     DateTime?           @map("vigente_hasta") @db.Timestamptz(6)
+  activa           Boolean             @default(true)
+  creadoPorId      String?             @map("creado_por_id") @db.Uuid
+  creadoEn         DateTime            @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn    DateTime            @default(now()) @map("actualizado_en") @db.Timestamptz(6)
+  usuario          UsuarioAdmin?       @relation(fields: [creadoPorId], references: [id], onUpdate: NoAction)
+  objetivos        PromocionObjetivo[]
+
+  @@index([activa, vigenteDesde, vigenteHasta], map: "idx_promocion_vigencia")
+  @@map("promocion")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model PromocionObjetivo {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  promocionId      String            @map("promocion_id") @db.Uuid
+  categoriaId      String?           @map("categoria_id") @db.Uuid
+  productoId       String?           @map("producto_id") @db.Uuid
+  varianteId       String?           @map("variante_id") @db.Uuid
+  categoria        Categoria?        @relation(fields: [categoriaId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  producto         Producto?         @relation(fields: [productoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  promocion        Promocion         @relation(fields: [promocionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  varianteProducto VarianteProducto? @relation(fields: [varianteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([categoriaId], map: "idx_promo_obj_categoria")
+  @@index([productoId], map: "idx_promo_obj_producto")
+  @@index([promocionId], map: "idx_promo_obj_promocion")
+  @@map("promocion_objetivo")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Proveedor {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre        String
+  contacto      String?
+  telefono      String?
+  correo        String?
+  pais          String?
+  diasEntrega   Int           @default(0) @map("dias_entrega")
+  notas         String?
+  activo        Boolean       @default(true)
+  creadoEn      DateTime      @default(now()) @map("creado_en") @db.Timestamptz(6)
+  ordenesCompra OrdenCompra[]
+
+  @@map("proveedor")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Reembolso {
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pagoId            String          @map("pago_id") @db.Uuid
+  monto             Int
+  motivo            String
+  tipo              String
+  referenciaExterna String?         @map("referencia_externa")
+  estado            EstadoReembolso @default(solicitado)
+  solicitadoPorId   String?         @map("solicitado_por_id") @db.Uuid
+  creadoEn          DateTime        @default(now()) @map("creado_en") @db.Timestamptz(6)
+  procesadoEn       DateTime?       @map("procesado_en") @db.Timestamptz(6)
+  pago              Pago            @relation(fields: [pagoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  usuario           UsuarioAdmin?   @relation(fields: [solicitadoPorId], references: [id], onUpdate: NoAction)
+
+  @@index([pagoId], map: "idx_reembolso_pago")
+  @@map("reembolso")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Resena {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productoId    String         @map("producto_id") @db.Uuid
+  usuarioId     String?        @map("usuario_id") @db.Uuid
+  pedidoId      String?        @map("pedido_id") @db.Uuid
+  nombreAutor   String         @map("nombre_autor")
+  calificacion  Int
+  titulo        String?
+  comentario    String?
+  verificada    Boolean        @default(false)
+  estado        EstadoResena   @default(pendiente)
+  respuesta     String?
+  respondidaEn  DateTime?      @map("respondida_en") @db.Timestamptz(6)
+  creadoEn      DateTime       @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn DateTime       @default(now()) @map("actualizado_en") @db.Timestamptz(6)
+  pedido        Pedido?        @relation(fields: [pedidoId], references: [id], onUpdate: NoAction, map: "fk_resena_pedido")
+  producto      Producto       @relation(fields: [productoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  usuario       Usuario?       @relation(fields: [usuarioId], references: [id], onUpdate: NoAction)
+  imagenes      ResenaImagen[]
+
+  @@index([estado, creadoEn], map: "idx_resena_estado")
+  @@index([productoId, estado], map: "idx_resena_producto")
+  @@map("resena")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ResenaImagen {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  resenaId String @map("resena_id") @db.Uuid
+  url      String
+  orden    Int    @default(0)
+  resena   Resena @relation(fields: [resenaId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("resena_imagen")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ReservaStock {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  varianteId       String           @map("variante_id") @db.Uuid
+  pedidoId         String           @map("pedido_id") @db.Uuid
+  cantidad         Int
+  expiraEn         DateTime         @map("expira_en") @db.Timestamptz(6)
+  liberadaEn       DateTime?        @map("liberada_en") @db.Timestamptz(6)
+  creadoEn         DateTime         @default(now()) @map("creado_en") @db.Timestamptz(6)
+  pedido           Pedido           @relation(fields: [pedidoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  varianteProducto VarianteProducto @relation(fields: [varianteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([pedidoId], map: "idx_reserva_pedido")
+  @@index([expiraEn, liberadaEn], map: "idx_reserva_vencimiento")
+  @@map("reserva_stock")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model SesionAuth {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuarioId        String    @map("usuario_id") @db.Uuid
+  refreshTokenHash String    @unique @map("refresh_token_hash")
+  dispositivo      String?
+  ipHash           String?   @map("ip_hash")
+  expiraEn         DateTime  @map("expira_en") @db.Timestamptz(6)
+  revocadaEn       DateTime? @map("revocada_en") @db.Timestamptz(6)
+  creadoEn         DateTime  @default(now()) @map("creado_en") @db.Timestamptz(6)
+  usuario          Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([usuarioId], map: "idx_sesion_auth_usuario")
+  @@map("sesion_auth")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model SesionVisita {
+  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  visitanteId       String             @map("visitante_id")
+  usuarioId         String?            @map("usuario_id") @db.Uuid
+  origen            String?
+  medio             String?
+  campana           String?
+  referente         String?
+  dispositivo       String?
+  navegador         String?
+  sistemaOperativo  String?            @map("sistema_operativo")
+  pais              String?
+  ciudad            String?
+  ipHash            String?            @map("ip_hash")
+  paginasVistas     Int                @default(0) @map("paginas_vistas")
+  inicioEn          DateTime           @default(now()) @map("inicio_en") @db.Timestamptz(6)
+  ultimaActividadEn DateTime           @default(now()) @map("ultima_actividad_en") @db.Timestamptz(6)
+  busquedasRegistro BusquedaRegistro[]
+  eventosAnalitica  EventoAnalitica[]
+  pedidos           Pedido[]
+  usuario           Usuario?           @relation(fields: [usuarioId], references: [id], onUpdate: NoAction)
+
+  @@index([inicioEn], map: "idx_sesion_inicio")
+  @@index([origen, inicioEn], map: "idx_sesion_origen")
+  @@index([visitanteId], map: "idx_sesion_visitante")
+  @@map("sesion_visita")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model TokenUsuario {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuarioId String    @map("usuario_id") @db.Uuid
+  tipo      TipoToken
+  tokenHash String    @unique @map("token_hash")
+  expiraEn  DateTime  @map("expira_en") @db.Timestamptz(6)
+  usadoEn   DateTime? @map("usado_en") @db.Timestamptz(6)
+  creadoEn  DateTime  @default(now()) @map("creado_en") @db.Timestamptz(6)
+  usuario   Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([usuarioId, tipo], map: "idx_token_usuario_tipo")
+  @@map("token_usuario")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Usuario {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre             String
+  apellido           String?
+  correo             String             @unique
+  claveHash          String             @map("clave_hash")
+  telefono           String?
+  documento          String?
+  activo             Boolean            @default(true)
+  correoVerificado   Boolean            @default(false) @map("correo_verificado")
+  correoVerificadoEn DateTime?          @map("correo_verificado_en") @db.Timestamptz(6)
+  aceptoTerminos     Boolean            @default(false) @map("acepto_terminos")
+  aceptoTratamiento  Boolean            @default(false) @map("acepto_tratamiento")
+  aceptoEn           DateTime?          @map("acepto_en") @db.Timestamptz(6)
+  aceptaMarketing    Boolean            @default(false) @map("acepta_marketing")
+  ultimoAccesoEn     DateTime?          @map("ultimo_acceso_en") @db.Timestamptz(6)
+  creadoEn           DateTime           @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn      DateTime           @default(now()) @map("actualizado_en") @db.Timestamptz(6)
+  carritos           Carrito[]
+  direcciones        DireccionUsuario[]
+  pedidos            Pedido[]
+  resenas            Resena[]
+  sesionesAuth       SesionAuth[]
+  sesionesVisita     SesionVisita[]
+  tokens             TokenUsuario[]
+
+  @@index([creadoEn], map: "idx_usuario_creado_en")
+  @@map("usuario")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ValorAtributo {
+  id         String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  atributoId String                  @map("atributo_id") @db.Uuid
+  valor      String
+  hex        String?
+  orden      Int                     @default(0)
+  atributo   Atributo                @relation(fields: [atributoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  variantes  VarianteValorAtributo[]
+
+  @@unique([atributoId, valor])
+  @@map("valor_atributo")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model VarianteProducto {
+  id                    String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productoId            String                   @map("producto_id") @db.Uuid
+  sku                   String                   @unique
+  peso                  Int?
+  stockActual           Int                      @default(0) @map("stock_actual")
+  stockReservado        Int                      @default(0) @map("stock_reservado")
+  puntoReorden          Int                      @default(0) @map("punto_reorden")
+  precioActual          Int                      @default(0) @map("precio_actual")
+  precioAntes           Int?                     @map("precio_antes")
+  costoActual           Int?                     @map("costo_actual")
+  activa                Boolean                  @default(true)
+  creadoEn              DateTime                 @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn         DateTime                 @default(now()) @map("actualizado_en") @db.Timestamptz(6)
+  precioUsd             Int?                     @map("precio_usd")
+  itemsCarrito          CarritoItem[]
+  comboItems            ComboItem[]
+  eventosAnalitica      EventoAnalitica[]
+  imagenes              ImagenProducto[]
+  movimientosInventario MovimientoInventario[]
+  itemsOrdenCompra      OrdenCompraItem[]
+  itemsPedido           PedidoItem[]
+  detallesCombo         PedidoItemComboDetalle[]
+  historialPrecios      PrecioVariante[]
+  promocionesObjetivo   PromocionObjetivo[]
+  reservasStock         ReservaStock[]
+  producto              Producto                 @relation(fields: [productoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  valoresAtributo       VarianteValorAtributo[]
+
+  @@index([productoId, activa], map: "idx_variante_producto_activa")
+  @@map("variante_producto")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model VarianteValorAtributo {
+  varianteId       String           @map("variante_id") @db.Uuid
+  valorId          String           @map("valor_id") @db.Uuid
+  valorAtributo    ValorAtributo    @relation(fields: [valorId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  varianteProducto VarianteProducto @relation(fields: [varianteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([varianteId, valorId])
+  @@index([valorId], map: "idx_vva_valor")
+  @@map("variante_valor_atributo")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model AuditoriaAdmin {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuarioAdminId String?       @map("usuario_admin_id") @db.Uuid
+  accion         String
+  entidad        String
+  entidadId      String?       @map("entidad_id") @db.Uuid
+  datosAntes     Json?         @map("datos_antes")
+  datosDespues   Json?         @map("datos_despues")
+  ipHash         String?       @map("ip_hash")
+  creadoEn       DateTime      @default(now()) @map("creado_en") @db.Timestamptz(6)
+  usuarioAdmin   UsuarioAdmin? @relation(fields: [usuarioAdminId], references: [id], onUpdate: NoAction)
+
+  @@index([entidad, entidadId, creadoEn], map: "idx_auditoria_entidad")
+  @@index([usuarioAdminId, creadoEn], map: "idx_auditoria_usuario")
+  @@map("auditoria_admin")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Permiso {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clave       String       @unique
+  modulo      String
+  descripcion String
+  orden       Int          @default(0)
+  roles       RolPermiso[]
+
+  @@index([modulo, orden], map: "idx_permiso_modulo")
+  @@map("permiso")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Rol {
+  id            String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre        String
+  slug          String            @unique
+  descripcion   String?
+  esSistema     Boolean           @default(false) @map("es_sistema")
+  activo        Boolean           @default(true)
+  creadoEn      DateTime          @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn DateTime          @default(now()) @map("actualizado_en") @db.Timestamptz(6)
+  permisos      RolPermiso[]
+  usuariosAdmin UsuarioAdminRol[]
+
+  @@map("rol")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model RolPermiso {
+  rolId     String  @map("rol_id") @db.Uuid
+  permisoId String  @map("permiso_id") @db.Uuid
+  permiso   Permiso @relation(fields: [permisoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  rol       Rol     @relation(fields: [rolId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([rolId, permisoId])
+  @@index([permisoId], map: "idx_rol_permiso_permiso")
+  @@map("rol_permiso")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model SesionAdmin {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuarioAdminId   String       @map("usuario_admin_id") @db.Uuid
+  refreshTokenHash String       @unique @map("refresh_token_hash")
+  dispositivo      String?
+  ipHash           String?      @map("ip_hash")
+  expiraEn         DateTime     @map("expira_en") @db.Timestamptz(6)
+  revocadaEn       DateTime?    @map("revocada_en") @db.Timestamptz(6)
+  creadoEn         DateTime     @default(now()) @map("creado_en") @db.Timestamptz(6)
+  usuarioAdmin     UsuarioAdmin @relation(fields: [usuarioAdminId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([usuarioAdminId], map: "idx_sesion_admin_usuario")
+  @@map("sesion_admin")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model TokenAdmin {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuarioAdminId String         @map("usuario_admin_id") @db.Uuid
+  tipo           TipoTokenAdmin
+  tokenHash      String         @unique @map("token_hash")
+  expiraEn       DateTime       @map("expira_en") @db.Timestamptz(6)
+  usadoEn        DateTime?      @map("usado_en") @db.Timestamptz(6)
+  creadoEn       DateTime       @default(now()) @map("creado_en") @db.Timestamptz(6)
+  usuarioAdmin   UsuarioAdmin   @relation(fields: [usuarioAdminId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([usuarioAdminId, tipo], map: "idx_token_admin_usuario")
+  @@map("token_admin")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model UsuarioAdmin {
+  id                      String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre                  String
+  correo                  String                   @unique
+  claveHash               String                   @map("clave_hash")
+  telefono                String?
+  activo                  Boolean                  @default(true)
+  debeCambiarClave        Boolean                  @default(true) @map("debe_cambiar_clave")
+  ultimoAccesoEn          DateTime?                @map("ultimo_acceso_en") @db.Timestamptz(6)
+  creadoPorId             String?                  @map("creado_por_id") @db.Uuid
+  creadoEn                DateTime                 @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn           DateTime                 @default(now()) @map("actualizado_en") @db.Timestamptz(6)
+  auditoria               AuditoriaAdmin[]
+  combosCreados           Combo[]
+  configuracionesEditadas Configuracion[]
+  historialConfiguracion  ConfiguracionHistorial[]
+  edicionesLimitadas      EdicionLimitada[]
+  movimientosInventario   MovimientoInventario[]
+  historialPedidos        PedidoHistorial[]
+  preciosVariante         PrecioVariante[]
+  productos               Producto[]
+  promociones             Promocion[]
+  reembolsos              Reembolso[]
+  sesiones                SesionAdmin[]
+  tokens                  TokenAdmin[]
+  creadoPor               UsuarioAdmin?            @relation("UsuarioAdminCreadoPor", fields: [creadoPorId], references: [id], onUpdate: NoAction)
+  adminsCreados           UsuarioAdmin[]           @relation("UsuarioAdminCreadoPor")
+  rolesAsignados          UsuarioAdminRol[]        @relation("UsuarioAdminRolAsignadoPor")
+  roles                   UsuarioAdminRol[]        @relation("UsuarioAdminRolUsuarioAdmin")
+
+  @@index([activo], map: "idx_usuario_admin_activo")
+  @@map("usuario_admin")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model UsuarioAdminRol {
+  usuarioAdminId String        @map("usuario_admin_id") @db.Uuid
+  rolId          String        @map("rol_id") @db.Uuid
+  asignadoPorId  String?       @map("asignado_por_id") @db.Uuid
+  asignadoEn     DateTime      @default(now()) @map("asignado_en") @db.Timestamptz(6)
+  asignadoPor    UsuarioAdmin? @relation("UsuarioAdminRolAsignadoPor", fields: [asignadoPorId], references: [id], onUpdate: NoAction)
+  rol            Rol           @relation(fields: [rolId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  usuarioAdmin   UsuarioAdmin  @relation("UsuarioAdminRolUsuarioAdmin", fields: [usuarioAdminId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([usuarioAdminId, rolId])
+  @@index([rolId], map: "idx_uar_rol")
+  @@map("usuario_admin_rol")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Combo {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre        String
+  slug          String        @unique
+  descripcion   String?
+  precioCop     Int           @map("precio_cop")
+  precioUsd     Int?          @map("precio_usd")
+  imagenUrl     String?       @map("imagen_url")
+  vigenteDesde  DateTime      @default(now()) @map("vigente_desde") @db.Timestamptz(6)
+  vigenteHasta  DateTime?     @map("vigente_hasta") @db.Timestamptz(6)
+  activo        Boolean       @default(true)
+  destacado     Boolean       @default(false)
+  creadoPorId   String?       @map("creado_por_id") @db.Uuid
+  creadoEn      DateTime      @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn DateTime      @default(now()) @map("actualizado_en") @db.Timestamptz(6)
+  itemsCarrito  CarritoItem[]
+  usuarioAdmin  UsuarioAdmin? @relation(fields: [creadoPorId], references: [id], onUpdate: NoAction)
+  items         ComboItem[]
+  itemsPedido   PedidoItem[]
+
+  @@index([activo, vigenteDesde, vigenteHasta], map: "idx_combo_vigencia")
+  @@map("combo")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ComboItem {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  comboId          String           @map("combo_id") @db.Uuid
+  varianteId       String           @map("variante_id") @db.Uuid
+  cantidad         Int              @default(1)
+  combo            Combo            @relation(fields: [comboId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  varianteProducto VarianteProducto @relation(fields: [varianteId], references: [id], onUpdate: NoAction)
+
+  @@unique([comboId, varianteId])
+  @@index([varianteId], map: "idx_combo_item_variante")
+  @@map("combo_item")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Configuracion {
+  clave            String        @id
+  valor            String
+  tipo             TipoConfig
+  grupo            String
+  etiqueta         String
+  descripcion      String?
+  unidad           String?
+  minimo           Int?
+  maximo           Int?
+  orden            Int           @default(0)
+  editable         Boolean       @default(true)
+  actualizadoPorId String?       @map("actualizado_por_id") @db.Uuid
+  actualizadoEn    DateTime      @default(now()) @map("actualizado_en") @db.Timestamptz(6)
+  usuarioAdmin     UsuarioAdmin? @relation(fields: [actualizadoPorId], references: [id], onUpdate: NoAction)
+
+  @@index([grupo, orden], map: "idx_configuracion_grupo")
+  @@map("configuracion")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ConfiguracionHistorial {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clave          String
+  valorAnterior  String?       @map("valor_anterior")
+  valorNuevo     String        @map("valor_nuevo")
+  usuarioAdminId String?       @map("usuario_admin_id") @db.Uuid
+  creadoEn       DateTime      @default(now()) @map("creado_en") @db.Timestamptz(6)
+  usuarioAdmin   UsuarioAdmin? @relation(fields: [usuarioAdminId], references: [id], onUpdate: NoAction)
+
+  @@index([clave, creadoEn(sort: Desc)], map: "idx_config_hist")
+  @@map("configuracion_historial")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model EdicionLimitada {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productoId       String        @map("producto_id") @db.Uuid
+  nombre           String
+  descripcion      String?
+  unidadesLote     Int?          @map("unidades_lote")
+  mostrarRestantes Boolean       @default(true) @map("mostrar_restantes")
+  desde            DateTime      @default(now()) @db.Timestamptz(6)
+  hasta            DateTime?     @db.Timestamptz(6)
+  activa           Boolean       @default(true)
+  orden            Int           @default(0)
+  creadoPorId      String?       @map("creado_por_id") @db.Uuid
+  creadoEn         DateTime      @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn    DateTime      @default(now()) @map("actualizado_en") @db.Timestamptz(6)
+  usuarioAdmin     UsuarioAdmin? @relation(fields: [creadoPorId], references: [id], onUpdate: NoAction)
+  producto         Producto      @relation(fields: [productoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([productoId], map: "idx_limitada_producto")
+  @@index([activa, desde, hasta], map: "idx_limitada_vigencia")
+  @@map("edicion_limitada")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model PedidoItemComboDetalle {
+  id                  String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pedidoItemId        String            @map("pedido_item_id") @db.Uuid
+  varianteId          String?           @map("variante_id") @db.Uuid
+  nombreProducto      String            @map("nombre_producto")
+  sku                 String
+  descripcionVariante String?           @map("descripcion_variante")
+  cantidad            Int
+  pedidoItem          PedidoItem        @relation(fields: [pedidoItemId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  varianteProducto    VarianteProducto? @relation(fields: [varianteId], references: [id], onUpdate: NoAction)
+
+  @@index([pedidoItemId], map: "idx_pic_item")
+  @@map("pedido_item_combo_detalle")
+}
+
+enum AlcancePromocion {
+  global
+  categoria
+  producto
+  variante
+
+  @@map("alcance_promocion")
+}
+
+enum EstadoOrdenCompra {
+  borrador
+  enviada
+  recibidaParcial @map("recibida_parcial")
+  recibida
+  cancelada
+
+  @@map("estado_orden_compra")
+}
+
+enum EstadoPago {
+  iniciado
+  pendiente
+  aprobado
+  rechazado
+  expirado
+  reembolsado
+
+  @@map("estado_pago")
+}
+
+enum EstadoPedido {
+  esperandoPago @map("esperando_pago")
+  pagoRechazado @map("pago_rechazado")
+  pagado
+  enPreparacion @map("en_preparacion")
+  despachado
+  entregado
+  cancelado
+  reembolsado
+
+  @@map("estado_pedido")
+}
+
+enum EstadoPublicacion {
+  borrador
+  publicado
+  archivado
+
+  @@map("estado_publicacion")
+}
+
+enum EstadoReembolso {
+  solicitado
+  procesado
+  rechazado
+
+  @@map("estado_reembolso")
+}
+
+enum EstadoResena {
+  pendiente
+  aprobada
+  rechazada
+
+  @@map("estado_resena")
+}
+
+enum MetodoPago {
+  tarjetaCredito @map("tarjeta_credito")
+  tarjetaDebito  @map("tarjeta_debito")
+  pse
+  nequi
+  daviplata
+  efectivo
+  contraentrega
+
+  @@map("metodo_pago")
 }
 
 enum TipoCupon {
   porcentaje
   monto
   envio
+
+  @@map("tipo_cupon")
 }
 
-enum EstadoPedido {
-  pendiente
-  confirmado
-  despachado
-  entregado
-  cancelado
+enum TipoEvento {
+  vistaPagina           @map("vista_pagina")
+  vistaProducto         @map("vista_producto")
+  vistaCategoria        @map("vista_categoria")
+  busqueda
+  filtroAplicado        @map("filtro_aplicado")
+  agregarCarrito        @map("agregar_carrito")
+  quitarCarrito         @map("quitar_carrito")
+  aplicarCupon          @map("aplicar_cupon")
+  cuponRechazado        @map("cupon_rechazado")
+  verCarrito            @map("ver_carrito")
+  iniciarCheckout       @map("iniciar_checkout")
+  pasoCheckout          @map("paso_checkout")
+  seleccionarMetodoPago @map("seleccionar_metodo_pago")
+  iniciarPago           @map("iniciar_pago")
+  pagoAprobado          @map("pago_aprobado")
+  pagoRechazado         @map("pago_rechazado")
+  registro
+  inicioSesion          @map("inicio_sesion")
+
+  @@map("tipo_evento")
 }
 
-enum EstadoOrdenCompra {
-  borrador
-  enviada
-  recibida_parcial
-  recibida
-  cancelada
+enum TipoImagen {
+  principal
+  galeria
+  detalle
+  modelo
+  medida
+  video
+
+  @@map("tipo_imagen")
 }
 
-enum TipoMovimientoInventario {
+enum TipoMovimiento {
   entrada
   salida
   ajuste
   reserva
   liberacion
+
+  @@map("tipo_movimiento")
 }
 
-// ---------------------------------------------------------------------------
-// Usuarios
-// ---------------------------------------------------------------------------
+enum TipoPromocion {
+  descuentoPorcentaje @map("descuento_porcentaje")
+  descuentoMonto      @map("descuento_monto")
+  precioFijo          @map("precio_fijo")
+  envioGratis         @map("envio_gratis")
+  anuncio
 
-model Usuario {
-  id            String     @id @default(cuid())
-  nombre        String
-  correo        String     @unique
-  claveHash     String
-  rol           RolUsuario @default(cliente)
-  telefono      String?
-  activo        Boolean    @default(true)
-  creadoEn      DateTime   @default(now())
-  actualizadoEn DateTime   @updatedAt
-
-  pedidos               Pedido[]
-  movimientosInventario MovimientoInventario[]
-
-  @@index([creadoEn])
+  @@map("tipo_promocion")
 }
 
-// ---------------------------------------------------------------------------
-// Catálogo
-// ---------------------------------------------------------------------------
+enum TipoToken {
+  verificacionCorreo @map("verificacion_correo")
+  recuperarClave     @map("recuperar_clave")
 
-model Categoria {
-  id     String  @id @default(cuid())
-  nombre String
-  slug   String  @unique
-  orden  Int     @default(0)
-  activa Boolean @default(true)
-
-  productos Producto[]
+  @@map("tipo_token")
 }
 
-model Producto {
-  id              String   @id @default(cuid())
-  nombre          String
-  slug            String   @unique
-  descripcion     String
-  categoriaId     String
-  // precioBase es solo para mostrar en el catálogo (listados, tarjetas de
-  // producto, precio "desde"). El precio que realmente se cobra es siempre
-  // el de VarianteProducto.precio: el backend calcula totales a partir de
-  // la variante elegida, nunca de este campo.
-  precioBase      Int
-  precioAntes     Int?
-  calificacion    Float    @default(0)
-  cantidadResenas Int      @default(0)
-  destacado       Boolean  @default(false)
-  activo          Boolean  @default(true)
-  creadoEn        DateTime @default(now())
-  actualizadoEn   DateTime @updatedAt
+enum TipoTokenAdmin {
+  invitacion
+  recuperarClave @map("recuperar_clave")
 
-  categoria Categoria           @relation(fields: [categoriaId], references: [id])
-  imagenes  ImagenProducto[]
-  variantes VarianteProducto[]
-
-  @@index([categoriaId])
-  @@index([creadoEn])
+  @@map("tipo_token_admin")
 }
 
-model ImagenProducto {
-  id         String @id @default(cuid())
-  productoId String
-  url        String
-  altTexto   String?
-  orden      Int    @default(0)
+enum TipoConfig {
+  entero
+  decimal
+  texto
+  booleano
 
-  producto Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
-
-  @@index([productoId])
-}
-
-// ---------------------------------------------------------------------------
-// Atributos y valores (tipo de base, longitud, color, talla de gorro,
-// densidad)
-// ---------------------------------------------------------------------------
-
-model Atributo {
-  id     String @id @default(cuid())
-  nombre String @unique
-
-  valores ValorAtributo[]
-}
-
-model ValorAtributo {
-  id         String  @id @default(cuid())
-  atributoId String
-  valor      String
-  // hex solo lo usa el atributo "color": lo necesitan los swatches del
-  // catálogo. Para el resto de atributos queda en null.
-  hex        String?
-  orden      Int     @default(0)
-
-  atributo  Atributo                 @relation(fields: [atributoId], references: [id])
-  variantes VarianteValorAtributo[]
-
-  @@unique([atributoId, valor])
-}
-
-// ---------------------------------------------------------------------------
-// Variantes de producto
-// ---------------------------------------------------------------------------
-
-// Semántica de stock en VarianteProducto:
-// - stockActual: unidades físicas en bodega. NO se modifica al reservar.
-// - stockReservado: unidades comprometidas en pedidos sin despachar.
-// - disponible = stockActual - stockReservado. Calculado, nunca persistido.
-// Reservar (crear pedido) suma a stockReservado. Confirmar el pedido resta
-// de ambos (stockActual y stockReservado). Cancelar el pedido resta solo de
-// stockReservado.
-model VarianteProducto {
-  id             String  @id @default(cuid())
-  productoId     String
-  sku            String  @unique
-  precio         Int
-  stockActual    Int     @default(0)
-  stockReservado Int     @default(0)
-  puntoReorden   Int     @default(0)
-  activa         Boolean @default(true)
-
-  producto              Producto                @relation(fields: [productoId], references: [id])
-  valores               VarianteValorAtributo[]
-  pedidoItems           PedidoItem[]
-  ordenCompraItems      OrdenCompraItem[]
-  movimientosInventario MovimientoInventario[]
-
-  @@index([productoId])
-}
-
-model VarianteValorAtributo {
-  id              String @id @default(cuid())
-  varianteId      String
-  valorAtributoId String
-
-  variante      VarianteProducto @relation(fields: [varianteId], references: [id], onDelete: Cascade)
-  valorAtributo ValorAtributo    @relation(fields: [valorAtributoId], references: [id])
-
-  @@unique([varianteId, valorAtributoId])
-}
-
-// ---------------------------------------------------------------------------
-// Cupones
-// ---------------------------------------------------------------------------
-
-model Cupon {
-  id            String    @id @default(cuid())
-  codigo        String    @unique
-  tipo          TipoCupon
-  valor         Int
-  montoMinimo   Int       @default(0)
-  usosMaximos   Int?
-  usosActuales  Int       @default(0)
-  vigenteDesde  DateTime?
-  vigenteHasta  DateTime?
-  activo        Boolean   @default(true)
-
-  pedidos Pedido[]
-}
-
-// ---------------------------------------------------------------------------
-// Pedidos
-// ---------------------------------------------------------------------------
-
-model Pedido {
-  id               String       @id @default(cuid())
-  numero           String       @unique
-  usuarioId        String?
-  estado           EstadoPedido @default(pendiente)
-  subtotal         Int
-  descuento        Int          @default(0)
-  envio            Int
-  total            Int
-  cuponId          String?
-  // Copia histórica del código del cupón: si el cupón se borra o cambia de
-  // código después, el pedido conserva el que se usó en el momento.
-  cuponCodigo      String?
-  telefonoContacto String
-  mensajeWhatsapp  String
-  creadoEn         DateTime     @default(now())
-  actualizadoEn    DateTime     @updatedAt
-
-  usuario Usuario?     @relation(fields: [usuarioId], references: [id])
-  cupon   Cupon?       @relation(fields: [cuponId], references: [id])
-  items   PedidoItem[]
-
-  @@index([usuarioId])
-  @@index([estado])
-  @@index([creadoEn])
-}
-
-model PedidoItem {
-  id                  String @id @default(cuid())
-  pedidoId            String
-  varianteId          String
-  // nombreProducto, descripcionVariante y precioUnitario son copias
-  // históricas: el pedido debe seguir siendo correcto aunque el producto o
-  // la variante cambien (o se desactiven) después.
-  nombreProducto      String
-  descripcionVariante String
-  precioUnitario      Int
-  cantidad            Int
-  subtotal            Int
-
-  pedido   Pedido           @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
-  variante VarianteProducto @relation(fields: [varianteId], references: [id])
-
-  @@index([pedidoId])
-  @@index([varianteId])
-}
-
-// ---------------------------------------------------------------------------
-// Proveedores y abastecimiento
-// ---------------------------------------------------------------------------
-
-model Proveedor {
-  id           String  @id @default(cuid())
-  nombre       String
-  contacto     String?
-  telefono     String?
-  correo       String?
-  diasEntrega  Int
-  activo       Boolean @default(true)
-
-  ordenesCompra OrdenCompra[]
-}
-
-model OrdenCompra {
-  id            String            @id @default(cuid())
-  numero        String            @unique
-  proveedorId   String
-  estado        EstadoOrdenCompra @default(borrador)
-  fechaEsperada DateTime?
-  total         Int               @default(0)
-  notas         String?
-  creadoEn      DateTime          @default(now())
-  actualizadoEn DateTime          @updatedAt
-
-  proveedor Proveedor         @relation(fields: [proveedorId], references: [id])
-  items     OrdenCompraItem[]
-
-  @@index([proveedorId])
-  @@index([estado])
-  @@index([creadoEn])
-}
-
-model OrdenCompraItem {
-  id                String @id @default(cuid())
-  ordenCompraId     String
-  varianteId        String
-  cantidadPedida    Int
-  cantidadRecibida  Int    @default(0)
-  costoUnitario     Int
-
-  ordenCompra OrdenCompra      @relation(fields: [ordenCompraId], references: [id], onDelete: Cascade)
-  variante    VarianteProducto @relation(fields: [varianteId], references: [id])
-
-  @@index([ordenCompraId])
-  @@index([varianteId])
-}
-
-// ---------------------------------------------------------------------------
-// Inventario
-// ---------------------------------------------------------------------------
-
-model MovimientoInventario {
-  id               String                   @id @default(cuid())
-  varianteId       String
-  tipo             TipoMovimientoInventario
-  cantidad         Int
-  stockResultante  Int
-  // referenciaTipo/referenciaId apuntan genéricamente a lo que originó el
-  // movimiento (por ejemplo "pedido" u "orden_compra") sin acoplar este
-  // modelo a una FK específica.
-  referenciaTipo   String?
-  referenciaId     String?
-  usuarioId        String?
-  motivo           String?
-  fecha            DateTime                 @default(now())
-
-  variante VarianteProducto @relation(fields: [varianteId], references: [id])
-  usuario  Usuario?         @relation(fields: [usuarioId], references: [id])
-
-  @@index([varianteId])
-  @@index([fecha])
-  @@index([referenciaTipo, referenciaId])
+  @@map("tipo_config")
 }
