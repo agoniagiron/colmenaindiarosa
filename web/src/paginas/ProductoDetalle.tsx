@@ -321,7 +321,7 @@ function GaleriaProducto({
     <div className="flex flex-col gap-4 sm:flex-row">
       {imagenes && imagenes.length > 1 ? (
         <div className="order-2 flex gap-2 overflow-x-auto sm:order-1 sm:w-20 sm:flex-col sm:overflow-visible">
-          {imagenes.map((imagen, indice) => (
+          {imagenes.map( (imagen: any, indice: number) => (
             <button
               key={imagen.id}
               type="button"
