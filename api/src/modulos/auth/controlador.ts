@@ -3,6 +3,7 @@ import { env } from '../../config/env.js';
 import { ErrorApi } from '../../lib/errorApi.js';
 import * as authServicio from './servicio.js';
 import type {
+  DatosActualizarPerfil,
   DatosLogin,
   DatosRecuperarConfirmar,
   DatosRecuperarSolicitar,
@@ -65,6 +66,12 @@ export async function obtenerYo(req: Request, res: Response): Promise<void> {
   if (!usuario) {
     throw ErrorApi.noEncontrado('Usuario no encontrado');
   }
+  res.json(usuario);
+}
+
+export async function actualizarPerfil(req: Request, res: Response): Promise<void> {
+  const datos = req.body as DatosActualizarPerfil;
+  const usuario = await authServicio.actualizarPerfil(req.usuario!.id, datos);
   res.json(usuario);
 }
 

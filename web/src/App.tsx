@@ -1,4 +1,5 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { ProveedorAvisos } from './contexto/ContextoAvisos.tsx';
 import { ProveedorCarrito } from './contexto/ContextoCarrito.tsx';
 import { ProveedorConfiguracion } from './contexto/ContextoConfiguracion.tsx';
 import { ProveedorSesion } from './contexto/ContextoSesion.tsx';
@@ -23,6 +24,7 @@ import { Inicio } from './paginas/Inicio.tsx';
 import { NoEncontrado } from './paginas/NoEncontrado.tsx';
 import { PoliticaPrivacidad } from './paginas/PoliticaPrivacidad.tsx';
 import { ProductoDetalle } from './paginas/ProductoDetalle.tsx';
+import { RecuperarClavePagina } from './paginas/RecuperarClavePagina.tsx';
 import { ResultadoPedidoPagina } from './paginas/ResultadoPedidoPagina.tsx';
 
 // Sin barra inicial ni final: se arma tal cual como un `path` más de
@@ -34,42 +36,45 @@ const RUTA_ADMIN = (import.meta.env.VITE_RUTA_ADMIN ?? '/acceso-interno').replac
 // dentro de un MemoryRouter con una URL inicial concreta.
 export function ArbolRutas() {
   return (
-    <ProveedorSesion>
-      <ProveedorSesionAdmin>
-        <ProveedorConfiguracion>
-          <ProveedorCarrito>
-            <Routes>
-              <Route element={<LayoutTienda />}>
-                <Route index element={<Inicio />} />
-                <Route path="catalogo" element={<Catalogo />} />
-                <Route path="producto/:slug" element={<ProductoDetalle />} />
-                <Route path="carrito" element={<CarritoPagina />} />
-                <Route path="checkout" element={<CheckoutPagina />} />
-                <Route path="pedido/resultado" element={<ResultadoPedidoPagina />} />
-                <Route path="cuenta" element={<Cuenta />} />
-                <Route path="politica-privacidad" element={<PoliticaPrivacidad />} />
-                {/* No enlazada desde ningún lugar del sitio: solo quien conoce
-                    la URL exacta llega acá. */}
-                <Route path={RUTA_ADMIN} element={<AdminAcceso />} />
-                <Route path="*" element={<NoEncontrado />} />
-              </Route>
+    <ProveedorAvisos>
+      <ProveedorSesion>
+        <ProveedorSesionAdmin>
+          <ProveedorConfiguracion>
+            <ProveedorCarrito>
+              <Routes>
+                <Route element={<LayoutTienda />}>
+                  <Route index element={<Inicio />} />
+                  <Route path="catalogo" element={<Catalogo />} />
+                  <Route path="producto/:slug" element={<ProductoDetalle />} />
+                  <Route path="carrito" element={<CarritoPagina />} />
+                  <Route path="checkout" element={<CheckoutPagina />} />
+                  <Route path="pedido/resultado" element={<ResultadoPedidoPagina />} />
+                  <Route path="cuenta" element={<Cuenta />} />
+                  <Route path="cuenta/recuperar" element={<RecuperarClavePagina />} />
+                  <Route path="politica-privacidad" element={<PoliticaPrivacidad />} />
+                  {/* No enlazada desde ningún lugar del sitio: solo quien conoce
+                      la URL exacta llega acá. */}
+                  <Route path={RUTA_ADMIN} element={<AdminAcceso />} />
+                  <Route path="*" element={<NoEncontrado />} />
+                </Route>
 
-              <Route path="admin" element={<LayoutAdmin />}>
-                <Route index element={<AdminInicio />} />
-                <Route path="inventario" element={<AdminInventario />} />
-                <Route path="abastecimiento" element={<AdminAbastecimiento />} />
-                <Route path="proveedores" element={<AdminProveedores />} />
-                <Route path="pedidos" element={<AdminPedidos />} />
-                <Route path="pedidos/:numero" element={<AdminPedidoDetalle />} />
-                <Route path="productos" element={<AdminProductos />} />
-                <Route path="productos/:id" element={<AdminProductoDetalle />} />
-                <Route path="analitica" element={<AdminAnalitica />} />
-              </Route>
-            </Routes>
-          </ProveedorCarrito>
-        </ProveedorConfiguracion>
-      </ProveedorSesionAdmin>
-    </ProveedorSesion>
+                <Route path="admin" element={<LayoutAdmin />}>
+                  <Route index element={<AdminInicio />} />
+                  <Route path="inventario" element={<AdminInventario />} />
+                  <Route path="abastecimiento" element={<AdminAbastecimiento />} />
+                  <Route path="proveedores" element={<AdminProveedores />} />
+                  <Route path="pedidos" element={<AdminPedidos />} />
+                  <Route path="pedidos/:numero" element={<AdminPedidoDetalle />} />
+                  <Route path="productos" element={<AdminProductos />} />
+                  <Route path="productos/:id" element={<AdminProductoDetalle />} />
+                  <Route path="analitica" element={<AdminAnalitica />} />
+                </Route>
+              </Routes>
+            </ProveedorCarrito>
+          </ProveedorConfiguracion>
+        </ProveedorSesionAdmin>
+      </ProveedorSesion>
+    </ProveedorAvisos>
   );
 }
 

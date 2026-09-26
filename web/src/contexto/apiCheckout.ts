@@ -51,6 +51,10 @@ async function solicitar<T>(
 export type MetodoPagoCheckout = 'tarjeta' | 'pse' | 'efectivo';
 
 export interface DatosCheckout {
+  // Generada una vez por checkout (ver CheckoutPagina) y persistida en
+  // sessionStorage: si esta misma petición se repite (recarga de página,
+  // reintento de red), el servidor devuelve el mismo pedido.
+  claveIdempotencia: string;
   nombreContacto: string;
   telefonoContacto: string;
   correoContacto?: string;

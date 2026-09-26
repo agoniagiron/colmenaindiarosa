@@ -13,12 +13,12 @@ const FILAS_CONFIGURACION = [
 
 const prismaMock = {
   carrito: { findFirst: vi.fn() },
-  pedido: { count: vi.fn(), create: vi.fn() },
+  pedido: { count: vi.fn(), create: vi.fn(), findUnique: vi.fn() },
   pedidoItem: { create: vi.fn() },
   pedidoItemComboDetalle: { create: vi.fn() },
   reservaStock: { create: vi.fn() },
   varianteProducto: { update: vi.fn() },
-  pago: { count: vi.fn(), create: vi.fn() },
+  pago: { count: vi.fn(), create: vi.fn(), findFirst: vi.fn() },
   configuracion: { findMany: vi.fn().mockResolvedValue(FILAS_CONFIGURACION) },
   $transaction: vi.fn(async (arg: unknown) => {
     if (typeof arg === 'function') return (arg as (tx: typeof prismaMock) => unknown)(prismaMock);
@@ -56,6 +56,7 @@ function carritoFalso(cantidad: number, overridesVariante: Partial<Record<string
 }
 
 const datosCheckout = {
+  claveIdempotencia: 'clave-test-1',
   nombreContacto: 'Ana',
   telefonoContacto: '3001234567',
   envioNombre: 'Ana',
@@ -74,6 +75,9 @@ describe('POST /api/checkout/iniciar', () => {
       if (typeof arg === 'function') return (arg as (tx: typeof prismaMock) => unknown)(prismaMock);
       return Promise.all(arg as Promise<unknown>[]);
     });
+    // Camino rápido de idempotencia: por defecto, ningún pedido usa todavía
+    // esta clave. Los tests que necesitan lo contrario lo pisan.
+    prismaMock.pedido.findUnique.mockResolvedValue(null);
   });
 
   it('checkout correcto: crea pedido, reserva stock y devuelve los datos firmados de Wompi', async () => {
@@ -124,5 +128,27 @@ describe('POST /api/checkout/iniciar', () => {
     });
 
     expect(prismaMock.pedido.create).not.toHaveBeenCalled();
+  });
+
+  it('con una clave de idempotencia ya usada, devuelve el pedido existente sin tocar el carrito', async () => {
+    prismaMock.pedido.findUnique.mockResolvedValueOnce({ id: 'pedido-existente' });
+    prismaMock.pedido.findUnique.mockResolvedValueOnce({ numero: 'INR-000042' });
+    prismaMock.pago.findFirst.mockResolvedValueOnce({
+      referenciaInterna: 'INR-000042-1',
+      monto: 215000,
+    });
+
+    const resultado = await iniciarCheckout('usuario-1', datosCheckout);
+
+    expect(resultado.numeroPedido).toBe('INR-000042');
+    expect(resultado.referencia).toBe('INR-000042-1');
+    expect(resultado.montoEnCentavos).toBe(aPesosACentavos(215000));
+
+    // No se tocó el carrito ni se creó nada nuevo: es una respuesta
+    // reconstruida a partir del pedido que ya existía.
+    expect(prismaMock.carrito.findFirst).not.toHaveBeenCalled();
+    expect(prismaMock.pedido.create).not.toHaveBeenCalled();
+    expect(prismaMock.reservaStock.create).not.toHaveBeenCalled();
+    expect(prismaMock.varianteProducto.update).not.toHaveBeenCalled();
   });
 });

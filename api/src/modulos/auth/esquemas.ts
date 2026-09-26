@@ -39,8 +39,14 @@ export const esquemaRecuperarConfirmar = z.object({
   claveNueva: esquemaClave,
 });
 
+export const esquemaActualizarPerfil = z.object({
+  nombre: z.string().trim().min(1, 'El nombre es obligatorio').optional(),
+  telefono: z.string().trim().min(1, 'El teléfono no puede quedar vacío').optional(),
+});
+
 export type DatosRegistro = z.infer<typeof esquemaRegistro>;
 export type DatosLogin = z.infer<typeof esquemaLogin>;
 export type DatosVerificarCorreoConfirmar = z.infer<typeof esquemaVerificarCorreoConfirmar>;
 export type DatosRecuperarSolicitar = z.infer<typeof esquemaRecuperarSolicitar>;
 export type DatosRecuperarConfirmar = z.infer<typeof esquemaRecuperarConfirmar>;
+export type DatosActualizarPerfil = z.infer<typeof esquemaActualizarPerfil>;

@@ -66,10 +66,6 @@ model CarritoItem {
   combo            Combo?            @relation(fields: [comboId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   varianteProducto VarianteProducto? @relation(fields: [varianteId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  // Sin @@unique acá a propósito: la base ya no lo tiene (una fila es
-  // variante XOR combo, ver el check constraint). La idempotencia de
-  // "ya está esta variante/combo en el carrito" pasa a resolverse en
-  // modulos/carrito/servicio.ts (buscar antes de crear), no en la base.
   @@map("carrito_item")
 }
 
@@ -319,50 +315,51 @@ model Pago {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model Pedido {
-  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  numero            String            @unique
-  usuarioId         String?           @map("usuario_id") @db.Uuid
-  sesionId          String?           @map("sesion_id") @db.Uuid
-  nombreContacto    String            @map("nombre_contacto")
-  telefonoContacto  String            @map("telefono_contacto")
-  correoContacto    String?           @map("correo_contacto")
-  envioNombre       String            @map("envio_nombre")
-  envioTelefono     String            @map("envio_telefono")
-  envioDepartamento String            @map("envio_departamento")
-  envioCiudad       String            @map("envio_ciudad")
-  envioDireccion    String            @map("envio_direccion")
-  envioComplemento  String?           @map("envio_complemento")
-  envioNotas        String?           @map("envio_notas")
-  transportadora    String?
-  numeroGuia        String?           @map("numero_guia")
-  urlSeguimiento    String?           @map("url_seguimiento")
-  subtotal          Int
-  descuento         Int               @default(0)
-  envio             Int               @default(0)
-  total             Int
-  costoTotal        Int?              @map("costo_total")
-  cuponId           String?           @map("cupon_id") @db.Uuid
-  cuponCodigo       String?           @map("cupon_codigo")
-  estado            EstadoPedido      @default(esperandoPago)
-  pagadoEn          DateTime?         @map("pagado_en") @db.Timestamptz(6)
-  despachadoEn      DateTime?         @map("despachado_en") @db.Timestamptz(6)
-  entregadoEn       DateTime?         @map("entregado_en") @db.Timestamptz(6)
-  canceladoEn       DateTime?         @map("cancelado_en") @db.Timestamptz(6)
-  motivoCancelacion String?           @map("motivo_cancelacion")
-  creadoEn          DateTime          @default(now()) @map("creado_en") @db.Timestamptz(6)
-  actualizadoEn     DateTime          @default(now()) @map("actualizado_en") @db.Timestamptz(6)
-  monedaMostrada    String            @default("COP") @map("moneda_mostrada")
-  tasaUsdUsada      Int?              @map("tasa_usd_usada")
-  carrito           Carrito?
-  eventosAnalitica  EventoAnalitica[]
-  pagos             Pago[]
-  cupon             Cupon?            @relation(fields: [cuponId], references: [id], onUpdate: NoAction)
-  sesionVisita      SesionVisita?     @relation(fields: [sesionId], references: [id], onUpdate: NoAction)
-  usuario           Usuario?          @relation(fields: [usuarioId], references: [id], onUpdate: NoAction)
-  historial         PedidoHistorial[]
-  items             PedidoItem[]
-  resenas           Resena[]
-  reservasStock     ReservaStock[]
+  id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  numero             String            @unique
+  usuarioId          String?           @map("usuario_id") @db.Uuid
+  sesionId           String?           @map("sesion_id") @db.Uuid
+  nombreContacto     String            @map("nombre_contacto")
+  telefonoContacto   String            @map("telefono_contacto")
+  correoContacto     String?           @map("correo_contacto")
+  envioNombre        String            @map("envio_nombre")
+  envioTelefono      String            @map("envio_telefono")
+  envioDepartamento  String            @map("envio_departamento")
+  envioCiudad        String            @map("envio_ciudad")
+  envioDireccion     String            @map("envio_direccion")
+  envioComplemento   String?           @map("envio_complemento")
+  envioNotas         String?           @map("envio_notas")
+  transportadora     String?
+  numeroGuia         String?           @map("numero_guia")
+  urlSeguimiento     String?           @map("url_seguimiento")
+  subtotal           Int
+  descuento          Int               @default(0)
+  envio              Int               @default(0)
+  total              Int
+  costoTotal         Int?              @map("costo_total")
+  cuponId            String?           @map("cupon_id") @db.Uuid
+  cuponCodigo        String?           @map("cupon_codigo")
+  estado             EstadoPedido      @default(esperandoPago)
+  pagadoEn           DateTime?         @map("pagado_en") @db.Timestamptz(6)
+  despachadoEn       DateTime?         @map("despachado_en") @db.Timestamptz(6)
+  entregadoEn        DateTime?         @map("entregado_en") @db.Timestamptz(6)
+  canceladoEn        DateTime?         @map("cancelado_en") @db.Timestamptz(6)
+  motivoCancelacion  String?           @map("motivo_cancelacion")
+  creadoEn           DateTime          @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn      DateTime          @default(now()) @map("actualizado_en") @db.Timestamptz(6)
+  monedaMostrada     String            @default("COP") @map("moneda_mostrada")
+  tasaUsdUsada       Int?              @map("tasa_usd_usada")
+  claveIdempotencia  String?           @unique @map("clave_idempotencia")
+  carrito            Carrito?
+  eventosAnalitica   EventoAnalitica[]
+  pagos              Pago[]
+  cupon              Cupon?            @relation(fields: [cuponId], references: [id], onUpdate: NoAction)
+  sesionVisita       SesionVisita?     @relation(fields: [sesionId], references: [id], onUpdate: NoAction)
+  usuario            Usuario?          @relation(fields: [usuarioId], references: [id], onUpdate: NoAction)
+  historial          PedidoHistorial[]
+  items              PedidoItem[]
+  resenas            Resena[]
+  reservasStock      ReservaStock[]
 
   @@index([creadoEn], map: "idx_pedido_creado")
   @@index([estado, creadoEn], map: "idx_pedido_estado")

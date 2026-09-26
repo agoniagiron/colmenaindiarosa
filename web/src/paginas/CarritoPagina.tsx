@@ -9,6 +9,7 @@ import { useCarrito } from '../contexto/ContextoCarrito.tsx';
 import { useConfiguracion } from '../contexto/ContextoConfiguracion.tsx';
 import { formatearEspecificacionesVariante } from '../dominio/formatearEspecificacionesVariante.ts';
 import type { LineaCarrito } from '../tipos/index.ts';
+import { useAccionAsincrona } from '../utilidades/useAccionAsincrona.ts';
 
 export function CarritoPagina() {
   const navigate = useNavigate();
@@ -57,8 +58,12 @@ export function CarritoPagina() {
               <FilaCarrito
                 key={linea.id}
                 linea={linea}
-                onCambiarCantidad={(cantidad) => linea.id && cambiarCantidad(linea.id, cantidad)}
-                onQuitar={() => linea.id && quitar(linea.id)}
+                onCambiarCantidad={async (cantidad) => {
+                  if (linea.id) await cambiarCantidad(linea.id, cantidad);
+                }}
+                onQuitar={async () => {
+                  if (linea.id) await quitar(linea.id);
+                }}
               />
             ))}
           </ul>
@@ -123,14 +128,38 @@ function FilaCarrito({
   onQuitar,
 }: {
   linea: LineaCarrito;
-  onCambiarCantidad: (cantidad: number) => void;
-  onQuitar: () => void;
+  onCambiarCantidad: (cantidad: number) => Promise<void>;
+  onQuitar: () => Promise<void>;
 }) {
   const { formatearMonto } = useConfiguracion();
   const subtotalLinea = linea.precioUnitario * linea.cantidad;
   const especificaciones = formatearEspecificacionesVariante(linea);
   const sinDisponibilidadSuficiente =
     typeof linea.disponible === 'number' && linea.disponible < linea.cantidad;
+
+  const { cargando: cambiando, ejecutar: ejecutarCambiar } = useAccionAsincrona(onCambiarCantidad);
+  const { cargando: quitando, ejecutar: ejecutarQuitar } = useAccionAsincrona(onQuitar, {
+    mensajeExito: 'Producto quitado del carrito',
+  });
+  // Una sola línea no permite dos operaciones a la vez: cambiar cantidad y
+  // quitar tocan el mismo carrito_item.
+  const cargando = cambiando || quitando;
+
+  async function alCambiarCantidad(cantidad: number) {
+    try {
+      await ejecutarCambiar(cantidad);
+    } catch {
+      // El hook ya mostró el aviso de error.
+    }
+  }
+
+  async function alQuitar() {
+    try {
+      await ejecutarQuitar();
+    } catch {
+      // El hook ya mostró el aviso de error.
+    }
+  }
 
   return (
     <li className="flex gap-4 py-5">
@@ -156,15 +185,18 @@ function FilaCarrito({
           <ControlCantidad
             cantidad={linea.cantidad}
             disponible={linea.disponible}
-            onCambiar={onCambiarCantidad}
+            cargando={cargando}
+            onCambiar={alCambiarCantidad}
           />
           <span className="text-sm font-semibold text-tinta">{formatearMonto(subtotalLinea)}</span>
           <button
             type="button"
-            onClick={onQuitar}
-            className="rounded-md text-sm text-texto-secundario underline-offset-2 hover:text-rosa hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa"
+            onClick={alQuitar}
+            disabled={cargando}
+            aria-busy={quitando || undefined}
+            className="rounded-md text-sm text-texto-secundario underline-offset-2 hover:text-rosa hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Quitar
+            {quitando ? 'Quitando…' : 'Quitar'}
           </button>
         </div>
       </div>
@@ -175,20 +207,25 @@ function FilaCarrito({
 function ControlCantidad({
   cantidad,
   disponible,
+  cargando,
   onCambiar,
 }: {
   cantidad: number;
   disponible?: number;
+  cargando: boolean;
   onCambiar: (cantidad: number) => void;
 }) {
   const alTope = typeof disponible === 'number' && cantidad >= disponible;
 
   return (
-    <div className="flex items-center rounded-full border border-linea">
+    <div
+      className="flex items-center rounded-full border border-linea"
+      aria-busy={cargando || undefined}
+    >
       <button
         type="button"
         onClick={() => onCambiar(Math.max(1, cantidad - 1))}
-        disabled={cantidad <= 1}
+        disabled={cargando || cantidad <= 1}
         aria-label="Restar una unidad"
         className="px-3 py-1 text-tinta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa disabled:cursor-not-allowed disabled:opacity-40"
       >
@@ -198,7 +235,7 @@ function ControlCantidad({
       <button
         type="button"
         onClick={() => onCambiar(cantidad + 1)}
-        disabled={alTope}
+        disabled={cargando || alTope}
         aria-label="Sumar una unidad"
         className="px-3 py-1 text-tinta focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa disabled:cursor-not-allowed disabled:opacity-40"
       >
@@ -242,7 +279,7 @@ function CampoCupon({
             onChange={(evento) => setCodigo(evento.target.value)}
           />
         </div>
-        <Boton type="submit" variante="fantasma" disabled={cargando || !codigo.trim()}>
+        <Boton type="submit" variante="fantasma" cargando={cargando} disabled={!codigo.trim()}>
           Aplicar
         </Boton>
       </form>
@@ -253,9 +290,11 @@ function CampoCupon({
           <button
             type="button"
             onClick={onQuitar}
-            className="rounded-md underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa"
+            disabled={cargando}
+            aria-busy={cargando || undefined}
+            className="rounded-md underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Quitar
+            {cargando ? 'Quitando…' : 'Quitar'}
           </button>
         </p>
       ) : error ? (

@@ -6,7 +6,7 @@ import { servicioCorreo } from '../../lib/correo.js';
 import { firmarAccessToken } from '../../lib/jwt.js';
 import { prisma } from '../../lib/prisma.js';
 import { generarTokenCrudo, hashearToken } from '../../lib/tokens.js';
-import type { DatosLogin, DatosRegistro } from './esquemas.js';
+import type { DatosActualizarPerfil, DatosLogin, DatosRegistro } from './esquemas.js';
 
 const RONDAS_BCRYPT = 12;
 const DURACION_REFRESH_MS = 7 * 24 * 60 * 60 * 1000;
@@ -164,6 +164,14 @@ export async function cerrarSesion(refreshTokenCrudo: string | undefined): Promi
 
 export async function obtenerPerfil(usuarioId: string) {
   return prisma.usuario.findUnique({ where: { id: usuarioId }, select: SELECT_USUARIO_SEGURO });
+}
+
+export async function actualizarPerfil(usuarioId: string, datos: DatosActualizarPerfil) {
+  return prisma.usuario.update({
+    where: { id: usuarioId },
+    data: datos,
+    select: SELECT_USUARIO_SEGURO,
+  });
 }
 
 // ---------------------------------------------------------------------------

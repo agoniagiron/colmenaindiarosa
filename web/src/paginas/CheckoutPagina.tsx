@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import type { FormEvent } from 'react';
 import { Boton } from '../componentes/Boton.tsx';
 import { CampoTexto } from '../componentes/CampoTexto.tsx';
+import { IndicadorCarga } from '../componentes/IndicadorCarga.tsx';
 import { registrarEvento } from '../contexto/apiAnalitica.ts';
 import * as apiCheckout from '../contexto/apiCheckout.ts';
 import { ErrorCheckout } from '../contexto/apiCheckout.ts';
 import type { MetodoPagoCheckout } from '../contexto/apiCheckout.ts';
+import { useAvisos } from '../contexto/ContextoAvisos.tsx';
 import { listarDirecciones } from '../contexto/apiCuenta.ts';
 import type { TotalesCarrito } from '../tipos/index.ts';
 import { useCarrito } from '../contexto/ContextoCarrito.tsx';
@@ -15,6 +17,21 @@ import { useSesion } from '../contexto/ContextoSesion.tsx';
 import { abrirWidgetWompi } from '../contexto/wompiWidget.ts';
 
 type Paso = 1 | 2 | 3;
+
+// Una clave por intento de checkout, generada al entrar a la página y
+// guardada en sessionStorage (no solo en estado del componente) para que
+// una recarga de página durante el envío reutilice la misma clave en vez
+// de generar una nueva: eso es lo que hace que el POST sea idempotente de
+// verdad, no solo que el botón esté deshabilitado.
+const CLAVE_STORAGE = 'checkout_clave_idempotencia';
+
+function obtenerOCrearClaveIdempotencia(): string {
+  const existente = sessionStorage.getItem(CLAVE_STORAGE);
+  if (existente) return existente;
+  const nueva = crypto.randomUUID();
+  sessionStorage.setItem(CLAVE_STORAGE, nueva);
+  return nueva;
+}
 
 const METODOS: { valor: MetodoPagoCheckout; etiqueta: string; descripcion: string }[] = [
   {
@@ -60,6 +77,8 @@ export function CheckoutPagina() {
   const [avisoCupon, setAvisoCupon] = useState<{ mensaje: string; totalSinCupon: number } | null>(
     null,
   );
+  const [claveIdempotencia] = useState(obtenerOCrearClaveIdempotencia);
+  const { avisarError } = useAvisos();
 
   // Requiere sesión: el checkout, los pedidos y la pantalla de espera son
   // siempre del usuario logueado.
@@ -128,6 +147,7 @@ export function CheckoutPagina() {
       }
 
       const resultado = await apiCheckout.iniciarCheckout(accessToken, {
+        claveIdempotencia,
         nombreContacto,
         telefonoContacto,
         correoContacto: correoContacto || undefined,
@@ -140,6 +160,10 @@ export function CheckoutPagina() {
         envioNotas: envioNotas || undefined,
         metodoPago: metodo,
       });
+
+      // El pedido ya está creado: un intento posterior (otra compra) tiene
+      // que generar una clave nueva, no reusar esta.
+      sessionStorage.removeItem(CLAVE_STORAGE);
 
       registrarEvento('iniciarPago', {
         metadatos: { numeroPedido: resultado.numeroPedido, metodo },
@@ -174,7 +198,10 @@ export function CheckoutPagina() {
           'Algunos productos de tu carrito ya no tienen disponibilidad. Volvé al carrito para ajustarlo.',
         );
       } else {
-        setError(excepcion instanceof Error ? excepcion.message : 'No pudimos iniciar el pago');
+        const mensaje =
+          excepcion instanceof Error ? excepcion.message : 'No pudimos iniciar el pago';
+        setError(mensaje);
+        avisarError(mensaje);
       }
     } finally {
       setEnviando(false);
@@ -202,6 +229,8 @@ export function CheckoutPagina() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+      {enviando ? <OverlayCargandoPago /> : null}
+
       <h1 className="font-serif text-2xl text-tinta">Checkout</h1>
 
       <IndicadorPasos pasoActual={paso} />
@@ -330,7 +359,8 @@ export function CheckoutPagina() {
                     type="button"
                     variante="fantasma"
                     className="mt-3"
-                    disabled={!metodoPago || enviando}
+                    disabled={!metodoPago}
+                    cargando={enviando}
                     onClick={() =>
                       metodoPago && void confirmarYPagar(metodoPago, { sinCupon: true })
                     }
@@ -351,8 +381,8 @@ export function CheckoutPagina() {
                 >
                   Volver
                 </Boton>
-                <Boton type="submit" variante="rosa" disabled={!metodoPago || enviando}>
-                  {enviando ? 'Un momento…' : 'Pagar con Wompi'}
+                <Boton type="submit" variante="rosa" disabled={!metodoPago} cargando={enviando}>
+                  Pagar con Wompi
                 </Boton>
               </div>
             </form>
@@ -361,6 +391,24 @@ export function CheckoutPagina() {
 
         <ResumenPedido lineas={lineas} cuponCodigo={cupon?.codigo} totales={totales} />
       </div>
+    </div>
+  );
+}
+
+// Pantalla completa, no solo el botón: mientras dura el POST a
+// /checkout/iniciar, la clienta tiene que ver claramente que algo está
+// pasando (una petición lenta con solo el botón deshabilitado puede leerse
+// como que no pasó nada).
+function OverlayCargandoPago() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-hueso/95 px-6 text-center"
+    >
+      <IndicadorCarga className="h-10 w-10 text-rosa" />
+      <p className="font-serif text-lg text-tinta">Estamos preparando tu pago…</p>
+      <p className="text-sm text-texto-secundario">No cierres ni recargues esta página.</p>
     </div>
   );
 }

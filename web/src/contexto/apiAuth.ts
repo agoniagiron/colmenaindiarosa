@@ -96,3 +96,31 @@ export async function obtenerYo(accessToken: string): Promise<Usuario> {
   });
   return mapearUsuario(perfil);
 }
+
+export interface DatosActualizarPerfil {
+  nombre?: string;
+  telefono?: string;
+}
+
+export async function actualizarPerfil(
+  accessToken: string,
+  datos: DatosActualizarPerfil,
+): Promise<Usuario> {
+  const perfil = await solicitar<PerfilApi>('/perfil', {
+    method: 'PATCH',
+    body: JSON.stringify(datos),
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  return mapearUsuario(perfil);
+}
+
+export async function solicitarRecuperacion(correo: string): Promise<void> {
+  await solicitar('/recuperar/solicitar', { method: 'POST', body: JSON.stringify({ correo }) });
+}
+
+export async function confirmarRecuperacion(token: string, claveNueva: string): Promise<void> {
+  await solicitar('/recuperar/confirmar', {
+    method: 'POST',
+    body: JSON.stringify({ token, claveNueva }),
+  });
+}

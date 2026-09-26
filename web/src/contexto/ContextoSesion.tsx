@@ -11,6 +11,9 @@ interface ContextoSesionValor {
   // de tiempo.
   restaurando: boolean;
   entrar: (usuario: Usuario, accessToken: string) => void;
+  // Actualiza los datos del usuario en la sesión ya activa (p. ej. después
+  // de editar el perfil), sin tocar el access token.
+  actualizarUsuario: (usuario: Usuario) => void;
   salir: () => void;
 }
 
@@ -48,6 +51,10 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
     setAccessToken(token);
   }, []);
 
+  const actualizarUsuario = useCallback((usuarioNuevo: Usuario) => {
+    setUsuario(usuarioNuevo);
+  }, []);
+
   const salir = useCallback(() => {
     apiAuth.cerrarSesion().catch(() => {});
     setUsuario(null);
@@ -55,8 +62,8 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
   }, []);
 
   const valor = useMemo<ContextoSesionValor>(
-    () => ({ usuario, accessToken, restaurando, entrar, salir }),
-    [usuario, accessToken, restaurando, entrar, salir],
+    () => ({ usuario, accessToken, restaurando, entrar, actualizarUsuario, salir }),
+    [usuario, accessToken, restaurando, entrar, actualizarUsuario, salir],
   );
 
   return <ContextoSesion.Provider value={valor}>{children}</ContextoSesion.Provider>;

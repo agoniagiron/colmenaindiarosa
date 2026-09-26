@@ -10,6 +10,7 @@ import type { TonoConConteo } from '../datos/repositorio.ts';
 import { estimarEntrega } from '../dominio/estimarEntrega.ts';
 import type { ReglasEntrega } from '../dominio/estimarEntrega.ts';
 import type { Combo, EdicionLimitada } from '../tipos/index.ts';
+import { useAccionAsincrona } from '../utilidades/useAccionAsincrona.ts';
 
 export function Inicio() {
   return (
@@ -394,7 +395,9 @@ function TarjetaKit({
   formatearDual: (precio: { cop: number; usd: number }) => string;
   onAgregar: () => Promise<void>;
 }) {
-  const [estado, setEstado] = useState<'reposo' | 'agregando' | 'agregado' | 'error'>('reposo');
+  const { cargando: agregando, ejecutar: ejecutarAgregar } = useAccionAsincrona(onAgregar, {
+    mensajeExito: 'Agregado al carrito',
+  });
 
   const ahorro =
     combo.precioPiezasPorSeparado.cop > 0
@@ -402,13 +405,10 @@ function TarjetaKit({
       : 0;
 
   async function alAgregar() {
-    setEstado('agregando');
     try {
-      await onAgregar();
-      setEstado('agregado');
-      setTimeout(() => setEstado('reposo'), 2000);
+      await ejecutarAgregar();
     } catch {
-      setEstado('error');
+      // El hook ya mostró el aviso de error.
     }
   }
 
@@ -450,21 +450,13 @@ function TarjetaKit({
         <Boton
           type="button"
           variante="rosa"
-          disabled={!combo.disponible || estado === 'agregando' || estado === 'agregado'}
+          disabled={!combo.disponible}
+          cargando={agregando}
           onClick={() => void alAgregar()}
           className="mt-3 w-full"
         >
-          {!combo.disponible
-            ? 'Agotado'
-            : estado === 'agregado'
-              ? '¡Agregado al carrito!'
-              : estado === 'agregando'
-                ? 'Agregando…'
-                : 'Agregar al carrito'}
+          {!combo.disponible ? 'Agotado' : 'Agregar al carrito'}
         </Boton>
-        {estado === 'error' ? (
-          <p className="text-sm text-red-600">No pudimos agregar el kit al carrito.</p>
-        ) : null}
       </div>
     </article>
   );

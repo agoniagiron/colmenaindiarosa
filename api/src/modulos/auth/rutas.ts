@@ -3,6 +3,7 @@ import { rateLimit } from 'express-rate-limit';
 import { requiereAuth } from '../../middleware/requiereAuth.js';
 import { validar } from '../../middleware/validar.js';
 import {
+  actualizarPerfil,
   cerrarSesion,
   confirmarRecuperacion,
   confirmarVerificacionCorreo,
@@ -14,6 +15,7 @@ import {
   solicitarVerificacionCorreo,
 } from './controlador.js';
 import {
+  esquemaActualizarPerfil,
   esquemaLogin,
   esquemaRecuperarConfirmar,
   esquemaRecuperarSolicitar,
@@ -37,6 +39,12 @@ rutasAuth.post('/login', limitadorEstricto, validar({ body: esquemaLogin }), ini
 rutasAuth.post('/refresh', refrescar);
 rutasAuth.post('/logout', cerrarSesion);
 rutasAuth.get('/yo', requiereAuth, obtenerYo);
+rutasAuth.patch(
+  '/perfil',
+  requiereAuth,
+  validar({ body: esquemaActualizarPerfil }),
+  actualizarPerfil,
+);
 
 rutasAuth.post('/verificar-correo/solicitar', requiereAuth, solicitarVerificacionCorreo);
 rutasAuth.post(

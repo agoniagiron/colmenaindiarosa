@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import * as apiAuth from '../contexto/apiAuth.ts';
 import { ErrorAuth } from '../contexto/apiAuth.ts';
+import { useAvisos } from '../contexto/ContextoAvisos.tsx';
 import { useSesion } from '../contexto/ContextoSesion.tsx';
 import { Boton } from './Boton.tsx';
 import { CampoTexto } from './CampoTexto.tsx';
@@ -23,6 +24,7 @@ interface ModalAccesoProps {
 export function ModalAcceso({ abierto, onCerrar }: ModalAccesoProps) {
   const { entrar } = useSesion();
   const navigate = useNavigate();
+  const { avisarExito, avisarError } = useAvisos();
 
   const [modo, setModo] = useState<Modo>('login');
 
@@ -90,8 +92,10 @@ export function ModalAcceso({ abierto, onCerrar }: ModalAccesoProps) {
     try {
       if (modo === 'login') {
         await iniciarSesionYRedirigir();
+        avisarExito('Sesión iniciada');
       } else {
         await registrarYEntrar();
+        avisarExito('Cuenta creada');
       }
     } catch (excepcion) {
       const mensaje =
@@ -99,6 +103,7 @@ export function ModalAcceso({ abierto, onCerrar }: ModalAccesoProps) {
           ? excepcion.message
           : 'No pudimos completar la operación';
       setError(mensaje);
+      avisarError(mensaje);
     } finally {
       setEnviando(false);
     }
@@ -175,9 +180,19 @@ export function ModalAcceso({ abierto, onCerrar }: ModalAccesoProps) {
 
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
-        <Boton type="submit" variante="rosa" disabled={enviando} className="mt-2">
-          {enviando ? 'Un momento…' : modo === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
+        <Boton type="submit" variante="rosa" cargando={enviando} className="mt-2">
+          {modo === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
         </Boton>
+
+        {modo === 'login' ? (
+          <Link
+            to="/cuenta/recuperar"
+            onClick={cerrar}
+            className="text-center text-sm text-texto-secundario underline-offset-2 hover:text-rosa hover:underline"
+          >
+            ¿Olvidaste tu contraseña?
+          </Link>
+        ) : null}
 
         <button
           type="button"

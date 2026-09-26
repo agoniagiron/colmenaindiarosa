@@ -4,6 +4,11 @@ export const METODOS_PAGO_CHECKOUT = ['tarjeta', 'pse', 'efectivo'] as const;
 export type MetodoPagoCheckout = (typeof METODOS_PAGO_CHECKOUT)[number];
 
 export const esquemaIniciarCheckout = z.object({
+  // Generada una sola vez por el frontend al entrar al paso de pago y
+  // persistida en sessionStorage: si la misma clave llega dos veces (doble
+  // envío, recarga de página, reintento de red), el servidor devuelve el
+  // mismo pedido en vez de crear otro o reservar stock de nuevo.
+  claveIdempotencia: z.string().trim().min(1, 'Falta la clave de idempotencia'),
   nombreContacto: z.string().trim().min(1, 'El nombre de contacto es obligatorio'),
   telefonoContacto: z.string().trim().min(1, 'El teléfono de contacto es obligatorio'),
   correoContacto: z.string().trim().email('El correo no es válido').optional(),

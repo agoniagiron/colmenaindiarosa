@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react';
 import * as apiCarrito from './apiCarrito.ts';
 import { ErrorCarrito } from './apiCarrito.ts';
+import { useAvisos } from './ContextoAvisos.tsx';
 import { useSesion } from './ContextoSesion.tsx';
 import type { CarritoApi } from './apiCarrito.ts';
 import type { Cupon, LineaCarrito, TotalesCarrito } from '../tipos/index.ts';
@@ -37,10 +38,13 @@ const ContextoCarrito = createContext<ContextoCarritoValor | null>(null);
 
 export function ProveedorCarrito({ children }: { children: ReactNode }) {
   const { accessToken } = useSesion();
+  const { avisarExito, avisarError } = useAvisos();
 
   const [lineas, setLineas] = useState<LineaCarrito[]>([]);
   const [cupon, setCupon] = useState<Cupon | null>(null);
   const [totales, setTotales] = useState<TotalesCarrito>(TOTALES_VACIOS);
+  // Cubre tanto aplicar como quitar: son la misma sección de la UI y no
+  // tiene sentido permitir una mientras la otra está en curso.
   const [cargandoCupon, setCargandoCupon] = useState(false);
   const [errorCupon, setErrorCupon] = useState<string | null>(null);
 
@@ -117,26 +121,32 @@ export function ProveedorCarrito({ children }: { children: ReactNode }) {
       try {
         const carrito = await apiCarrito.aplicarCupon(accessToken, codigo);
         aplicarRespuesta(carrito);
+        avisarExito('Cupón aplicado');
       } catch (error) {
-        setErrorCupon(
-          error instanceof ErrorCarrito ? error.message : 'No pudimos aplicar el cupón',
-        );
+        const mensaje =
+          error instanceof ErrorCarrito ? error.message : 'No pudimos aplicar el cupón';
+        setErrorCupon(mensaje);
+        avisarError(mensaje);
       } finally {
         setCargandoCupon(false);
       }
     },
-    [accessToken, aplicarRespuesta],
+    [accessToken, aplicarRespuesta, avisarExito, avisarError],
   );
 
   const quitarCuponFn = useCallback(async () => {
+    setCargandoCupon(true);
     setErrorCupon(null);
     try {
       const carrito = await apiCarrito.quitarCupon(accessToken);
       aplicarRespuesta(carrito);
-    } catch {
-      // No crítico: el cupón sigue aplicado hasta el próximo refresco.
+      avisarExito('Cupón quitado');
+    } catch (error) {
+      avisarError(error instanceof ErrorCarrito ? error.message : 'No pudimos quitar el cupón');
+    } finally {
+      setCargandoCupon(false);
     }
-  }, [accessToken, aplicarRespuesta]);
+  }, [accessToken, aplicarRespuesta, avisarExito, avisarError]);
 
   const valor = useMemo<ContextoCarritoValor>(
     () => ({

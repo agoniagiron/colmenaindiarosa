@@ -11,9 +11,9 @@ import { useCarrito } from '../contexto/ContextoCarrito.tsx';
 import { useConfiguracion } from '../contexto/ContextoConfiguracion.tsx';
 import { repositorio } from '../datos/index.ts';
 import type { Producto, VarianteProducto } from '../tipos/index.ts';
+import { useAccionAsincrona } from '../utilidades/useAccionAsincrona.ts';
 
 const PARAMETRO_VARIANTE = 'variante';
-const DURACION_CONFIRMACION_MS = 2000;
 
 // --- Atributos de variante ---------------------------------------------------
 
@@ -104,8 +104,9 @@ export function ProductoDetalle() {
   const [cargandoRelacionados, setCargandoRelacionados] = useState(true);
 
   const [cantidad, setCantidad] = useState(1);
-  const [agregado, setAgregado] = useState(false);
-  const [errorAgregar, setErrorAgregar] = useState<string | null>(null);
+  const { cargando: agregando, ejecutar: ejecutarAgregar } = useAccionAsincrona(agregar, {
+    mensajeExito: 'Agregado al carrito',
+  });
 
   useEffect(() => {
     let vigente = true;
@@ -178,16 +179,10 @@ export function ProductoDetalle() {
 
   async function alAgregar() {
     if (!varianteActual || disponibleDe(varianteActual) <= 0) return;
-
-    setErrorAgregar(null);
     try {
-      await agregar(varianteActual.id, cantidad);
-      setAgregado(true);
-      setTimeout(() => setAgregado(false), DURACION_CONFIRMACION_MS);
-    } catch (error) {
-      setErrorAgregar(
-        error instanceof Error ? error.message : 'No pudimos agregar el producto al carrito',
-      );
+      await ejecutarAgregar(varianteActual.id, cantidad);
+    } catch {
+      // El hook ya mostró el aviso de error.
     }
   }
 
@@ -223,7 +218,11 @@ export function ProductoDetalle() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
       <div className="grid gap-10 lg:grid-cols-2 lg:gap-16">
-        <GaleriaProducto producto={producto} variante={varianteActual} colorHex={varianteActual.color?.hex} />
+        <GaleriaProducto
+          producto={producto}
+          variante={varianteActual}
+          colorHex={varianteActual.color?.hex}
+        />
 
         <div className="flex flex-col gap-6">
           <div>
@@ -272,9 +271,8 @@ export function ProductoDetalle() {
             cantidad={cantidad}
             onCambiarCantidad={setCantidad}
             onAgregar={alAgregar}
-            agregado={agregado}
+            cargando={agregando}
           />
-          {errorAgregar ? <p className="text-sm text-red-600">{errorAgregar}</p> : null}
 
           <Acordeon
             secciones={[
@@ -312,8 +310,10 @@ function GaleriaProducto({
   const [indiceActivo, setIndiceActivo] = useState(0);
 
   // Lógica de prioridad: si la variante tiene imágenes, úsalas. Si no, usa las generales.
-  const imagenesVariante = variante?.imagenes && variante.imagenes.length > 0 ? variante.imagenes : null;
-  const imagenesProducto = producto.imagenes && producto.imagenes.length > 0 ? producto.imagenes : null;
+  const imagenesVariante =
+    variante?.imagenes && variante.imagenes.length > 0 ? variante.imagenes : null;
+  const imagenesProducto =
+    producto.imagenes && producto.imagenes.length > 0 ? producto.imagenes : null;
   const imagenes = imagenesVariante || imagenesProducto;
 
   const indiceSeguro = imagenes ? Math.min(indiceActivo, imagenes.length - 1) : 0;
@@ -480,13 +480,13 @@ function SelectorCompra({
   cantidad,
   onCambiarCantidad,
   onAgregar,
-  agregado,
+  cargando,
 }: {
   disponible: number;
   cantidad: number;
   onCambiarCantidad: (cantidad: number) => void;
   onAgregar: () => void;
-  agregado: boolean;
+  cargando: boolean;
 }) {
   const agotado = disponible <= 0;
 
@@ -523,11 +523,12 @@ function SelectorCompra({
       <Boton
         type="button"
         variante="rosa"
-        disabled={agotado || agregado}
+        disabled={agotado}
+        cargando={cargando}
         onClick={onAgregar}
         className="w-full"
       >
-        {agotado ? 'Agotado' : agregado ? '¡Agregado al carrito!' : 'Agregar al carrito'}
+        {agotado ? 'Agotado' : 'Agregar al carrito'}
       </Boton>
     </div>
   );

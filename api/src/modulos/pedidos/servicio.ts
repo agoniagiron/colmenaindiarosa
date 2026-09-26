@@ -232,6 +232,47 @@ function esColisionNumeroPedido(error: unknown): boolean {
   );
 }
 
+function esColisionClaveIdempotencia(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2002' &&
+    Array.isArray(error.meta?.target) &&
+    (error.meta.target as string[]).includes('clave_idempotencia')
+  );
+}
+
+// Reconstruye la respuesta de un pedido ya creado (mismo camino que usa el
+// checkout normal), sin tocar stock ni crear nada nuevo: es lo que se
+// devuelve cuando la clave de idempotencia ya se usó antes.
+async function resultadoDesdePedidoExistente(pedidoId: string): Promise<ResultadoCheckout> {
+  const pedido = await prisma.pedido.findUnique({
+    where: { id: pedidoId },
+    select: { numero: true },
+  });
+  const pago = await prisma.pago.findFirst({
+    where: { pedidoId },
+    orderBy: { creadoEn: 'desc' },
+    select: { referenciaInterna: true, monto: true },
+  });
+
+  if (!pedido || !pago) {
+    throw ErrorApi.interno('El pedido de esta clave de idempotencia quedó en un estado inválido');
+  }
+
+  const montoEnCentavos = aPesosACentavos(pago.monto);
+  const firma = generarFirmaIntegridad(pago.referenciaInterna, montoEnCentavos, MONEDA);
+
+  return {
+    numeroPedido: pedido.numero,
+    llavePublica: env.WOMPI_LLAVE_PUBLICA,
+    referencia: pago.referenciaInterna,
+    montoEnCentavos,
+    moneda: MONEDA,
+    firma,
+    urlRedireccion: `${env.WOMPI_URL_REDIRECCION}?numero=${encodeURIComponent(pedido.numero)}`,
+  };
+}
+
 async function generarNumeroPedido(tx: Prisma.TransactionClient): Promise<string> {
   const total = await tx.pedido.count();
   return `INR-${String(total + 1).padStart(6, '0')}`;
@@ -251,6 +292,19 @@ export async function iniciarCheckout(
   usuarioId: string,
   datos: DatosIniciarCheckout,
 ): Promise<ResultadoCheckout> {
+  // Camino rápido: si esta clave de idempotencia ya generó un pedido (doble
+  // clic, recarga de página, reintento de red), se devuelve el mismo
+  // resultado sin tocar stock ni crear nada. No importa si el pedido es de
+  // otro usuario (no debería pasar nunca con una clave generada por
+  // crypto.randomUUID, pero si pasara, no hay nada que reservar de nuevo).
+  const existente = await prisma.pedido.findUnique({
+    where: { claveIdempotencia: datos.claveIdempotencia },
+    select: { id: true },
+  });
+  if (existente) {
+    return resultadoDesdePedidoExistente(existente.id);
+  }
+
   // Se resuelven antes de la transacción: no dependen de nada que la
   // transacción cambie, y no tiene sentido pagar su costo en cada reintento
   // por colisión de número de pedido.
@@ -299,6 +353,7 @@ export async function iniciarCheckout(
         const pedido = await tx.pedido.create({
           data: {
             numero,
+            claveIdempotencia: datos.claveIdempotencia,
             usuarioId,
             nombreContacto: datos.nombreContacto,
             telefonoContacto: datos.telefonoContacto,
@@ -438,6 +493,17 @@ export async function iniciarCheckout(
         };
       });
     } catch (error) {
+      // Carrera: otra petición con la misma clave ya creó el pedido entre
+      // el chequeo de arriba y este intento. Se devuelve ese pedido en vez
+      // de reintentar (reintentar generaría un numero nuevo y reservaría
+      // stock por segunda vez).
+      if (esColisionClaveIdempotencia(error)) {
+        const pedido = await prisma.pedido.findUnique({
+          where: { claveIdempotencia: datos.claveIdempotencia },
+          select: { id: true },
+        });
+        if (pedido) return resultadoDesdePedidoExistente(pedido.id);
+      }
       if (esColisionNumeroPedido(error) && intento < MAX_INTENTOS_NUMERO) continue;
       throw error;
     }
