@@ -1,12 +1,41 @@
 import { randomUUID } from 'node:crypto';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type WebSocketLikeConstructor } from '@supabase/supabase-js';
 import { env } from '../config/env.js';
+
+// createClient() siempre arma un RealtimeClient internamente, aunque acá
+// solo usemos Storage. Ese RealtimeClient resuelve su WebSocket al
+// construirse (RealtimeClient._initializeOptions) con
+// `options?.transport ?? WebSocketFactory.getWebSocketConstructor()`, y esa
+// función lanza "Node.js detected but native WebSocket not found" en
+// Node 20 (el global WebSocket llega hasta Node 22). No existe una opción
+// para que createClient() no arme el RealtimeClient; lo que sí evita el
+// error es pasar nuestro propio `transport`, porque entonces el `??` nunca
+// llama a getWebSocketConstructor().
+//
+// No necesitamos una implementación real: nunca llamamos
+// supabaseAdmin.realtime.channel()/connect() (solo storage), así que esta
+// clase nunca se instancia. Si algún día alguien la usa por error, que
+// falle con un mensaje claro en vez de abrir un socket real sin querer.
+// El cast es necesario porque WebSocketLikeConstructor exige la forma
+// completa de la interfaz WebSocket (readyState, CONNECTING, etc.) que esta
+// clase nunca necesita cumplir de verdad: su constructor no retorna, siempre
+// lanza antes.
+class TransporteRealtimeNoSoportado {
+  constructor() {
+    throw new Error(
+      'Realtime de Supabase no está soportado acá: este backend solo usa Supabase Storage.',
+    );
+  }
+}
+const transporteRealtimeNoSoportado =
+  TransporteRealtimeNoSoportado as unknown as WebSocketLikeConstructor;
 
 // Cliente con la service_role key: salta RLS a propósito (es el backend
 // quien decide qué se puede subir/borrar, no una política de storage).
 // Nunca se importa desde web/ — esa llave no sale de acá.
 const supabaseAdmin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
+  realtime: { transport: transporteRealtimeNoSoportado },
 });
 
 const BUCKET = 'productos';
