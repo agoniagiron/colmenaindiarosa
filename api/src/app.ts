@@ -5,6 +5,7 @@ import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import helmet from 'helmet';
 import { pinoHttp } from 'pino-http';
+import { env } from './config/env.js';
 import { manejadorErrores, rutaNoEncontrada } from './middleware/manejadorErrores.js';
 import { requiereAuth } from './middleware/requiereAuth.js';
 import { requiereAuthAdmin, requierePermiso } from './middleware/requiereAuthAdmin.js';
@@ -32,7 +33,9 @@ import { rutasSalud } from './modulos/salud/rutas.js';
 export const app = express();
 
 app.use(helmet());
-app.use(cors());
+// Origen único tomado de env, nunca comodín: las cookies de sesión viajan
+// con credentials, y con origin: '*' el navegador las descarta.
+app.use(cors({ origin: env.ORIGEN_WEB, credentials: true }));
 app.use(compression());
 app.use(express.json());
 app.use(cookieParser());

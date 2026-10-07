@@ -16,10 +16,15 @@ const RUTA_COOKIE_REFRESH = '/api/auth';
 const DURACION_COOKIE_REFRESH_MS = 7 * 24 * 60 * 60 * 1000;
 
 function opcionesCookieRefresh() {
+  // En desarrollo, web y API comparten localhost: lax y sin secure basta.
+  // En producción quedan en dominios distintos (web en uno, API en
+  // Railway), y ahí el navegador exige sameSite 'none' + secure para
+  // enviar la cookie entre orígenes; 'none' sin secure se descarta.
+  const esProduccion = env.NODE_ENV === 'production';
   return {
     httpOnly: true,
-    sameSite: 'lax' as const,
-    secure: env.NODE_ENV === 'production',
+    sameSite: esProduccion ? ('none' as const) : ('lax' as const),
+    secure: esProduccion,
     path: RUTA_COOKIE_REFRESH,
     maxAge: DURACION_COOKIE_REFRESH_MS,
   };

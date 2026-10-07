@@ -10,10 +10,14 @@ const RUTA_COOKIE_REFRESH = '/api/admin/auth';
 const DURACION_COOKIE_REFRESH_MS = 7 * 24 * 60 * 60 * 1000;
 
 function opcionesCookieRefresh() {
+  // Mismo criterio que la cookie de clientes (ver auth/controlador.ts):
+  // en desarrollo lax/sin secure porque comparten localhost, en producción
+  // none + secure porque panel y API quedan en dominios distintos.
+  const esProduccion = env.NODE_ENV === 'production';
   return {
     httpOnly: true,
-    sameSite: 'lax' as const,
-    secure: env.NODE_ENV === 'production',
+    sameSite: esProduccion ? ('none' as const) : ('lax' as const),
+    secure: esProduccion,
     path: RUTA_COOKIE_REFRESH,
     maxAge: DURACION_COOKIE_REFRESH_MS,
   };

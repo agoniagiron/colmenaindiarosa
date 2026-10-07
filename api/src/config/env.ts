@@ -12,6 +12,13 @@ const esquemaEnv = z.object({
   // auth/ y authAdmin/ es la firma, no solo el campo `tipo` del payload.
   JWT_SECRET_ADMIN: z.string().min(32, 'JWT_SECRET_ADMIN debe tener al menos 32 caracteres'),
   NUMERO_WHATSAPP: z.string().min(1, 'NUMERO_WHATSAPP es obligatorio'),
+  // Origen exacto del frontend en producción (ej: https://indiarosa.co).
+  // Nunca un comodín: cors() lo usa para Access-Control-Allow-Origin y las
+  // cookies de sesión viajan con credentials: true.
+  ORIGEN_WEB: z.string().url('ORIGEN_WEB debe ser la URL del frontend, por ejemplo https://indiarosa.co'),
+  // WOMPI_ENTORNO y WOMPI_LLAVE_PRIVADA todavía no se leen en src/: quedan
+  // validadas desde ya porque son necesarias para integrar reembolsos y
+  // pagos en producción más adelante. No quitar.
   WOMPI_ENTORNO: z.enum(['sandbox', 'produccion']).default('sandbox'),
   WOMPI_LLAVE_PUBLICA: z.string().min(1, 'WOMPI_LLAVE_PUBLICA es obligatoria'),
   WOMPI_LLAVE_PRIVADA: z.string().min(1, 'WOMPI_LLAVE_PRIVADA es obligatoria'),
