@@ -6,9 +6,11 @@ export { repositorioHttp as repositorio } from './repositorioHttp.ts';
 export type {
   Facetas,
   FiltrosProducto,
+  HeroePortada,
   OrdenProducto,
   Pagina,
   Paginacion,
+  ProductoHeroe,
   Repositorio,
   ResultadoPaginado,
 } from './repositorio.ts';

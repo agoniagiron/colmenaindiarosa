@@ -156,14 +156,10 @@ describeConDbReal('GET /api/portada contra PostgreSQL real', () => {
       data: { productoId: producto.id, seccion: 'portada', orden: 1 },
     });
 
-    const detalle = await request(app)
-      .get(`/api/productos/${producto.slug}`)
-      .expect(200);
+    const detalle = await request(app).get(`/api/productos/${producto.slug}`).expect(200);
     expect(detalle.body.destacado).toBe(false);
 
-    const listadoDestacados = await request(app)
-      .get('/api/productos?destacado=true')
-      .expect(200);
+    const listadoDestacados = await request(app).get('/api/productos?destacado=true').expect(200);
     const idsListados = listadoDestacados.body.datos.map((p: { id: string }) => p.id);
     expect(idsListados).not.toContain(producto.id);
   });

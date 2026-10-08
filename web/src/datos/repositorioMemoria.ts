@@ -14,8 +14,10 @@ import {
 import type {
   Facetas,
   FiltrosProducto,
+  HeroePortada,
   OrdenProducto,
   Pagina,
+  ProductoHeroe,
   Repositorio,
   ResultadoPaginado,
   TonoConConteo,
@@ -27,6 +29,7 @@ import type {
   EdicionLimitada,
   EntradaConfiguracion,
   Producto,
+  ValorAtributo,
   VarianteProducto,
 } from '../tipos/index.ts';
 
@@ -202,6 +205,50 @@ async function listarFacetas(filtros: FiltrosProducto = {}): Promise<Facetas> {
   };
 }
 
+const SLUG_CATEGORIA_PORTADA = 'cat-pelucas';
+
+function estaAgotado(producto: Producto): boolean {
+  return producto.variantes.every((v) => v.stockActual - v.stockReservado <= 0);
+}
+
+// No hay un concepto de "marcado para portada" en los datos de muestra:
+// se reutiliza el flag `destacado` ya existente, acotado a Pelucas, como
+// equivalente de prueba de producto_destacado con seccion:'portada' (ver
+// api/src/modulos/portada/servicio.ts). Mismo criterio de disponibilidad
+// que el real: una peluca agotada no entra al héroe.
+async function obtenerHeroePortada(): Promise<HeroePortada> {
+  await esperar(RETARDO_MS);
+
+  const destacadas = PRODUCTOS.filter(
+    (p) => p.categoriaId === SLUG_CATEGORIA_PORTADA && p.destacado && !estaAgotado(p),
+  );
+
+  const coloresUnion = new Map<string, ValorAtributo>();
+  const productosHeroe: ProductoHeroe[] = destacadas.map((producto) => {
+    const coloresProducto = new Map<string, ValorAtributo>();
+    for (const variante of producto.variantes) {
+      if (variante.color && !coloresProducto.has(variante.color.nombre)) {
+        coloresProducto.set(variante.color.nombre, variante.color);
+        if (!coloresUnion.has(variante.color.nombre)) {
+          coloresUnion.set(variante.color.nombre, variante.color);
+        }
+      }
+    }
+    const imagenPrincipal = producto.imagenes[0];
+    return {
+      id: producto.id,
+      slug: producto.slug,
+      nombre: producto.nombre,
+      colores: Array.from(coloresProducto.values()),
+      ...(imagenPrincipal
+        ? { imagenPrincipal: { url: imagenPrincipal.url, altTexto: imagenPrincipal.altTexto } }
+        : {}),
+    };
+  });
+
+  return { destacadas: productosHeroe, colores: Array.from(coloresUnion.values()) };
+}
+
 async function obtenerProducto(slug: string): Promise<Producto | null> {
   await esperar(RETARDO_MS);
   return PRODUCTOS.find((producto) => producto.slug === slug) ?? null;
@@ -242,6 +289,7 @@ export const repositorioMemoria: Repositorio = {
   listarCategorias,
   listarProductos,
   listarFacetas,
+  obtenerHeroePortada,
   obtenerProducto,
   listarRelacionados,
   buscarCupon,

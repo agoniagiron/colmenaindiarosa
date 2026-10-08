@@ -244,6 +244,11 @@ function PestanaGeneral({
   const [cambiandoEstado, setCambiandoEstado] = useState(false);
   const [errorEstado, setErrorEstado] = useState<string | null>(null);
 
+  const [destacadoPortada, setDestacadoPortada] = useState(producto.destacadoPortada);
+  const [ordenPortada, setOrdenPortada] = useState(producto.ordenPortada ?? 0);
+  const [guardandoPortada, setGuardandoPortada] = useState(false);
+  const [errorPortada, setErrorPortada] = useState<string | null>(null);
+
   useEffect(() => {
     setNombre(producto.nombre);
     setSlug(producto.slug);
@@ -252,7 +257,17 @@ function PestanaGeneral({
     setDescripcion(producto.descripcion);
     setCuidados(producto.cuidados ?? '');
     setEnvioNotas(producto.envioNotas ?? '');
+    setDestacadoPortada(producto.destacadoPortada);
+    setOrdenPortada(producto.ordenPortada ?? 0);
   }, [producto]);
+
+  // Reactivo al <select> de categoría todavía sin guardar, no solo a
+  // producto.categoria: si la clienta cambia la categoría y todavía no
+  // guarda, el campo de portada ya debe reflejar que va a dejar de
+  // aplicar (o empezar a aplicar). Antes de que `categorias` cargue, cae
+  // al mismo respaldo que el <select> de categoría más abajo.
+  const categoriaSeleccionadaEsPelucas =
+    (categorias.find((c) => c.id === categoriaId)?.slug ?? producto.categoria.slug) === 'pelucas';
 
   async function guardar(evento: FormEvent) {
     evento.preventDefault();
@@ -273,6 +288,25 @@ function PestanaGeneral({
       setError(e instanceof api.ErrorProductosAdmin ? e.message : 'No se pudo guardar');
     } finally {
       setGuardando(false);
+    }
+  }
+
+  async function guardarPortada(evento: FormEvent) {
+    evento.preventDefault();
+    setGuardandoPortada(true);
+    setErrorPortada(null);
+    try {
+      await api.cambiarPortadaProducto(
+        accessToken,
+        producto.id,
+        destacadoPortada,
+        destacadoPortada ? ordenPortada : undefined,
+      );
+      onCambiado();
+    } catch (e) {
+      setErrorPortada(e instanceof api.ErrorProductosAdmin ? e.message : 'No se pudo guardar');
+    } finally {
+      setGuardandoPortada(false);
     }
   }
 
@@ -399,6 +433,42 @@ function PestanaGeneral({
           ) : null}
         </form>
       </Seccion>
+
+      {categoriaSeleccionadaEsPelucas ? (
+        <Seccion titulo="Portada">
+          <form onSubmit={guardarPortada} className="flex flex-wrap items-end gap-4">
+            <label className="flex items-center gap-2 text-sm text-tinta">
+              <input
+                type="checkbox"
+                checked={destacadoPortada}
+                onChange={(e) => setDestacadoPortada(e.target.checked)}
+                disabled={!puedeEditar}
+                className="h-4 w-4 rounded border-linea"
+              />
+              Mostrar en el carrusel de portada
+            </label>
+            {destacadoPortada ? (
+              <label className="flex flex-col gap-1 text-sm text-tinta">
+                Orden en el carrusel
+                <input
+                  type="number"
+                  min={0}
+                  value={ordenPortada}
+                  onChange={(e) => setOrdenPortada(Number(e.target.value))}
+                  disabled={!puedeEditar}
+                  className="w-28 rounded-lg border border-linea bg-hueso px-3 py-2 text-sm"
+                />
+              </label>
+            ) : null}
+            {puedeEditar ? (
+              <Boton type="submit" disabled={guardandoPortada}>
+                Guardar
+              </Boton>
+            ) : null}
+          </form>
+          {errorPortada ? <p className="mt-2 text-sm text-rosa">{errorPortada}</p> : null}
+        </Seccion>
+      ) : null}
 
       {puedeEditar || puedeArchivar ? (
         <Seccion titulo="Estado">

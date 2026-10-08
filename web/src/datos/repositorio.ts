@@ -65,6 +65,25 @@ export interface Facetas {
   colores: TonoConConteo[];
 }
 
+// Una peluca marcada para el carrusel del héroe (panel: Sección de
+// portada). colores son los que tienen sus variantes activas, en el orden
+// definido en el valor de atributo — no el conteo del catálogo, eso sigue
+// saliendo de Facetas.colores (ver Inicio.tsx).
+export interface ProductoHeroe {
+  id: string;
+  slug: string;
+  nombre: string;
+  imagenPrincipal?: { url: string; altTexto: string };
+  colores: ValorAtributo[];
+}
+
+export interface HeroePortada {
+  destacadas: ProductoHeroe[];
+  // Unión deduplicada de los colores de `destacadas`, en el mismo orden.
+  // Vacío cuando no hay ninguna peluca marcada para portada.
+  colores: ValorAtributo[];
+}
+
 export interface Repositorio {
   listarCategorias(): Promise<Categoria[]>;
   listarProductos(
@@ -73,6 +92,7 @@ export interface Repositorio {
     pagina?: Pagina,
   ): Promise<ResultadoPaginado<Producto>>;
   listarFacetas(filtros?: FiltrosProducto): Promise<Facetas>;
+  obtenerHeroePortada(): Promise<HeroePortada>;
   obtenerProducto(slug: string): Promise<Producto | null>;
   listarRelacionados(slug: string): Promise<Producto[]>;
   buscarCupon(codigo: string): Promise<Cupon | null>;

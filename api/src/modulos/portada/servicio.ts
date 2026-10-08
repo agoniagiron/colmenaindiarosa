@@ -75,7 +75,10 @@ export async function obtenerHeroePortada() {
       for (const relacion of variante.valoresAtributo) {
         const { valor, hex, orden } = relacion.valorAtributo;
         if (!coloresProducto.has(valor)) {
-          coloresProducto.set(valor, hex ? { nombre: valor, hex, orden } : { nombre: valor, orden });
+          coloresProducto.set(
+            valor,
+            hex ? { nombre: valor, hex, orden } : { nombre: valor, orden },
+          );
         }
       }
     }

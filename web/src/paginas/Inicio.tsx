@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Boton } from '../componentes/Boton.tsx';
+import { CarruselHeroe } from '../componentes/CarruselHeroe.tsx';
 import { EsqueletoCarga } from '../componentes/EsqueletoCarga.tsx';
 import { ImagenProducto } from '../componentes/ImagenProducto.tsx';
 import { useCarrito } from '../contexto/ContextoCarrito.tsx';
 import { useConfiguracion } from '../contexto/ContextoConfiguracion.tsx';
 import { repositorio } from '../datos/index.ts';
-import type { TonoConConteo } from '../datos/repositorio.ts';
+import type { Facetas, HeroePortada, TonoConConteo } from '../datos/repositorio.ts';
 import { estimarEntrega } from '../dominio/estimarEntrega.ts';
 import type { ReglasEntrega } from '../dominio/estimarEntrega.ts';
 import type { Combo, EdicionLimitada } from '../tipos/index.ts';
@@ -27,31 +28,68 @@ export function Inicio() {
 // --- Héroe: tonos + retrato --------------------------------------------------
 
 function SeccionHeroe() {
-  const [tonos, setTonos] = useState<TonoConConteo[] | null>(null);
+  const [heroe, setHeroe] = useState<HeroePortada | null>(null);
+  const [facetasCatalogo, setFacetasCatalogo] = useState<Facetas | null>(null);
   const [tonoActivo, setTonoActivo] = useState<string | null>(null);
 
   useEffect(() => {
     let vigente = true;
 
-    repositorio.listarFacetas({}).then((facetas) => {
-      if (!vigente) return;
-      setTonos(facetas.colores);
-      setTonoActivo((actual) => actual ?? facetas.colores[0]?.nombre ?? null);
-    });
+    // Las dos piden en paralelo: el héroe (destacadas de portada, si hay)
+    // y las facetas del catálogo completo, que siguen siendo la fuente
+    // del conteo ("N piezas") y del respaldo cuando no hay destacadas
+    // (ver abajo) — nunca se duplica esa cuenta acá.
+    Promise.all([repositorio.obtenerHeroePortada(), repositorio.listarFacetas({})]).then(
+      ([heroeCargado, facetas]) => {
+        if (!vigente) return;
+        setHeroe(heroeCargado);
+        setFacetasCatalogo(facetas);
+        const primerTono =
+          heroeCargado.destacadas.length > 0
+            ? heroeCargado.colores[0]?.nombre
+            : facetas.colores[0]?.nombre;
+        setTonoActivo((actual) => actual ?? primerTono ?? null);
+      },
+    );
 
     return () => {
       vigente = false;
     };
   }, []);
 
+  const cargando = heroe === null || facetasCatalogo === null;
+
+  // Sin destacadas de portada, la hilera sale del catálogo completo (como
+  // siempre); con destacadas, solo de los colores que de verdad tienen —
+  // el conteo ("N piezas") sigue siendo el del catálogo en los dos casos.
+  const conteoPorNombre = useMemo(
+    () => new Map((facetasCatalogo?.colores ?? []).map((c) => [c.nombre, c.conteo])),
+    [facetasCatalogo],
+  );
+  const tonos: TonoConConteo[] | null = cargando
+    ? null
+    : heroe.destacadas.length > 0
+      ? heroe.colores.map((color) => ({ ...color, conteo: conteoPorNombre.get(color.nombre) ?? 0 }))
+      : facetasCatalogo.colores;
+
+  const tono =
+    cargando || !tonos || tonos.length === 0
+      ? null
+      : (tonos.find((t) => t.nombre === tonoActivo) ?? tonos[0]!);
+
+  // Al tono elegido: solo las destacadas que tengan ese color. Si no hay
+  // destacadas, vacío (se usa la silueta de respaldo, no el carrusel).
+  const destacadasFiltradas = useMemo(() => {
+    if (cargando || heroe.destacadas.length === 0) return [];
+    if (!tono) return heroe.destacadas;
+    return heroe.destacadas.filter((d) => d.colores.some((c) => c.nombre === tono.nombre));
+  }, [cargando, heroe, tono]);
+
   // Sin ningún color publicado en el catálogo no hay héroe que armar: nada
   // de titular con una hilera vacía debajo. Mientras carga (tonos === null)
   // sigue sin saberse si va a quedar vacío, así que el titular ya se
   // muestra (con la hilera y el retrato en esqueleto).
   if (tonos !== null && tonos.length === 0) return null;
-
-  const cargando = tonos === null;
-  const tono = cargando ? null : (tonos.find((t) => t.nombre === tonoActivo) ?? tonos[0]!);
 
   return (
     <section className="mx-auto max-w-6xl px-4 pt-14 pb-20 sm:px-6">
@@ -121,6 +159,8 @@ function SeccionHeroe() {
 
         {cargando || !tono ? (
           <EsqueletoCarga alto="aspect-[3/4] h-auto" redondeado="rounded-lg" />
+        ) : heroe.destacadas.length > 0 ? (
+          <CarruselHeroe productos={destacadasFiltradas} />
         ) : (
           <figure className="relative">
             <ImagenProducto

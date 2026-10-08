@@ -10,6 +10,7 @@ import { BASE_URL_API } from './urlApi.ts';
 import type {
   Facetas,
   FiltrosProducto,
+  HeroePortada,
   OrdenProducto,
   Pagina,
   Repositorio,
@@ -22,6 +23,7 @@ import type {
   EdicionLimitada,
   EntradaConfiguracion,
   Producto,
+  ValorAtributo,
 } from '../tipos/index.ts';
 
 const BASE_URL = `${BASE_URL_API}/api`;
@@ -140,6 +142,31 @@ async function listarFacetas(filtros: FiltrosProducto = {}): Promise<Facetas> {
   };
 }
 
+interface ProductoHeroeApi {
+  id: string;
+  slug: string;
+  nombre: string;
+  imagenPrincipal: { url: string; altTexto: string } | null;
+  colores: ValorAtributo[];
+}
+
+async function obtenerHeroePortada(): Promise<HeroePortada> {
+  const heroe = await solicitarJson<{ destacadas: ProductoHeroeApi[]; colores: ValorAtributo[] }>(
+    '/portada',
+  );
+
+  return {
+    colores: heroe.colores,
+    destacadas: heroe.destacadas.map((producto) => ({
+      id: producto.id,
+      slug: producto.slug,
+      nombre: producto.nombre,
+      colores: producto.colores,
+      ...(producto.imagenPrincipal ? { imagenPrincipal: producto.imagenPrincipal } : {}),
+    })),
+  };
+}
+
 async function obtenerProducto(slug: string): Promise<Producto | null> {
   try {
     return await solicitarJson<Producto>(`/productos/${encodeURIComponent(slug)}`);
@@ -176,6 +203,7 @@ export const repositorioHttp: Repositorio = {
   listarCategorias,
   listarProductos,
   listarFacetas,
+  obtenerHeroePortada,
   obtenerProducto,
   listarRelacionados,
   buscarCupon,

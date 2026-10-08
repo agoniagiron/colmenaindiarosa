@@ -213,7 +213,7 @@ function mapearVariante(variante: VarianteConAtributos, contexto: ContextoPrecio
     ? aplicarPromocionAPrecio(variante.precioActual, promo)
     : variante.precioActual;
 
-return {
+  return {
     id: variante.id,
     sku: variante.sku,
     // precioUsd guardado es del precio de lista: si hay promoción, el USD

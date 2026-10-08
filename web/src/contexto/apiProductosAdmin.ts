@@ -173,6 +173,10 @@ export interface ProductoDetalle {
   categoria: { id: string; nombre: string; slug: string };
   variantes: VarianteDetalle[];
   imagenes: ImagenProductoDetalle[];
+  // Carrusel del héroe en la tienda (seccion:'portada'). Solo aplica a la
+  // categoría Pelucas — ver PestanaGeneral en AdminProductoDetalle.tsx.
+  destacadoPortada: boolean;
+  ordenPortada: number | null;
 }
 
 export function obtenerDetalleProducto(accessToken: string, id: string): Promise<ProductoDetalle> {
@@ -234,6 +238,21 @@ export function cambiarEstadoProducto(
   return solicitar(BASE_PRODUCTOS, `/${encodeURIComponent(id)}/estado`, accessToken, {
     method: 'PATCH',
     body: JSON.stringify({ estado, confirmarKitsAfectados }),
+  });
+}
+
+// El backend ya rechaza destacado:true fuera de Pelucas (400); acá no se
+// repite esa validación, solo se muestra el campo condicionalmente (ver
+// PestanaGeneral en AdminProductoDetalle.tsx).
+export function cambiarPortadaProducto(
+  accessToken: string,
+  id: string,
+  destacado: boolean,
+  orden?: number,
+): Promise<ProductoDetalle> {
+  return solicitar(BASE_PRODUCTOS, `/${encodeURIComponent(id)}/portada`, accessToken, {
+    method: 'PATCH',
+    body: JSON.stringify({ destacado, ...(orden !== undefined ? { orden } : {}) }),
   });
 }
 

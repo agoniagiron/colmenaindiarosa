@@ -25,9 +25,8 @@ if (!DATABASE_URL_TEST) {
 const describeConDbReal = DATABASE_URL_TEST ? describe : describe.skip;
 
 const { prisma } = await import('../../lib/prisma.js');
-const { editarProducto, cambiarPortadaProducto } = await import(
-  '../../modulos/admin/productos/servicio.js'
-);
+const { editarProducto, cambiarPortadaProducto } =
+  await import('../../modulos/admin/productos/servicio.js');
 const { obtenerHeroePortada } = await import('../../modulos/portada/servicio.js');
 
 const SUFIJO = `portada-admin-${Date.now()}`;
@@ -72,9 +71,9 @@ describeConDbReal('Admin/Productos: portada (seccion:"portada") contra PostgreSQ
     });
     idsProducto.push(producto.id);
 
-    await expect(
-      cambiarPortadaProducto(producto.id, { destacado: true }),
-    ).rejects.toMatchObject({ estadoHttp: 400 });
+    await expect(cambiarPortadaProducto(producto.id, { destacado: true })).rejects.toMatchObject({
+      estadoHttp: 400,
+    });
 
     const filas = await prisma.productoDestacado.findMany({ where: { productoId: producto.id } });
     expect(filas).toHaveLength(0);

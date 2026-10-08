@@ -1,6 +1,21 @@
 import '@testing-library/jest-dom/vitest';
 import { vi } from 'vitest';
 
+// jsdom no implementa matchMedia. Lo usa usePrefiereMovimientoReducido.ts
+// (CarruselHeroe.tsx) — sin esto, cualquier prueba que monte ese
+// componente revienta con "matchMedia is not a function", sin relación
+// con lo que esa prueba quiere verificar. "matches: false" por defecto:
+// las pruebas que necesiten simular prefers-reduced-motion activo
+// sobrescriben window.matchMedia puntualmente (ver CarruselHeroe.test.tsx).
+if (typeof window !== 'undefined' && !window.matchMedia) {
+  window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+    matches: false,
+    media: query,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  })) as typeof window.matchMedia;
+}
+
 // Los componentes acceden a los datos únicamente vía datos/index.ts. En
 // pruebas se usa siempre repositorioMemoria (sin red), sin importar cuál
 // implementación esté activa en producción.
