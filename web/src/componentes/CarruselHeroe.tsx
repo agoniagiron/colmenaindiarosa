@@ -1,49 +1,76 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ImagenProducto } from './ImagenProducto.tsx';
 import type { ProductoHeroe } from '../datos/index.ts';
 import { usePrefiereMovimientoReducido } from '../utilidades/usePrefiereMovimientoReducido.ts';
 
 const INTERVALO_MS = 5000;
+const DURACION_FUNDIDO_MS = 300;
 
 interface CarruselHeroeProps {
-  // El padre (Inicio.tsx) debe pasar esta lista ya memoizada: una
-  // identidad nueva se interpreta como "cambió el conjunto a mostrar"
-  // (p. ej. se eligió otro tono) y reinicia el carrusel + el autoavance,
-  // aunque antes se hubieran usado las flechas o los puntos.
+  // El recorrido completo (todas las pelucas destacadas, agrupadas por
+  // tono y en ese orden — ver Inicio.tsx), no solo las del tono activo:
+  // el recorrido nunca se corta al llegar al final de un tono, sigue con
+  // el siguiente y da la vuelta al llegar al final.
+  //
+  // El índice es controlado por el padre (Inicio.tsx), no por este
+  // componente: así la hilera de tonos de la izquierda puede resaltar el
+  // tono que corresponde a lo que se ve acá, venga el cambio de donde
+  // venga (autoavance, flecha, punto o elegir un tono a mano).
   productos: ProductoHeroe[];
+  indice: number;
+  onCambiarIndice: (indice: number) => void;
 }
 
-export function CarruselHeroe({ productos }: CarruselHeroeProps) {
-  const [indice, setIndice] = useState(0);
-  // Solo se prende con una flecha o un punto (ver onClick de cada uno);
-  // elegir un tono no lo toca — cambia `productos`, que ya reinicia esto
-  // en el efecto de abajo.
-  const [detenidoManual, setDetenidoManual] = useState(false);
+export function CarruselHeroe({ productos, indice, onCambiarIndice }: CarruselHeroeProps) {
   const prefiereMovimientoReducido = usePrefiereMovimientoReducido();
+  const [pausadoPorHover, setPausadoPorHover] = useState(false);
 
+  // Nunca se detiene sola: la única pausa es el cursor encima (punto 6
+  // del pedido). El temporizador se reinicia cada vez que `indice`
+  // cambia, sin importar el origen (autoavance, flecha, punto o un tono
+  // elegido a mano) — por eso usar una flecha no hace que salte de
+  // inmediato: vuelve a contar los 5s completos desde ahí.
   useEffect(() => {
-    setIndice(0);
-    setDetenidoManual(false);
-  }, [productos]);
-
-  useEffect(() => {
-    if (detenidoManual || prefiereMovimientoReducido || productos.length <= 1) return;
-    const temporizador = setInterval(() => {
-      setIndice((actual) => (actual + 1) % productos.length);
+    if (pausadoPorHover || prefiereMovimientoReducido || productos.length <= 1) return;
+    const temporizador = setTimeout(() => {
+      onCambiarIndice((indice + 1) % productos.length);
     }, INTERVALO_MS);
-    return () => clearInterval(temporizador);
-  }, [detenidoManual, prefiereMovimientoReducido, productos.length]);
+    return () => clearTimeout(temporizador);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onCambiarIndice es el setter de Inicio.tsx, estable entre renders.
+  }, [indice, pausadoPorHover, prefiereMovimientoReducido, productos.length]);
 
-  if (productos.length === 0) return null;
+  const indiceSeguro = productos.length > 0 ? Math.min(indice, productos.length - 1) : 0;
+  const actual = productos[indiceSeguro];
 
-  const actual = productos[Math.min(indice, productos.length - 1)]!;
+  // Fundido corto entre fotos: la saliente se desvanece mientras la
+  // entrante aparece, en paralelo — una vitrina, no una diapositiva con
+  // corte seco. Con prefers-reduced-motion no hay nada que animar: el
+  // cambio es directo (ver el `if` de abajo).
+  const [transicion, setTransicion] = useState<{
+    saliente: ProductoHeroe;
+    fase: 'inicio' | 'fin';
+  } | null>(null);
+  const anteriorRef = useRef(actual);
+
+  useEffect(() => {
+    const anterior = anteriorRef.current;
+    anteriorRef.current = actual;
+    if (!actual || !anterior || anterior.id === actual.id || prefiereMovimientoReducido) return;
+
+    setTransicion({ saliente: anterior, fase: 'inicio' });
+    const idFrame = requestAnimationFrame(() => {
+      setTransicion((t) => (t ? { ...t, fase: 'fin' } : t));
+    });
+    const idTimeout = setTimeout(() => setTransicion(null), DURACION_FUNDIDO_MS);
+    return () => {
+      cancelAnimationFrame(idFrame);
+      clearTimeout(idTimeout);
+    };
+  }, [actual, prefiereMovimientoReducido]);
+
+  if (!actual) return null;
   const hayVarias = productos.length > 1;
-
-  function irA(nuevoIndice: number) {
-    setDetenidoManual(true);
-    setIndice(nuevoIndice);
-  }
 
   return (
     <div
@@ -51,46 +78,66 @@ export function CarruselHeroe({ productos }: CarruselHeroeProps) {
       aria-roledescription="carrusel"
       aria-label="Pelucas destacadas en portada"
       className="relative"
+      onMouseEnter={() => setPausadoPorHover(true)}
+      onMouseLeave={() => setPausadoPorHover(false)}
     >
-      <Link to={`/producto/${actual.slug}`} className="group block">
-        <ImagenProducto
-          nombre={actual.nombre}
-          colorHex={actual.colores[0]?.hex}
-          url={actual.imagenPrincipal?.url}
-          className="rounded-tl-[999px] rounded-tr-[999px] rounded-bl-lg rounded-br-lg transition-opacity group-hover:opacity-90"
-        />
-        <p className="mt-4 text-center font-serif text-lg text-tinta">{actual.nombre}</p>
-      </Link>
+      <div className="relative">
+        {transicion ? (
+          <div
+            aria-hidden="true"
+            className={`pointer-events-none absolute inset-0 transition-opacity duration-300 ${
+              transicion.fase === 'inicio' ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            <TarjetaDestacada producto={transicion.saliente} />
+          </div>
+        ) : null}
+        <div
+          className={
+            transicion
+              ? `transition-opacity duration-300 ${
+                  transicion.fase === 'inicio' ? 'opacity-0' : 'opacity-100'
+                }`
+              : ''
+          }
+        >
+          <TarjetaDestacada producto={actual} />
+        </div>
+      </div>
 
       {hayVarias ? (
         <>
           <button
             type="button"
             aria-label="Peluca anterior"
-            onClick={() => irA((indice - 1 + productos.length) % productos.length)}
-            className="absolute left-2 top-[42%] -translate-y-1/2 rounded-full bg-white/90 p-2 text-tinta shadow-lg transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa"
+            onClick={() => onCambiarIndice((indice - 1 + productos.length) % productos.length)}
+            className="absolute left-2 top-[38%] -translate-y-1/2 rounded-full bg-white/90 p-2 text-tinta shadow-lg transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa"
           >
             <FlechaIcono direccion="izquierda" />
           </button>
           <button
             type="button"
             aria-label="Peluca siguiente"
-            onClick={() => irA((indice + 1) % productos.length)}
-            className="absolute right-2 top-[42%] -translate-y-1/2 rounded-full bg-white/90 p-2 text-tinta shadow-lg transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa"
+            onClick={() => onCambiarIndice((indice + 1) % productos.length)}
+            className="absolute right-2 top-[38%] -translate-y-1/2 rounded-full bg-white/90 p-2 text-tinta shadow-lg transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa"
           >
             <FlechaIcono direccion="derecha" />
           </button>
 
+          {/* Un punto por peluca del recorrido completo, no solo las del
+              tono activo (punto 4 del pedido). La posición en el arreglo
+              es la llave: la misma peluca puede repetirse en más de un
+              tono y no sirve como identificador único acá. */}
           <div role="group" aria-label="Ir a una peluca" className="mt-3 flex justify-center gap-2">
             {productos.map((producto, i) => (
               <button
-                key={producto.id}
+                key={i}
                 type="button"
                 aria-label={`Ir a ${producto.nombre}`}
-                aria-current={i === indice}
-                onClick={() => irA(i)}
+                aria-current={i === indiceSeguro}
+                onClick={() => onCambiarIndice(i)}
                 className={`h-2.5 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa ${
-                  i === indice ? 'w-6 bg-rosa' : 'w-2.5 bg-linea hover:bg-texto-secundario'
+                  i === indiceSeguro ? 'w-6 bg-rosa' : 'w-2.5 bg-linea hover:bg-texto-secundario'
                 }`}
               />
             ))}
@@ -98,6 +145,24 @@ export function CarruselHeroe({ productos }: CarruselHeroeProps) {
         </>
       ) : null}
     </div>
+  );
+}
+
+// Columna derecha más alta que ancha (punto 7): aspect-[2/3], no el
+// aspect-[3/4] por defecto de ImagenProducto. Mismo mecanismo de
+// className que ya usa SeccionMarca en Inicio.tsx para su propio
+// aspect-square — acá reemplaza el aspecto en vez del redondeado.
+function TarjetaDestacada({ producto }: { producto: ProductoHeroe }) {
+  return (
+    <Link to={`/producto/${producto.slug}`} className="group block">
+      <ImagenProducto
+        nombre={producto.nombre}
+        colorHex={producto.colores[0]?.hex}
+        url={producto.imagenPrincipal?.url}
+        className="aspect-[2/3] rounded-tl-[999px] rounded-tr-[999px] rounded-bl-lg rounded-br-lg transition-opacity group-hover:opacity-90"
+      />
+      <p className="mt-4 text-center font-serif text-lg text-tinta">{producto.nombre}</p>
+    </Link>
   );
 }
 

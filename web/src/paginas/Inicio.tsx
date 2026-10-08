@@ -30,7 +30,12 @@ export function Inicio() {
 function SeccionHeroe() {
   const [heroe, setHeroe] = useState<HeroePortada | null>(null);
   const [facetasCatalogo, setFacetasCatalogo] = useState<Facetas | null>(null);
-  const [tonoActivo, setTonoActivo] = useState<string | null>(null);
+  // Solo se usa en la rama de respaldo (sin destacadas): ahí el tono lo
+  // elige la clienta a mano, como siempre. Con destacadas, el tono activo
+  // no se guarda acá — se deriva de `indiceRecorrido` más abajo, para que
+  // la hilera siga al carrusel y nunca al revés (punto 2 del pedido).
+  const [tonoActivoManual, setTonoActivoManual] = useState<string | null>(null);
+  const [indiceRecorrido, setIndiceRecorrido] = useState(0);
 
   useEffect(() => {
     let vigente = true;
@@ -44,11 +49,6 @@ function SeccionHeroe() {
         if (!vigente) return;
         setHeroe(heroeCargado);
         setFacetasCatalogo(facetas);
-        const primerTono =
-          heroeCargado.destacadas.length > 0
-            ? heroeCargado.colores[0]?.nombre
-            : facetas.colores[0]?.nombre;
-        setTonoActivo((actual) => actual ?? primerTono ?? null);
       },
     );
 
@@ -58,6 +58,7 @@ function SeccionHeroe() {
   }, []);
 
   const cargando = heroe === null || facetasCatalogo === null;
+  const hayDestacadas = !cargando && heroe.destacadas.length > 0;
 
   // Sin destacadas de portada, la hilera sale del catálogo completo (como
   // siempre); con destacadas, solo de los colores que de verdad tienen —
@@ -68,22 +69,31 @@ function SeccionHeroe() {
   );
   const tonos: TonoConConteo[] | null = cargando
     ? null
-    : heroe.destacadas.length > 0
+    : hayDestacadas
       ? heroe.colores.map((color) => ({ ...color, conteo: conteoPorNombre.get(color.nombre) ?? 0 }))
       : facetasCatalogo.colores;
+
+  // El recorrido completo: las pelucas del primer tono, una por una, y al
+  // terminar las del siguiente — en el mismo orden en que aparecen los
+  // tonos (punto 1). Una peluca con más de un color aparece una vez por
+  // cada tono que tenga, así que no sirve deduplicarla.
+  const recorrido = useMemo(() => {
+    if (!hayDestacadas) return [];
+    return heroe.colores.flatMap((color) =>
+      heroe.destacadas
+        .filter((producto) => producto.colores.some((c) => c.nombre === color.nombre))
+        .map((producto) => ({ producto, tonoNombre: color.nombre })),
+    );
+  }, [hayDestacadas, heroe]);
+
+  const indiceSeguro = recorrido.length > 0 ? indiceRecorrido % recorrido.length : 0;
 
   const tono =
     cargando || !tonos || tonos.length === 0
       ? null
-      : (tonos.find((t) => t.nombre === tonoActivo) ?? tonos[0]!);
-
-  // Al tono elegido: solo las destacadas que tengan ese color. Si no hay
-  // destacadas, vacío (se usa la silueta de respaldo, no el carrusel).
-  const destacadasFiltradas = useMemo(() => {
-    if (cargando || heroe.destacadas.length === 0) return [];
-    if (!tono) return heroe.destacadas;
-    return heroe.destacadas.filter((d) => d.colores.some((c) => c.nombre === tono.nombre));
-  }, [cargando, heroe, tono]);
+      : hayDestacadas
+        ? (tonos.find((t) => t.nombre === recorrido[indiceSeguro]?.tonoNombre) ?? tonos[0]!)
+        : (tonos.find((t) => t.nombre === tonoActivoManual) ?? tonos[0]!);
 
   // Sin ningún color publicado en el catálogo no hay héroe que armar: nada
   // de titular con una hilera vacía debajo. Mientras carga (tonos === null)
@@ -91,9 +101,20 @@ function SeccionHeroe() {
   // muestra (con la hilera y el retrato en esqueleto).
   if (tonos !== null && tonos.length === 0) return null;
 
+  function elegirTono(nombreTono: string) {
+    if (hayDestacadas) {
+      // Reposiciona el recorrido a la primera peluca de ese tono; el
+      // autoavance sigue de ahí, hacia el siguiente tono (punto 5).
+      const indice = recorrido.findIndex((item) => item.tonoNombre === nombreTono);
+      if (indice !== -1) setIndiceRecorrido(indice);
+    } else {
+      setTonoActivoManual(nombreTono);
+    }
+  }
+
   return (
     <section className="mx-auto max-w-6xl px-4 pt-14 pb-20 sm:px-6">
-      <div className="grid gap-16 lg:grid-cols-2 lg:items-center">
+      <div className="grid gap-10 lg:grid-cols-[2fr_3fr] lg:items-center">
         <div>
           <h1 className="font-serif text-4xl text-tinta sm:text-5xl lg:text-6xl">
             Elige tu tono
@@ -120,7 +141,7 @@ function SeccionHeroe() {
                       key={item.nombre}
                       type="button"
                       aria-pressed={activo}
-                      onClick={() => setTonoActivo(item.nombre)}
+                      onClick={() => elegirTono(item.nombre)}
                       className={`flex items-center gap-4 rounded-full px-3 py-2.5 text-left transition-colors hover:bg-arena focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa ${
                         activo ? 'bg-arena ring-1 ring-linea' : ''
                       }`}
@@ -158,15 +179,19 @@ function SeccionHeroe() {
         </div>
 
         {cargando || !tono ? (
-          <EsqueletoCarga alto="aspect-[3/4] h-auto" redondeado="rounded-lg" />
-        ) : heroe.destacadas.length > 0 ? (
-          <CarruselHeroe productos={destacadasFiltradas} />
+          <EsqueletoCarga alto="aspect-[2/3] h-auto" redondeado="rounded-lg" />
+        ) : hayDestacadas ? (
+          <CarruselHeroe
+            productos={recorrido.map((item) => item.producto)}
+            indice={indiceSeguro}
+            onCambiarIndice={setIndiceRecorrido}
+          />
         ) : (
           <figure className="relative">
             <ImagenProducto
               nombre={tono.nombre}
               colorHex={tono.hex}
-              className="rounded-tl-[999px] rounded-tr-[999px] rounded-bl-lg rounded-br-lg"
+              className="aspect-[2/3] rounded-tl-[999px] rounded-tr-[999px] rounded-bl-lg rounded-br-lg"
             />
             <figcaption className="absolute bottom-5 left-5 rounded-full bg-white px-4 py-2 text-xs tracking-[0.1em] text-tinta shadow-lg">
               {tono.nombre}
