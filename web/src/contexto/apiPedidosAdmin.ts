@@ -2,7 +2,9 @@
 // apiAnaliticaAdmin.ts (token del panel admin) más las mutaciones al estilo
 // de apiCarrito.ts (POST/PATCH con cuerpo JSON).
 
-const BASE_URL = '/api/admin/pedidos';
+import { BASE_URL_API } from '../datos/urlApi.ts';
+
+const BASE_URL = `${BASE_URL_API}/api/admin/pedidos`;
 
 export class ErrorPedidosAdmin extends Error {
   readonly estadoHttp: number;

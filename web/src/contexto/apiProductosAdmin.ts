@@ -2,9 +2,11 @@
 // apiPedidosAdmin.ts: token del panel admin, GET simples y mutaciones
 // POST/PATCH con cuerpo JSON.
 
-const BASE_PRODUCTOS = '/api/admin/productos';
-const BASE_VARIANTES = '/api/admin/variantes';
-const BASE_ATRIBUTOS = '/api/admin/atributos';
+import { BASE_URL_API } from '../datos/urlApi.ts';
+
+const BASE_PRODUCTOS = `${BASE_URL_API}/api/admin/productos`;
+const BASE_VARIANTES = `${BASE_URL_API}/api/admin/variantes`;
+const BASE_ATRIBUTOS = `${BASE_URL_API}/api/admin/atributos`;
 
 export class ErrorProductosAdmin extends Error {
   readonly estadoHttp: number;
@@ -345,7 +347,7 @@ export function crearValorAtributo(
 
 // --- Imágenes ------------------------------------------------------------------
 
-const BASE_IMAGENES = '/api/admin/imagenes';
+const BASE_IMAGENES = `${BASE_URL_API}/api/admin/imagenes`;
 
 export interface SubidaFirmadaImagen {
   urlFirmada: string;

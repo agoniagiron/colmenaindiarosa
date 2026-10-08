@@ -2,7 +2,9 @@
 // backend es la única fuente de verdad de precios, totales y firma: acá no
 // se calcula nada, solo se tipa y reenvía.
 
-const BASE_URL = '/api';
+import { BASE_URL_API } from '../datos/urlApi.ts';
+
+const BASE_URL = `${BASE_URL_API}/api`;
 
 export class ErrorCheckout extends Error {
   readonly estadoHttp: number;

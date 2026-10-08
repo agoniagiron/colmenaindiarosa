@@ -2,9 +2,10 @@
 // de verdad de precios y totales: este archivo solo tipa y reenvía la
 // respuesta, no recalcula nada.
 
+import { BASE_URL_API } from '../datos/urlApi.ts';
 import type { Cupon, LineaCarrito, TotalesCarrito } from '../tipos/index.ts';
 
-const BASE_URL = '/api/carrito';
+const BASE_URL = `${BASE_URL_API}/api/carrito`;
 
 export class ErrorCarrito extends Error {
   readonly estadoHttp: number;

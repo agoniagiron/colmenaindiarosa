@@ -2,9 +2,10 @@
 // de datos/ (que es el contrato Repositorio de catálogo/carrito): esto es
 // autenticación, no datos de catálogo.
 
+import { BASE_URL_API } from '../datos/urlApi.ts';
 import type { Usuario } from '../tipos/index.ts';
 
-const BASE_URL = '/api/auth';
+const BASE_URL = `${BASE_URL_API}/api/auth`;
 
 export class ErrorAuth extends Error {
   readonly estadoHttp: number;

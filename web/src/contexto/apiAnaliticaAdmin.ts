@@ -1,7 +1,9 @@
 // Cliente HTTP para api/src/modulos/analitica (rutas admin). Mismo patrón
 // que apiAuthAdmin.ts: token del panel admin, nunca el de cliente.
 
-const BASE_URL = '/api/admin/analitica';
+import { BASE_URL_API } from '../datos/urlApi.ts';
+
+const BASE_URL = `${BASE_URL_API}/api/admin/analitica`;
 
 export class ErrorAnaliticaAdmin extends Error {
   readonly estadoHttp: number;

@@ -1,7 +1,12 @@
 // Implementación de Repositorio contra la API real (api/src/modulos/*).
-// Las rutas son relativas a /api: en desarrollo, el proxy de Vite
-// (ver vite.config.ts) las redirige al backend en localhost:3001.
+// Las rutas son relativas a /api, con BASE_URL_API (urlApi.ts) adelante:
+// - Si VITE_API_URL está definida (producción, donde la API vive en un
+//   dominio distinto), las peticiones van directo a ese dominio.
+// - Si no está definida (desarrollo), la base queda vacía y las rutas
+//   siguen siendo relativas: ahí es donde entra el proxy de /api en
+//   vite.config.ts, que las redirige a localhost:3001.
 
+import { BASE_URL_API } from './urlApi.ts';
 import type {
   Facetas,
   FiltrosProducto,
@@ -19,7 +24,7 @@ import type {
   Producto,
 } from '../tipos/index.ts';
 
-const BASE_URL = '/api';
+const BASE_URL = `${BASE_URL_API}/api`;
 
 const ORDEN_A_API: Record<OrdenProducto, string> = {
   relevancia: 'relevancia',

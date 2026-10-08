@@ -1,5 +1,9 @@
 // Cliente HTTP para api/src/modulos/cuenta (direcciones de envío).
 
+import { BASE_URL_API } from '../datos/urlApi.ts';
+
+const BASE_URL = `${BASE_URL_API}/api/cuenta`;
+
 export class ErrorCuenta extends Error {
   readonly estadoHttp: number;
 
@@ -38,7 +42,7 @@ async function solicitar<T>(
   accessToken: string | null,
   opciones: RequestInit = {},
 ): Promise<T> {
-  const respuesta = await fetch(`/api/cuenta${ruta}`, {
+  const respuesta = await fetch(`${BASE_URL}${ruta}`, {
     ...opciones,
     credentials: 'include',
     headers: {

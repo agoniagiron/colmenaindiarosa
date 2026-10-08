@@ -3,7 +3,9 @@
 // cookies, tokens y secretos distintos en el backend. Un token de acá
 // nunca sirve contra /api/auth/ ni viceversa.
 
-const BASE_URL = '/api/admin/auth';
+import { BASE_URL_API } from '../datos/urlApi.ts';
+
+const BASE_URL = `${BASE_URL_API}/api/admin/auth`;
 
 export class ErrorAuthAdmin extends Error {
   readonly estadoHttp: number;

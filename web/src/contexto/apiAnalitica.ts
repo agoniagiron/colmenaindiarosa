@@ -2,7 +2,9 @@
 // checkout que no tienen una acción de servidor que los dispare. Fire-and-
 // forget a propósito: nunca debe bloquear ni romper la UI si falla.
 
-const BASE_URL = '/api/analitica';
+import { BASE_URL_API } from '../datos/urlApi.ts';
+
+const BASE_URL = `${BASE_URL_API}/api/analitica`;
 
 export type TipoEventoCliente =
   | 'iniciarCheckout'
