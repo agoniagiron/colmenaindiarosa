@@ -29,6 +29,14 @@ export const esquemaBodyEditarProducto = z.object({
   seoDescripcion: z.string().trim().nullable().optional(),
 });
 
+export const esquemaBodyPortadaProducto = z.object({
+  destacado: z.boolean(),
+  // Ignorado cuando destacado es false. Si destacado es true y no llega,
+  // el servicio usa 0 para una fila nueva o conserva el orden actual si ya
+  // existía (ver cambiarPortadaProducto en servicio.ts).
+  orden: z.coerce.number().int().nonnegative().optional(),
+});
+
 export const esquemaBodyEstadoProducto = z.object({
   estado: z.enum(ESTADOS_PUBLICACION),
   // Cuando se despublica/archiva un producto con variantes en un kit
@@ -93,6 +101,7 @@ export type QueryListadoProductos = z.infer<typeof esquemaQueryListado>;
 export type BodyCrearProducto = z.infer<typeof esquemaBodyCrearProducto>;
 export type BodyEditarProducto = z.infer<typeof esquemaBodyEditarProducto>;
 export type BodyEstadoProducto = z.infer<typeof esquemaBodyEstadoProducto>;
+export type BodyPortadaProducto = z.infer<typeof esquemaBodyPortadaProducto>;
 export type BodyCrearVariante = z.infer<typeof esquemaBodyCrearVariante>;
 export type BodyEditarVariante = z.infer<typeof esquemaBodyEditarVariante>;
 export type BodyPrecioVariante = z.infer<typeof esquemaBodyPrecioVariante>;

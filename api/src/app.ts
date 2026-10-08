@@ -27,6 +27,7 @@ import { rutasCuenta } from './modulos/cuenta/rutas.js';
 import { rutasLimitadas } from './modulos/limitadas/rutas.js';
 import { rutasWebhookWompi } from './modulos/pagos/rutas.js';
 import { rutasCheckout, rutasPedidos } from './modulos/pedidos/rutas.js';
+import { rutasPortada } from './modulos/portada/rutas.js';
 import { rutasPromociones } from './modulos/promociones/rutas.js';
 import { rutasSalud } from './modulos/salud/rutas.js';
 
@@ -100,6 +101,7 @@ app.use('/api/configuracion', rutasConfiguracion);
 app.use('/api/limitadas', rutasLimitadas);
 app.use('/api/combos', rutasCombos);
 app.use('/api/promociones', rutasPromociones);
+app.use('/api/portada', rutasPortada);
 app.use('/api', sesionVisita, rutasCatalogo);
 
 app.use(rutaNoEncontrada);

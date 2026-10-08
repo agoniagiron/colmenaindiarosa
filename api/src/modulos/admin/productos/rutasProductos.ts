@@ -10,6 +10,7 @@ import {
   esquemaBodyCrearVariante,
   esquemaBodyEditarProducto,
   esquemaBodyEstadoProducto,
+  esquemaBodyPortadaProducto,
   esquemaBodyPreciosProducto,
   esquemaQueryListado,
 } from './esquemas.js';
@@ -61,6 +62,13 @@ rutasAdminProductos.patch(
   validar({ body: esquemaBodyEstadoProducto }),
   requierePermisoEstado,
   controlador.cambiarEstado,
+);
+
+rutasAdminProductos.patch(
+  '/:id/portada',
+  requierePermiso('productos.editar'),
+  validar({ body: esquemaBodyPortadaProducto }),
+  controlador.cambiarPortada,
 );
 
 // Crear una variante da de alta un SKU y su stock: mismo permiso que dar

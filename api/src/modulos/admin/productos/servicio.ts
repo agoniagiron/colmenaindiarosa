@@ -8,6 +8,7 @@ import type {
   BodyEditarProducto,
   BodyEditarVariante,
   BodyEstadoProducto,
+  BodyPortadaProducto,
   BodyPreciosProducto,
   BodyPrecioVariante,
   QueryListadoProductos,
@@ -179,28 +180,47 @@ const SELECT_DETALLE = {
       creadoEn: true,
     },
   },
+  // seccion: 'portada' es el carrusel del héroe (ver modulos/portada/), no
+  // el "Destacado" de seccion:'inicio' que usa el catálogo (ver
+  // catalogo/servicio.ts) — por eso se seleccionan aparte.
+  destacados: { where: { seccion: 'portada' }, select: { orden: true } },
 } satisfies Prisma.ProductoSelect;
+
+type ProductoDetalleCrudo = Prisma.ProductoGetPayload<{ select: typeof SELECT_DETALLE }>;
+
+// El panel solo necesita saber si está marcado para portada y con qué
+// orden, no la fila de producto_destacado en sí (desde/hasta no aplican a
+// esta sección, se ignoran a propósito — ver el plan).
+function mapearDetalle(producto: ProductoDetalleCrudo) {
+  const { destacados, ...resto } = producto;
+  return {
+    ...resto,
+    destacadoPortada: destacados.length > 0,
+    ordenPortada: destacados[0]?.orden ?? null,
+  };
+}
 
 export async function obtenerDetalleProducto(id: string) {
   const producto = await prisma.producto.findUnique({ where: { id }, select: SELECT_DETALLE });
   if (!producto) {
     throw ErrorApi.noEncontrado('El producto no existe');
   }
-  return producto;
+  return mapearDetalle(producto);
 }
 
 // ---------------------------------------------------------------------------
 // Crear / editar producto
 // ---------------------------------------------------------------------------
 
-async function validarCategoria(categoriaId: string): Promise<void> {
+async function validarCategoria(categoriaId: string): Promise<{ id: string; slug: string }> {
   const categoria = await prisma.categoria.findUnique({
     where: { id: categoriaId },
-    select: { id: true },
+    select: { id: true, slug: true },
   });
   if (!categoria) {
     throw ErrorApi.peticionInvalida('La categoría no existe');
   }
+  return categoria;
 }
 
 export async function crearProducto(datos: BodyCrearProducto, usuarioAdminId: string) {
@@ -212,7 +232,7 @@ export async function crearProducto(datos: BodyCrearProducto, usuarioAdminId: st
   }
 
   try {
-    return await prisma.producto.create({
+    const creado = await prisma.producto.create({
       data: {
         nombre: datos.nombre,
         slug,
@@ -221,6 +241,7 @@ export async function crearProducto(datos: BodyCrearProducto, usuarioAdminId: st
       },
       select: SELECT_DETALLE,
     });
+    return mapearDetalle(creado);
   } catch (error) {
     if (esColisionUnica(error, 'slug')) {
       throw ErrorApi.conflicto(`Ya existe un producto con el slug "${slug}"`);
@@ -229,14 +250,17 @@ export async function crearProducto(datos: BodyCrearProducto, usuarioAdminId: st
   }
 }
 
+const SLUG_CATEGORIA_PORTADA = 'pelucas';
+
 export async function editarProducto(id: string, datos: BodyEditarProducto) {
   const producto = await prisma.producto.findUnique({ where: { id }, select: { id: true } });
   if (!producto) {
     throw ErrorApi.noEncontrado('El producto no existe');
   }
 
+  let nuevaCategoria: { id: string; slug: string } | undefined;
   if (datos.categoriaId) {
-    await validarCategoria(datos.categoriaId);
+    nuevaCategoria = await validarCategoria(datos.categoriaId);
   }
 
   const slug = datos.slug !== undefined ? generarSlug(datos.slug) : undefined;
@@ -245,22 +269,38 @@ export async function editarProducto(id: string, datos: BodyEditarProducto) {
   }
 
   try {
-    return await prisma.producto.update({
-      where: { id },
-      data: {
-        nombre: datos.nombre,
-        slug,
-        categoriaId: datos.categoriaId,
-        descripcionCorta: datos.descripcionCorta,
-        descripcion: datos.descripcion,
-        cuidados: datos.cuidados,
-        envioNotas: datos.envioNotas,
-        seoTitulo: datos.seoTitulo,
-        seoDescripcion: datos.seoDescripcion,
-        actualizadoEn: new Date(),
-      },
-      select: SELECT_DETALLE,
+    const actualizado = await prisma.$transaction(async (tx) => {
+      const resultado = await tx.producto.update({
+        where: { id },
+        data: {
+          nombre: datos.nombre,
+          slug,
+          categoriaId: datos.categoriaId,
+          descripcionCorta: datos.descripcionCorta,
+          descripcion: datos.descripcion,
+          cuidados: datos.cuidados,
+          envioNotas: datos.envioNotas,
+          seoTitulo: datos.seoTitulo,
+          seoDescripcion: datos.seoDescripcion,
+          actualizadoEn: new Date(),
+        },
+        select: SELECT_DETALLE,
+      });
+
+      // Portada (seccion:'portada') es solo para Pelucas: si el producto
+      // cambia a cualquier otra categoría, sale del carrusel del héroe
+      // aunque ya estuviera marcado. Sin esto quedaría una peluca "de
+      // portada" que ya no es peluca.
+      if (nuevaCategoria && nuevaCategoria.slug !== SLUG_CATEGORIA_PORTADA) {
+        await tx.productoDestacado.deleteMany({
+          where: { productoId: id, seccion: 'portada' },
+        });
+        resultado.destacados = [];
+      }
+
+      return resultado;
     });
+    return mapearDetalle(actualizado);
   } catch (error) {
     if (esColisionUnica(error, 'slug')) {
       throw ErrorApi.conflicto(`Ya existe un producto con el slug "${slug}"`);
@@ -291,7 +331,7 @@ async function obtenerKitsVigentesAfectados(
 }
 
 export async function cambiarEstadoProducto(id: string, datos: BodyEstadoProducto) {
-  return prisma.$transaction(async (tx) => {
+  const resultado = await prisma.$transaction(async (tx) => {
     const producto = await tx.producto.findUnique({
       where: { id },
       select: {
@@ -353,6 +393,52 @@ export async function cambiarEstadoProducto(id: string, datos: BodyEstadoProduct
 
     return tx.producto.update({ where: { id }, data: dataActualizacion, select: SELECT_DETALLE });
   });
+  return mapearDetalle(resultado);
+}
+
+// ---------------------------------------------------------------------------
+// Portada (carrusel del héroe en la tienda — seccion:'portada')
+// ---------------------------------------------------------------------------
+
+export async function cambiarPortadaProducto(id: string, datos: BodyPortadaProducto) {
+  const producto = await prisma.producto.findUnique({
+    where: { id },
+    select: { id: true, categoria: { select: { slug: true } } },
+  });
+  if (!producto) {
+    throw ErrorApi.noEncontrado('El producto no existe');
+  }
+
+  if (datos.destacado && producto.categoria.slug !== SLUG_CATEGORIA_PORTADA) {
+    throw ErrorApi.peticionInvalida(
+      'Solo los productos de la categoría Pelucas pueden destacarse en la portada',
+    );
+  }
+
+  await prisma.$transaction(async (tx) => {
+    if (datos.destacado) {
+      const existente = await tx.productoDestacado.findFirst({
+        where: { productoId: id, seccion: 'portada' },
+        select: { id: true },
+      });
+      if (existente) {
+        await tx.productoDestacado.update({
+          where: { id: existente.id },
+          data: datos.orden !== undefined ? { orden: datos.orden } : {},
+        });
+      } else {
+        await tx.productoDestacado.create({
+          data: { productoId: id, seccion: 'portada', orden: datos.orden ?? 0 },
+        });
+      }
+    } else {
+      await tx.productoDestacado.deleteMany({ where: { productoId: id, seccion: 'portada' } });
+    }
+  });
+
+  return mapearDetalle(
+    await prisma.producto.findUniqueOrThrow({ where: { id }, select: SELECT_DETALLE }),
+  );
 }
 
 // ---------------------------------------------------------------------------

@@ -8,6 +8,7 @@ import type {
   BodyEditarProducto,
   BodyEditarVariante,
   BodyEstadoProducto,
+  BodyPortadaProducto,
   BodyPreciosProducto,
   BodyPrecioVariante,
   QueryListadoProductos,
@@ -39,6 +40,12 @@ export async function cambiarEstado(req: Request, res: Response): Promise<void> 
   const id = req.params.id as string;
   const datos = req.body as BodyEstadoProducto;
   res.json(await servicio.cambiarEstadoProducto(id, datos));
+}
+
+export async function cambiarPortada(req: Request, res: Response): Promise<void> {
+  const id = req.params.id as string;
+  const datos = req.body as BodyPortadaProducto;
+  res.json(await servicio.cambiarPortadaProducto(id, datos));
 }
 
 export async function crearVariante(req: Request, res: Response): Promise<void> {

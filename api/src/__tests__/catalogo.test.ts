@@ -131,4 +131,21 @@ describe('catálogo: filtros y paginación', () => {
       data: { termino: 'algo-que-no-existe', resultados: 0, sesionId: null },
     });
   });
+
+  // producto_destacado también guarda seccion:'portada' (carrusel del
+  // héroe, ver modulos/portada/), aparte de seccion:'inicio' (el
+  // "Destacado" de catálogo que se prueba acá). Un mock no puede probar
+  // que Postgres de verdad filtra por seccion, pero sí puede probar que
+  // la consulta que armamos para pedírselo está acotada — que es
+  // justamente lo que se rompería si alguien borra ese filtro sin querer.
+  it('el filtro ?destacado y el booleano Producto.destacado solo miran seccion:"inicio", nunca "portada"', async () => {
+    findManyMock.mockResolvedValueOnce([]);
+
+    const query = esquemaQueryProductos.parse({ destacado: 'true' });
+    await listarProductos(query, undefined);
+
+    const llamada = findManyMock.mock.calls[0]![0];
+    expect(llamada.where.destacados.some.seccion).toBe('inicio');
+    expect(llamada.select.destacados.where.seccion).toBe('inicio');
+  });
 });

@@ -95,7 +95,12 @@ function construirWhereProducto(
 
   if (filtros.destacado !== undefined) {
     const ahora = new Date();
+    // seccion: 'inicio' a propósito. producto_destacado también guarda la
+    // sección 'portada' (carrusel del héroe, ver modulos/portada/), que es
+    // un concepto aparte: un producto marcado para portada no debe
+    // aparecer como "Destacado" en el catálogo ni entrar en este filtro.
     const condicionVigente: Prisma.ProductoDestacadoWhereInput = {
+      seccion: 'inicio',
       desde: { lte: ahora },
       OR: [{ hasta: null }, { hasta: { gt: ahora } }],
     };
@@ -176,7 +181,8 @@ const SELECT_PRODUCTO = {
   },
   variantes: { where: { activa: true }, select: SELECT_VARIANTE },
   resumen: { select: { calificacionPromedio: true, cantidadResenas: true } },
-  destacados: { select: { desde: true, hasta: true } },
+  // seccion: 'inicio' a propósito — ver el comentario en construirWhereProducto.
+  destacados: { where: { seccion: 'inicio' }, select: { desde: true, hasta: true } },
 } satisfies Prisma.ProductoSelect;
 
 type VarianteConAtributos = Prisma.VarianteProductoGetPayload<{ select: typeof SELECT_VARIANTE }>;
