@@ -247,7 +247,7 @@ export function Catalogo() {
               />
             ) : (
               <>
-                <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-6 xl:grid-cols-4 2xl:grid-cols-5">
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-6 xl:grid-cols-4">
                   {resultado.datos.map((producto) => (
                     <TarjetaProducto key={producto.id} producto={producto} />
                   ))}
@@ -595,7 +595,7 @@ function ControlPaginacion({
 
 function GrillaEsqueleto() {
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-6 xl:grid-cols-4 2xl:grid-cols-5">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-6 xl:grid-cols-4">
       {Array.from({ length: PRODUCTOS_POR_PAGINA }).map((_, indice) => (
         <div key={indice} className="flex flex-col gap-3">
           <EsqueletoCarga alto="aspect-[3/4] h-auto" redondeado="rounded-lg" />

@@ -114,27 +114,44 @@ function SeccionHeroe() {
   }
 
   return (
-    <section className="w-full pt-14 pb-20">
-      <Contenedor className="grid gap-10 lg:grid-cols-[2fr_3fr] lg:items-center">
+    <section className="w-full bg-arena pt-14 pb-20">
+      <Contenedor className="grid gap-10 lg:grid-cols-[0.42fr_0.58fr] lg:items-center">
         <div>
-          <h1 className="font-serif text-4xl text-tinta sm:text-5xl lg:text-6xl">
+          <h1 className="font-serif text-5xl text-tinta sm:text-6xl lg:text-7xl">
             Elige tu tono
             <br />y nosotras el resto
           </h1>
-          <p className="mt-5 max-w-[38ch] text-[15.5px] text-texto-secundario">
+          <p className="mt-5 line-clamp-3 max-w-[38ch] text-[15.5px] text-texto-secundario">
             Cabello 100% humano, seleccionado uno por uno. Empieza por el color: todo lo demás se
             acomoda a él.
           </p>
 
           {cargando || !tono ? (
-            <div className="mt-8 flex flex-col gap-2">
-              {Array.from({ length: 4 }).map((_, indice) => (
-                <EsqueletoCarga key={indice} alto="h-11" redondeado="rounded-full" />
-              ))}
-            </div>
+            <>
+              <div className="mt-6 flex gap-3 lg:hidden">
+                {Array.from({ length: 4 }).map((_, indice) => (
+                  <EsqueletoCarga key={indice} ancho="w-14" alto="h-14" redondeado="rounded-2xl" />
+                ))}
+              </div>
+              <div className="mt-8 hidden flex-col gap-2 lg:flex">
+                {Array.from({ length: 4 }).map((_, indice) => (
+                  <EsqueletoCarga key={indice} alto="h-11" redondeado="rounded-full" />
+                ))}
+              </div>
+              <EsqueletoCarga ancho="w-40" alto="h-12" redondeado="rounded-full" className="mt-8" />
+            </>
           ) : (
             <>
-              <div role="group" aria-label="Elegir tono de cabello" className="mt-8 flex flex-col">
+              {/* Celular/tablet: fila horizontal con scroll si no caben,
+                  círculo + nombre debajo, 44px mínimo de blanco tocable.
+                  Desde lg: lista vertical con el activo en píldora (ver
+                  abajo) — son dos layouts bastante distintos como para
+                  compartir un solo árbol de elementos. */}
+              <div
+                role="group"
+                aria-label="Elegir tono de cabello"
+                className="mt-6 flex gap-2 overflow-x-auto pb-1 lg:hidden"
+              >
                 {tonos!.map((item) => {
                   const activo = item.nombre === tono.nombre;
                   return (
@@ -143,24 +160,51 @@ function SeccionHeroe() {
                       type="button"
                       aria-pressed={activo}
                       onClick={() => elegirTono(item.nombre)}
-                      className={`flex items-center gap-4 rounded-full px-3 py-2.5 text-left transition-colors hover:bg-arena focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa ${
-                        activo ? 'bg-arena ring-1 ring-linea' : ''
-                      }`}
+                      className="flex min-h-11 shrink-0 flex-col items-center gap-1.5 rounded-2xl px-2 py-2"
                     >
                       <span
                         aria-hidden="true"
-                        className={`h-10 w-10 shrink-0 rounded-full shadow-[0_0_0_1px_var(--color-linea)] transition-transform ${
-                          activo ? 'scale-110 shadow-[0_0_0_2px_var(--color-rosa)]' : ''
+                        className={`h-10 w-10 rounded-full shadow-[0_0_0_1px_var(--color-linea)] ${
+                          activo ? 'shadow-[0_0_0_2px_var(--color-rosa)]' : ''
                         }`}
                         style={{ backgroundColor: item.hex }}
                       />
                       <span
-                        className={`text-sm tracking-wide ${activo ? 'font-normal text-tinta' : 'text-texto-secundario'}`}
+                        className={`text-xs whitespace-nowrap ${activo ? 'font-medium text-tinta' : 'text-texto-secundario'}`}
                       >
                         {item.nombre}
                       </span>
-                      <span className="ml-auto text-xs text-texto-secundario">
-                        {item.conteo} {item.conteo === 1 ? 'pieza' : 'piezas'}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div role="group" aria-label="Elegir tono de cabello" className="mt-8 hidden flex-col gap-1 lg:flex">
+                {tonos!.map((item) => {
+                  const activo = item.nombre === tono.nombre;
+                  return (
+                    <button
+                      key={item.nombre}
+                      type="button"
+                      aria-pressed={activo}
+                      onClick={() => elegirTono(item.nombre)}
+                      className={`flex w-fit items-center gap-3 rounded-full border px-3 py-2 text-left transition-colors ${
+                        activo
+                          ? 'border-linea bg-white'
+                          : 'border-transparent hover:border-linea hover:bg-white/60'
+                      }`}
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={`h-10 w-10 shrink-0 rounded-full shadow-[0_0_0_1px_var(--color-linea)] ${
+                          activo ? 'shadow-[0_0_0_2px_var(--color-rosa)]' : ''
+                        }`}
+                        style={{ backgroundColor: item.hex }}
+                      />
+                      <span
+                        className={`text-sm tracking-wide ${activo ? 'font-medium text-tinta' : 'text-texto-secundario'}`}
+                      >
+                        {item.nombre}
                       </span>
                     </button>
                   );
@@ -169,10 +213,14 @@ function SeccionHeroe() {
 
               <Link
                 to={`/catalogo?color=${encodeURIComponent(tono.nombre)}`}
-                className="mt-8 inline-block"
+                className="mt-8 block w-full lg:inline-block lg:w-auto"
               >
-                <Boton type="button" variante="tinta" className="uppercase tracking-[0.14em]">
-                  Ver {tono.conteo} {tono.conteo === 1 ? 'pieza' : 'piezas'} en {tono.nombre}
+                <Boton
+                  type="button"
+                  variante="tinta"
+                  className="w-full uppercase tracking-[0.14em] lg:w-auto"
+                >
+                  Ver piezas
                 </Boton>
               </Link>
             </>
@@ -180,10 +228,7 @@ function SeccionHeroe() {
         </div>
 
         {cargando || !tono ? (
-          <EsqueletoCarga
-            alto="h-[52vh] max-h-[440px] lg:aspect-[2/3] lg:h-auto lg:max-h-none"
-            redondeado="rounded-lg"
-          />
+          <EsqueletoCarga alto="aspect-[4/5] h-auto lg:aspect-[11/10]" redondeado="rounded-2xl" />
         ) : hayDestacadas ? (
           <CarruselHeroe
             productos={recorrido.map((item) => item.producto)}
@@ -191,11 +236,11 @@ function SeccionHeroe() {
             onCambiarIndice={setIndiceRecorrido}
           />
         ) : (
-          <figure className="relative">
+          <figure className="relative overflow-hidden rounded-2xl">
             <ImagenProducto
               nombre={tono.nombre}
               colorHex={tono.hex}
-              className="h-[52vh] max-h-[440px] rounded-tl-[999px] rounded-tr-[999px] rounded-bl-lg rounded-br-lg lg:aspect-[2/3] lg:h-auto lg:max-h-none"
+              className="aspect-[4/5] h-auto lg:aspect-[11/10]"
             />
             <figcaption className="absolute bottom-5 left-5 rounded-full bg-white px-4 py-2 text-xs tracking-[0.1em] text-tinta shadow-lg">
               {tono.nombre}
