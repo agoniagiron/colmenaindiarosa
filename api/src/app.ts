@@ -11,6 +11,7 @@ import { requiereAuth } from './middleware/requiereAuth.js';
 import { requiereAuthAdmin, requierePermiso } from './middleware/requiereAuthAdmin.js';
 import { sesionVisita } from './middleware/sesionVisita.js';
 import { rutasAdminCombos } from './modulos/admin/combos/rutas.js';
+import { rutasAdminLimitadas } from './modulos/admin/limitadas/rutas.js';
 import { rutasAdminPedidos } from './modulos/admin/pedidos/rutas.js';
 import { rutasAdminAtributos } from './modulos/admin/productos/rutasAtributos.js';
 import { rutasAdminImagenes } from './modulos/admin/productos/rutasImagenes.js';
@@ -98,6 +99,12 @@ app.use(
   requiereAuthAdmin,
   requierePermiso('promociones.ver'),
   rutasAdminPromociones,
+);
+app.use(
+  '/api/admin/limitadas',
+  requiereAuthAdmin,
+  requierePermiso('limitadas.gestionar'),
+  rutasAdminLimitadas,
 );
 app.use('/api/cuenta', requiereAuth, rutasCuenta);
 app.use('/api/carrito', sesionVisita, rutasCarrito);

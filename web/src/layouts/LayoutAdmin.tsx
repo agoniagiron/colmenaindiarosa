@@ -63,7 +63,13 @@ const GRUPOS_ADMIN: GrupoAdmin[] = [
         permiso: 'combos.ver',
         construido: true,
       },
-      { etiqueta: 'Limitadas', to: '/admin/limitadas', fin: false, permiso: 'limitadas.gestionar' },
+      {
+        etiqueta: 'Limitadas',
+        to: '/admin/limitadas',
+        fin: false,
+        permiso: 'limitadas.gestionar',
+        construido: true,
+      },
     ],
   },
   {

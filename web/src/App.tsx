@@ -11,6 +11,7 @@ import { AdminAnalitica } from './paginas/admin/AdminAnalitica.tsx';
 import { AdminInicio } from './paginas/admin/AdminInicio.tsx';
 import { AdminInventario } from './paginas/admin/AdminInventario.tsx';
 import { AdminKits } from './paginas/admin/AdminKits.tsx';
+import { AdminLimitadas } from './paginas/admin/AdminLimitadas.tsx';
 import { AdminPedidoDetalle } from './paginas/admin/AdminPedidoDetalle.tsx';
 import { AdminPedidos } from './paginas/admin/AdminPedidos.tsx';
 import { AdminProductoDetalle } from './paginas/admin/AdminProductoDetalle.tsx';
@@ -71,6 +72,7 @@ export function ArbolRutas() {
                   <Route path="productos/:id" element={<AdminProductoDetalle />} />
                   <Route path="promociones" element={<AdminPromociones />} />
                   <Route path="kits" element={<AdminKits />} />
+                  <Route path="limitadas" element={<AdminLimitadas />} />
                   <Route path="analitica" element={<AdminAnalitica />} />
                 </Route>
               </Routes>

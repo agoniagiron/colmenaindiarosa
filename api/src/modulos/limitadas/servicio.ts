@@ -7,7 +7,10 @@ import { prisma } from '../../lib/prisma.js';
 // no siguen contando como vendidas de este lote).
 const ESTADOS_VENDIDO: EstadoPedido[] = ['pagado', 'enPreparacion', 'despachado', 'entregado'];
 
-async function contarUnidadesVendidas(varianteIds: string[], desde: Date): Promise<number> {
+// Exportada: admin/limitadas/servicio.ts la reusa tal cual para el
+// panel (columna "Vendidas" y la advertencia al reducir el lote) — nunca
+// se duplica esta consulta.
+export async function contarUnidadesVendidas(varianteIds: string[], desde: Date): Promise<number> {
   if (varianteIds.length === 0) return 0;
 
   const [directas, enCombos] = await Promise.all([
@@ -71,13 +74,23 @@ export async function listarEdicionesLimitadasVigentes() {
 
   const tasaUsd = await obtenerTasaUsdVigente();
 
-  return Promise.all(
+  const mapeadas = await Promise.all(
     ediciones.map(async (edicion) => {
       const varianteIds = edicion.producto.variantes.map((v) => v.id);
       const precios = edicion.producto.variantes.map((v) => v.precioActual);
       const precioMinimo = precios.length > 0 ? Math.min(...precios) : 0;
       const varianteBase = edicion.producto.variantes.find((v) => v.precioActual === precioMinimo);
 
+      // Restantes se cuenta por VENTAS desde que arrancó el lote, no por
+      // stock actual: el lote anunciado es una promesa ("van 6 piezas de
+      // esto"), no un espejo del inventario. Si se repone stock del
+      // producto, el lote no se infla ni se reinicia — sigue siendo el
+      // mismo lote, y por eso puede agotarse aunque el producto tenga
+      // unidades disponibles en el catálogo general.
+      //
+      // unidadesLote null = sin tope (una edición limitada por fecha, no
+      // por cantidad): nunca se agota por ventas, así que acá
+      // unidadesRestantes queda null a propósito, no 0 ni Infinity.
       const vendidas = await contarUnidadesVendidas(varianteIds, edicion.desde);
       const unidadesRestantes =
         edicion.unidadesLote === null ? null : Math.max(0, edicion.unidadesLote - vendidas);
@@ -87,9 +100,12 @@ export async function listarEdicionesLimitadasVigentes() {
         nombre: edicion.nombre,
         descripcion: edicion.descripcion,
         unidadesLote: edicion.unidadesLote,
+        // mostrarRestantes solo oculta el NÚMERO en la tienda; la
+        // decisión de si la edición sigue apareciendo cuando se agota
+        // (más abajo) siempre mira el valor real, nunca esta versión
+        // enmascarada.
         unidadesRestantes: edicion.mostrarRestantes ? unidadesRestantes : null,
-        desde: edicion.desde,
-        hasta: edicion.hasta,
+        agotada: unidadesRestantes !== null && unidadesRestantes <= 0,
         producto: {
           id: edicion.producto.id,
           nombre: edicion.producto.nombre,
@@ -97,7 +113,27 @@ export async function listarEdicionesLimitadasVigentes() {
           imagen: edicion.producto.imagenes[0] ?? null,
         },
         precio: calcularPrecioDualConTasa(precioMinimo, varianteBase?.precioUsd, tasaUsd),
+        desde: edicion.desde,
+        hasta: edicion.hasta,
       };
     }),
   );
+
+  // Agotada (restantes <= 0, nunca por un unidadesLote null) deja de
+  // mostrarse en la tienda: el lote se cerró, aunque el producto siga
+  // teniendo stock por otras variantes o por reposición. activa:false ya
+  // quedó afuera en el where de arriba.
+  return mapeadas
+    .filter((edicion) => !edicion.agotada)
+    .map((edicion) => ({
+      id: edicion.id,
+      nombre: edicion.nombre,
+      descripcion: edicion.descripcion,
+      unidadesLote: edicion.unidadesLote,
+      unidadesRestantes: edicion.unidadesRestantes,
+      producto: edicion.producto,
+      precio: edicion.precio,
+      desde: edicion.desde,
+      hasta: edicion.hasta,
+    }));
 }
