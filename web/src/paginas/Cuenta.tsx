@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Boton } from '../componentes/Boton.tsx';
 import { CampoTexto } from '../componentes/CampoTexto.tsx';
+import { Contenedor } from '../componentes/Contenedor.tsx';
 import { ModalAcceso } from '../componentes/ModalAcceso.tsx';
 import * as apiAuth from '../contexto/apiAuth.ts';
 import * as apiCuenta from '../contexto/apiCuenta.ts';
@@ -19,16 +20,16 @@ export function Cuenta() {
 
   if (restaurando) {
     return (
-      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+      <Contenedor ancho="normal" className="py-10">
         <h1 className="font-serif text-2xl text-tinta">Cuenta</h1>
         <p className="mt-4 text-sm text-texto-secundario">Cargando…</p>
-      </div>
+      </Contenedor>
     );
   }
 
   if (!usuario || !accessToken) {
     return (
-      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+      <Contenedor ancho="normal" className="py-10">
         <h1 className="font-serif text-2xl text-tinta">Cuenta</h1>
         <p className="mt-4 text-sm text-texto-secundario">
           Iniciá sesión para ver los datos de tu cuenta.
@@ -37,7 +38,7 @@ export function Cuenta() {
           Iniciar sesión
         </Boton>
         <ModalAcceso abierto={modalAbierto} onCerrar={() => setModalAbierto(false)} />
-      </div>
+      </Contenedor>
     );
   }
 
@@ -48,7 +49,7 @@ export function Cuenta() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+    <Contenedor ancho="normal" className="py-10">
       <h1 className="font-serif text-2xl text-tinta">Cuenta</h1>
 
       <div className="mt-6 max-w-md rounded-2xl border border-linea bg-white p-6">
@@ -71,7 +72,7 @@ export function Cuenta() {
       </div>
 
       <SeccionDirecciones accessToken={accessToken} />
-    </div>
+    </Contenedor>
   );
 }
 

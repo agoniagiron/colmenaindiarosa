@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import type { FormEvent } from 'react';
 import { CampoTexto } from '../componentes/CampoTexto.tsx';
+import { Contenedor } from '../componentes/Contenedor.tsx';
 import { useCarrito } from '../contexto/ContextoCarrito.tsx';
 import { useConfiguracion } from '../contexto/ContextoConfiguracion.tsx';
 import { useSesion } from '../contexto/ContextoSesion.tsx';
@@ -43,7 +44,7 @@ export function LayoutTienda() {
       ) : null}
 
       <header className="sticky top-0 z-40 border-b border-linea bg-hueso">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-6 px-4 py-4 sm:px-6">
+        <Contenedor className="flex flex-wrap items-center gap-6 py-4">
           <Link
             to="/"
             className="rounded-md font-serif text-lg tracking-[0.09em] uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa"
@@ -139,7 +140,7 @@ export function LayoutTienda() {
               ) : null}
             </Link>
           </div>
-        </div>
+        </Contenedor>
       </header>
 
       <main className="flex-1">
@@ -147,7 +148,7 @@ export function LayoutTienda() {
       </main>
 
       <footer className="border-t border-linea bg-arena">
-        <div className="mx-auto grid max-w-6xl gap-8 px-4 py-14 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
+        <Contenedor className="grid gap-8 py-14 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <p className="font-serif text-lg">India Rosa</p>
             <p className="mt-2 max-w-[32ch] text-sm text-texto-secundario">
@@ -187,7 +188,7 @@ export function LayoutTienda() {
               Coordinamos disponibilidad y forma de pago por WhatsApp.
             </p>
           </div>
-        </div>
+        </Contenedor>
 
         <div className="border-t border-linea px-4 py-5 text-center text-xs text-texto-secundario sm:px-6">
           © {new Date().getFullYear()} India Rosa

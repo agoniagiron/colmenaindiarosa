@@ -2,6 +2,7 @@ import { useEffect, useId, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { Boton } from '../componentes/Boton.tsx';
+import { Contenedor } from '../componentes/Contenedor.tsx';
 import { EsqueletoCarga } from '../componentes/EsqueletoCarga.tsx';
 import { EstadoVacio } from '../componentes/EstadoVacio.tsx';
 import { Estrellas } from '../componentes/Estrellas.tsx';
@@ -188,15 +189,15 @@ export function ProductoDetalle() {
 
   if (producto === undefined) {
     return (
-      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+      <Contenedor ancho="normal" className="py-10">
         <EsqueletoDetalle />
-      </div>
+      </Contenedor>
     );
   }
 
   if (producto === null || !varianteActual) {
     return (
-      <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+      <Contenedor ancho="normal" className="py-16">
         <EstadoVacio
           titulo="Producto no encontrado"
           descripcion="Puede que el enlace esté mal escrito o que el producto ya no esté disponible."
@@ -206,7 +207,7 @@ export function ProductoDetalle() {
             </Boton>
           }
         />
-      </div>
+      </Contenedor>
     );
   }
 
@@ -216,7 +217,7 @@ export function ProductoDetalle() {
   const disponible = disponibleDe(varianteActual);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+    <Contenedor ancho="normal" className="py-10">
       <div className="grid gap-10 lg:grid-cols-2 lg:gap-16">
         <GaleriaProducto
           producto={producto}
@@ -293,7 +294,7 @@ export function ProductoDetalle() {
       </div>
 
       <SeccionRelacionados productos={relacionados} cargando={cargandoRelacionados} />
-    </div>
+    </Contenedor>
   );
 }
 

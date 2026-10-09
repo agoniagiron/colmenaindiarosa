@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Boton } from '../componentes/Boton.tsx';
 import { CarruselHeroe } from '../componentes/CarruselHeroe.tsx';
+import { Contenedor } from '../componentes/Contenedor.tsx';
 import { EsqueletoCarga } from '../componentes/EsqueletoCarga.tsx';
 import { ImagenProducto } from '../componentes/ImagenProducto.tsx';
 import { useCarrito } from '../contexto/ContextoCarrito.tsx';
@@ -113,8 +114,8 @@ function SeccionHeroe() {
   }
 
   return (
-    <section className="mx-auto max-w-6xl px-4 pt-14 pb-20 sm:px-6">
-      <div className="grid gap-10 lg:grid-cols-[2fr_3fr] lg:items-center">
+    <section className="w-full pt-14 pb-20">
+      <Contenedor className="grid gap-10 lg:grid-cols-[2fr_3fr] lg:items-center">
         <div>
           <h1 className="font-serif text-4xl text-tinta sm:text-5xl lg:text-6xl">
             Elige tu tono
@@ -201,7 +202,7 @@ function SeccionHeroe() {
             </figcaption>
           </figure>
         )}
-      </div>
+      </Contenedor>
     </section>
   );
 }
@@ -232,9 +233,9 @@ function BarraEntrega() {
   if (cargando) {
     return (
       <section className="border-y border-linea py-5">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <Contenedor>
           <EsqueletoCarga ancho="w-2/3" alto="h-5" />
-        </div>
+        </Contenedor>
       </section>
     );
   }
@@ -263,7 +264,7 @@ function BarraEntrega() {
 
   return (
     <section className="border-y border-linea py-5">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3.5 px-4 text-[14.5px] sm:px-6">
+      <Contenedor className="flex flex-wrap items-center gap-3.5 text-[14.5px]">
         <span>
           Envío de <strong className="font-medium text-rosa">{formatearMonto(envioCosto)}</strong> a
           todo el país.
@@ -301,7 +302,7 @@ function BarraEntrega() {
             </span>
           </>
         ) : null}
-      </div>
+      </Contenedor>
     </section>
   );
 }
@@ -324,13 +325,15 @@ function SeccionLimitadas() {
 
   if (limitadas === null) {
     return (
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-        <EsqueletoCarga ancho="w-1/3" alto="h-8" />
-        <div className="mt-7 grid gap-6 sm:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, indice) => (
-            <EsqueletoCarga key={indice} alto="h-80" redondeado="rounded-lg" />
-          ))}
-        </div>
+      <section className="py-16">
+        <Contenedor>
+          <EsqueletoCarga ancho="w-1/3" alto="h-8" />
+          <div className="mt-7 grid gap-6 sm:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, indice) => (
+              <EsqueletoCarga key={indice} alto="h-80" redondeado="rounded-lg" />
+            ))}
+          </div>
+        </Contenedor>
       </section>
     );
   }
@@ -339,7 +342,7 @@ function SeccionLimitadas() {
 
   return (
     <section className="border-t border-linea bg-arena py-16 sm:py-20">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+      <Contenedor>
         <div className="max-w-[46ch]">
           <h2 className="font-serif text-3xl text-tinta sm:text-4xl">Ediciones limitadas</h2>
           <p className="mt-2 text-sm text-texto-secundario">
@@ -352,7 +355,7 @@ function SeccionLimitadas() {
             <TarjetaLimitada key={edicion.id} edicion={edicion} formatearDual={formatearDual} />
           ))}
         </div>
-      </div>
+      </Contenedor>
     </section>
   );
 }
@@ -418,13 +421,15 @@ function SeccionKits() {
 
   if (combos === null) {
     return (
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-        <EsqueletoCarga ancho="w-1/3" alto="h-8" />
-        <div className="mt-7 grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-6">
-          {Array.from({ length: 3 }).map((_, indice) => (
-            <EsqueletoCarga key={indice} alto="h-96" redondeado="rounded-lg" />
-          ))}
-        </div>
+      <section className="py-16">
+        <Contenedor>
+          <EsqueletoCarga ancho="w-1/3" alto="h-8" />
+          <div className="mt-7 grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-6">
+            {Array.from({ length: 3 }).map((_, indice) => (
+              <EsqueletoCarga key={indice} alto="h-96" redondeado="rounded-lg" />
+            ))}
+          </div>
+        </Contenedor>
       </section>
     );
   }
@@ -432,24 +437,26 @@ function SeccionKits() {
   if (combos.length === 0) return null;
 
   return (
-    <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
-      <div className="max-w-[46ch]">
-        <h2 className="font-serif text-3xl text-tinta sm:text-4xl">Kits armados</h2>
-        <p className="mt-2 text-sm text-texto-secundario">
-          Lo que más se pide junto, a un precio mejor que por separado.
-        </p>
-      </div>
+    <section className="py-16 sm:py-20">
+      <Contenedor>
+        <div className="max-w-[46ch]">
+          <h2 className="font-serif text-3xl text-tinta sm:text-4xl">Kits armados</h2>
+          <p className="mt-2 text-sm text-texto-secundario">
+            Lo que más se pide junto, a un precio mejor que por separado.
+          </p>
+        </div>
 
-      <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-6">
-        {combos.map((combo) => (
-          <TarjetaKit
-            key={combo.id}
-            combo={combo}
-            formatearDual={formatearDual}
-            onAgregar={() => agregarCombo(combo.id, 1)}
-          />
-        ))}
-      </div>
+        <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-6">
+          {combos.map((combo) => (
+            <TarjetaKit
+              key={combo.id}
+              combo={combo}
+              formatearDual={formatearDual}
+              onAgregar={() => agregarCombo(combo.id, 1)}
+            />
+          ))}
+        </div>
+      </Contenedor>
     </section>
   );
 }
@@ -569,7 +576,7 @@ function SeccionMarca() {
 
   return (
     <section className="border-t border-linea py-16 sm:py-20">
-      <div className="mx-auto grid max-w-6xl gap-14 px-4 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+      <Contenedor className="grid gap-14 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
         <ImagenProducto nombre="India Rosa" className="aspect-square rounded-full" />
         <div>
           <h2 className="font-serif text-3xl text-tinta sm:text-4xl">Detrás de India Rosa</h2>
@@ -600,7 +607,7 @@ function SeccionMarca() {
             ) : null}
           </div>
         </div>
-      </div>
+      </Contenedor>
     </section>
   );
 }

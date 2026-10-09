@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { FormEvent } from 'react';
 import { Boton } from '../componentes/Boton.tsx';
 import { CampoTexto } from '../componentes/CampoTexto.tsx';
+import { Contenedor } from '../componentes/Contenedor.tsx';
 import { EstadoVacio } from '../componentes/EstadoVacio.tsx';
 import { ImagenProducto } from '../componentes/ImagenProducto.tsx';
 import { useCarrito } from '../contexto/ContextoCarrito.tsx';
@@ -30,7 +31,7 @@ export function CarritoPagina() {
 
   if (lineas.length === 0) {
     return (
-      <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+      <Contenedor ancho="normal" className="py-16">
         <EstadoVacio
           icono={<IconoCarritoVacio />}
           titulo="Tu carrito está vacío"
@@ -41,12 +42,12 @@ export function CarritoPagina() {
             </Boton>
           }
         />
-      </div>
+      </Contenedor>
     );
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+    <Contenedor ancho="normal" className="py-10">
       <h1 className="font-serif text-2xl text-tinta">
         Carrito ({totalUnidades} {totalUnidades === 1 ? 'artículo' : 'artículos'})
       </h1>
@@ -116,7 +117,7 @@ export function CarritoPagina() {
           </div>
         </div>
       </div>
-    </div>
+    </Contenedor>
   );
 }
 
