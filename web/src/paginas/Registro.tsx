@@ -1,23 +1,26 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { CampoAcceso } from '../componentes/CampoAcceso.tsx';
 import { LayoutAcceso } from '../componentes/LayoutAcceso.tsx';
 import * as apiAuth from '../contexto/apiAuth.ts';
 import { ErrorAuth } from '../contexto/apiAuth.ts';
 import { useAvisos } from '../contexto/ContextoAvisos.tsx';
 import { useSesion } from '../contexto/ContextoSesion.tsx';
+import { destinoSeguro } from '../utilidades/destinoAcceso.ts';
 
 const REGEX_CLAVE = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
 
 // Misma lógica que tenía ModalAcceso.tsx en modo 'registro' (misma regex
 // de clave, mismos dos checkboxes obligatorios, mismas llamadas a
-// apiAuth) — ModalAcceso.tsx no se tocó, solo dejó de ser el único lugar
-// donde registrarse.
+// apiAuth) — ModalAcceso.tsx ya no existe, esta es la única pantalla de
+// registro ahora.
 export function Registro() {
-  const { entrar } = useSesion();
+  const { usuario: usuarioActivo, entrar } = useSesion();
   const navigate = useNavigate();
   const { avisarExito, avisarError } = useAvisos();
+  const [searchParams] = useSearchParams();
+  const destino = destinoSeguro(searchParams.get('regresar'));
 
   const [nombre, setNombre] = useState('');
   const [correo, setCorreo] = useState('');
@@ -27,6 +30,12 @@ export function Registro() {
   const [aceptoTratamiento, setAceptoTratamiento] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Ya con sesión activa (p. ej. /cuenta mandó para acá pero la sesión se
+  // restauró justo después), /registro no tiene nada que mostrar.
+  if (usuarioActivo) {
+    return <Navigate to="/cuenta" replace />;
+  }
 
   async function alEnviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
@@ -55,7 +64,7 @@ export function Registro() {
       const { accessToken, usuario } = await apiAuth.iniciarSesion(correo, clave);
       entrar(usuario, accessToken);
       avisarExito('Cuenta creada');
-      navigate('/cuenta');
+      navigate(destino);
     } catch (excepcion) {
       const mensaje =
         excepcion instanceof ErrorAuth || excepcion instanceof Error
@@ -70,10 +79,24 @@ export function Registro() {
 
   return (
     <LayoutAcceso ladoImagen="derecha">
-      <h1 className="font-serif text-3xl text-tinta">Unirte a India Rosa</h1>
-      <p className="mt-2 text-sm text-texto-secundario">
-        Crea tu cuenta para guardar tus favoritos y agilizar tus compras.
-      </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="font-serif text-3xl text-tinta">Unirte a India Rosa</h1>
+          <p className="mt-2 text-sm text-texto-secundario">
+            Crea tu cuenta para guardar tus favoritos y agilizar tus compras.
+          </p>
+        </div>
+        {/* Solo en celular: el formulario completo (4 campos + 2 casillas)
+            tapa el link de abajo bajo el pliegue a 390px — quien ya tiene
+            cuenta no puede quedar atrapada sin verlo. Desde lg no hace
+            falta duplicarlo, el de abajo ya es visible sin scroll. */}
+        <Link
+          to={`/ingresar?regresar=${encodeURIComponent(destino)}`}
+          className="shrink-0 text-xs whitespace-nowrap text-rosa underline-offset-2 hover:underline lg:hidden"
+        >
+          Iniciá sesión
+        </Link>
+      </div>
 
       <form onSubmit={alEnviar} className="mt-8 flex flex-col gap-4">
         <CampoAcceso
@@ -166,7 +189,10 @@ export function Registro() {
 
         <p className="text-center text-sm text-texto-secundario">
           ¿Ya tenés cuenta?{' '}
-          <Link to="/ingresar" className="text-rosa underline-offset-2 hover:underline">
+          <Link
+            to={`/ingresar?regresar=${encodeURIComponent(destino)}`}
+            className="text-rosa underline-offset-2 hover:underline"
+          >
             Iniciá sesión
           </Link>
         </p>

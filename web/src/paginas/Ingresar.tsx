@@ -1,35 +1,43 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { CampoAcceso } from '../componentes/CampoAcceso.tsx';
 import { LayoutAcceso } from '../componentes/LayoutAcceso.tsx';
 import * as apiAuth from '../contexto/apiAuth.ts';
 import { ErrorAuth } from '../contexto/apiAuth.ts';
 import { useAvisos } from '../contexto/ContextoAvisos.tsx';
 import { useSesion } from '../contexto/ContextoSesion.tsx';
+import { destinoSeguro } from '../utilidades/destinoAcceso.ts';
 
-// Misma lógica que tenía ModalAcceso.tsx en modo 'login' — nada nuevo acá,
-// solo una pantalla propia en vez de un modal. ModalAcceso.tsx sigue
-// existiendo tal cual (no se tocó), solo que Cuenta.tsx ya no lo abre.
+// Misma lógica que tenía el viejo modal de acceso (ya no existe) en modo
+// 'login' — nada nuevo acá, solo una pantalla propia en vez de un modal.
 export function Ingresar() {
-  const { entrar } = useSesion();
+  const { usuario, entrar } = useSesion();
   const navigate = useNavigate();
   const { avisarExito, avisarError } = useAvisos();
+  const [searchParams] = useSearchParams();
+  const destino = destinoSeguro(searchParams.get('regresar'));
 
   const [correo, setCorreo] = useState('');
   const [clave, setClave] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Ya con sesión activa, /ingresar no tiene nada que mostrar — evita el
+  // caso de entrar acá por un link viejo estando logueada.
+  if (usuario) {
+    return <Navigate to="/cuenta" replace />;
+  }
+
   async function alEnviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
     setError(null);
     setEnviando(true);
     try {
-      const { accessToken, usuario } = await apiAuth.iniciarSesion(correo, clave);
-      entrar(usuario, accessToken);
+      const { accessToken, usuario: usuarioNuevo } = await apiAuth.iniciarSesion(correo, clave);
+      entrar(usuarioNuevo, accessToken);
       avisarExito('Sesión iniciada');
-      navigate('/cuenta');
+      navigate(destino);
     } catch (excepcion) {
       const mensaje =
         excepcion instanceof ErrorAuth || excepcion instanceof Error
@@ -92,7 +100,10 @@ export function Ingresar() {
 
         <p className="text-center text-sm text-texto-secundario">
           ¿No tienes una cuenta?{' '}
-          <Link to="/registro" className="text-rosa underline-offset-2 hover:underline">
+          <Link
+            to={`/registro?regresar=${encodeURIComponent(destino)}`}
+            className="text-rosa underline-offset-2 hover:underline"
+          >
             Regístrate aquí
           </Link>
         </p>

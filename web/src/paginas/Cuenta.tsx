@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { Boton } from '../componentes/Boton.tsx';
 import { CampoTexto } from '../componentes/CampoTexto.tsx';
 import { Contenedor } from '../componentes/Contenedor.tsx';
@@ -26,20 +26,13 @@ export function Cuenta() {
     );
   }
 
+  // Sin sesión, /cuenta no se muestra: manda directo a crear cuenta (no al
+  // login — ver el pedido), con `replace` para que "atrás" no vuelva acá y
+  // rebote de nuevo. El ?regresar= le dice a /registro adónde volver
+  // cuando termine; si la clienta ya tiene cuenta, el propio /registro
+  // tiene el link a /ingresar y conserva ese mismo parámetro.
   if (!usuario || !accessToken) {
-    return (
-      <Contenedor ancho="normal" className="py-10">
-        <h1 className="font-serif text-2xl text-tinta">Cuenta</h1>
-        <p className="mt-4 text-sm text-texto-secundario">
-          Iniciá sesión para ver los datos de tu cuenta.
-        </p>
-        <Link to="/ingresar">
-          <Boton type="button" variante="rosa" className="mt-4">
-            Iniciar sesión
-          </Boton>
-        </Link>
-      </Contenedor>
-    );
+    return <Navigate to="/registro?regresar=/cuenta" replace />;
   }
 
   function alCerrarSesion() {
