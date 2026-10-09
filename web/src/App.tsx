@@ -23,12 +23,15 @@ import { CarritoPagina } from './paginas/CarritoPagina.tsx';
 import { Catalogo } from './paginas/Catalogo.tsx';
 import { CheckoutPagina } from './paginas/CheckoutPagina.tsx';
 import { Cuenta } from './paginas/Cuenta.tsx';
+import { Ingresar } from './paginas/Ingresar.tsx';
 import { Inicio } from './paginas/Inicio.tsx';
 import { NoEncontrado } from './paginas/NoEncontrado.tsx';
 import { PoliticaPrivacidad } from './paginas/PoliticaPrivacidad.tsx';
 import { ProductoDetalle } from './paginas/ProductoDetalle.tsx';
 import { RecuperarClavePagina } from './paginas/RecuperarClavePagina.tsx';
+import { Registro } from './paginas/Registro.tsx';
 import { ResultadoPedidoPagina } from './paginas/ResultadoPedidoPagina.tsx';
+import { TerminosCondiciones } from './paginas/TerminosCondiciones.tsx';
 
 // Sin barra inicial ni final: se arma tal cual como un `path` más de
 // react-router, para que solo esa ruta exacta monte AdminAcceso — cualquier
@@ -55,11 +58,18 @@ export function ArbolRutas() {
                   <Route path="cuenta" element={<Cuenta />} />
                   <Route path="cuenta/recuperar" element={<RecuperarClavePagina />} />
                   <Route path="politica-privacidad" element={<PoliticaPrivacidad />} />
+                  <Route path="terminos-y-condiciones" element={<TerminosCondiciones />} />
                   {/* No enlazada desde ningún lugar del sitio: solo quien conoce
                       la URL exacta llega acá. */}
                   <Route path={RUTA_ADMIN} element={<AdminAcceso />} />
                   <Route path="*" element={<NoEncontrado />} />
                 </Route>
+
+                {/* Fuera de LayoutTienda a propósito: son pantallas de página
+                    completa (ver LayoutAcceso.tsx), sin el header/footer del
+                    resto del sitio. */}
+                <Route path="ingresar" element={<Ingresar />} />
+                <Route path="registro" element={<Registro />} />
 
                 <Route path="admin" element={<LayoutAdmin />}>
                   <Route index element={<AdminInicio />} />

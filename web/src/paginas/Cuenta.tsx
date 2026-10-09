@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { Boton } from '../componentes/Boton.tsx';
 import { CampoTexto } from '../componentes/CampoTexto.tsx';
 import { Contenedor } from '../componentes/Contenedor.tsx';
-import { ModalAcceso } from '../componentes/ModalAcceso.tsx';
 import * as apiAuth from '../contexto/apiAuth.ts';
 import * as apiCuenta from '../contexto/apiCuenta.ts';
 import type { DatosDireccion, DireccionApi } from '../contexto/apiCuenta.ts';
@@ -15,7 +15,6 @@ import { useAccionAsincrona } from '../utilidades/useAccionAsincrona.ts';
 export function Cuenta() {
   const { usuario, accessToken, restaurando, actualizarUsuario, salir } = useSesion();
   const { avisarExito } = useAvisos();
-  const [modalAbierto, setModalAbierto] = useState(false);
   const [cerrando, setCerrando] = useState(false);
 
   if (restaurando) {
@@ -34,10 +33,11 @@ export function Cuenta() {
         <p className="mt-4 text-sm text-texto-secundario">
           Iniciá sesión para ver los datos de tu cuenta.
         </p>
-        <Boton type="button" variante="rosa" className="mt-4" onClick={() => setModalAbierto(true)}>
-          Iniciar sesión
-        </Boton>
-        <ModalAcceso abierto={modalAbierto} onCerrar={() => setModalAbierto(false)} />
+        <Link to="/ingresar">
+          <Boton type="button" variante="rosa" className="mt-4">
+            Iniciar sesión
+          </Boton>
+        </Link>
       </Contenedor>
     );
   }
