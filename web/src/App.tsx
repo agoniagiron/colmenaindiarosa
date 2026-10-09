@@ -57,6 +57,8 @@ export function ArbolRutas() {
                   <Route path="pedido/resultado" element={<ResultadoPedidoPagina />} />
                   <Route path="cuenta" element={<Cuenta />} />
                   <Route path="cuenta/recuperar" element={<RecuperarClavePagina />} />
+                  <Route path="ingresar" element={<Ingresar />} />
+                  <Route path="registro" element={<Registro />} />
                   <Route path="politica-privacidad" element={<PoliticaPrivacidad />} />
                   <Route path="terminos-y-condiciones" element={<TerminosCondiciones />} />
                   {/* No enlazada desde ningún lugar del sitio: solo quien conoce
@@ -64,12 +66,6 @@ export function ArbolRutas() {
                   <Route path={RUTA_ADMIN} element={<AdminAcceso />} />
                   <Route path="*" element={<NoEncontrado />} />
                 </Route>
-
-                {/* Fuera de LayoutTienda a propósito: son pantallas de página
-                    completa (ver LayoutAcceso.tsx), sin el header/footer del
-                    resto del sitio. */}
-                <Route path="ingresar" element={<Ingresar />} />
-                <Route path="registro" element={<Registro />} />
 
                 <Route path="admin" element={<LayoutAdmin />}>
                   <Route index element={<AdminInicio />} />

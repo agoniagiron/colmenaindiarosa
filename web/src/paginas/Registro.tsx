@@ -78,7 +78,7 @@ export function Registro() {
   }
 
   return (
-    <LayoutAcceso ladoImagen="derecha">
+    <LayoutAcceso ladoImagen="derecha" mostrarMarcaMovil={false}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="font-serif text-3xl text-tinta">Unirte a India Rosa</h1>

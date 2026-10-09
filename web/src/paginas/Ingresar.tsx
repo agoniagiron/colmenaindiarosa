@@ -51,7 +51,7 @@ export function Ingresar() {
   }
 
   return (
-    <LayoutAcceso ladoImagen="izquierda">
+    <LayoutAcceso ladoImagen="izquierda" mostrarMarcaMovil={false}>
       <h1 className="font-serif text-3xl text-tinta">Bienvenida de nuevo</h1>
       <p className="mt-2 text-sm text-texto-secundario">
         Inicia sesión para acceder a tu cuenta y pedidos.

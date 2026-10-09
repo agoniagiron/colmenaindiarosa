@@ -26,13 +26,13 @@ export function Cuenta() {
     );
   }
 
-  // Sin sesión, /cuenta no se muestra: manda directo a crear cuenta (no al
-  // login — ver el pedido), con `replace` para que "atrás" no vuelva acá y
-  // rebote de nuevo. El ?regresar= le dice a /registro adónde volver
-  // cuando termine; si la clienta ya tiene cuenta, el propio /registro
-  // tiene el link a /ingresar y conserva ese mismo parámetro.
+  // Sin sesión, /cuenta no se muestra: manda directo al login (no al
+  // registro), con `replace` para que "atrás" no vuelva acá y rebote de
+  // nuevo. El ?regresar= le dice a /ingresar adónde volver cuando termine;
+  // si es una clienta nueva, el propio /ingresar tiene el link a
+  // /registro y conserva ese mismo parámetro.
   if (!usuario || !accessToken) {
-    return <Navigate to="/registro?regresar=/cuenta" replace />;
+    return <Navigate to="/ingresar?regresar=/cuenta" replace />;
   }
 
   function alCerrarSesion() {
