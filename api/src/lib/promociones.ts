@@ -81,7 +81,14 @@ export function obtenerMejorPromocionDePrecio(
   return candidata ?? null;
 }
 
-export function aplicarPromocionAPrecio(precioOriginal: number, promo: PromocionVigente): number {
+// Pick<...> y no PromocionVigente completo: admin/promociones/servicio.ts
+// la reusa para la vista previa de una promoción que todavía no se
+// guardó (ver punto 10 del pedido de Promociones/Kits) y ahí no hay
+// objetivos/prioridad/banner que armar, solo tipo y valor.
+export function aplicarPromocionAPrecio(
+  precioOriginal: number,
+  promo: Pick<PromocionVigente, 'tipo' | 'valor'>,
+): number {
   switch (promo.tipo) {
     case 'descuentoPorcentaje':
       return Math.max(0, Math.round(precioOriginal * (1 - promo.valor / 100)));

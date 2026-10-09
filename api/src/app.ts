@@ -10,11 +10,13 @@ import { manejadorErrores, rutaNoEncontrada } from './middleware/manejadorErrore
 import { requiereAuth } from './middleware/requiereAuth.js';
 import { requiereAuthAdmin, requierePermiso } from './middleware/requiereAuthAdmin.js';
 import { sesionVisita } from './middleware/sesionVisita.js';
+import { rutasAdminCombos } from './modulos/admin/combos/rutas.js';
 import { rutasAdminPedidos } from './modulos/admin/pedidos/rutas.js';
 import { rutasAdminAtributos } from './modulos/admin/productos/rutasAtributos.js';
 import { rutasAdminImagenes } from './modulos/admin/productos/rutasImagenes.js';
 import { rutasAdminProductos } from './modulos/admin/productos/rutasProductos.js';
 import { rutasAdminVariantes } from './modulos/admin/productos/rutasVariantes.js';
+import { rutasAdminPromociones } from './modulos/admin/promociones/rutas.js';
 import { rutasAnalitica } from './modulos/analitica/rutas.js';
 import { rutasAdminAnalitica } from './modulos/analitica/rutasAdmin.js';
 import { rutasAuth } from './modulos/auth/rutas.js';
@@ -89,6 +91,13 @@ app.use(
   requiereAuthAdmin,
   requierePermiso('productos.ver'),
   rutasAdminImagenes,
+);
+app.use('/api/admin/combos', requiereAuthAdmin, requierePermiso('combos.ver'), rutasAdminCombos);
+app.use(
+  '/api/admin/promociones',
+  requiereAuthAdmin,
+  requierePermiso('promociones.ver'),
+  rutasAdminPromociones,
 );
 app.use('/api/cuenta', requiereAuth, rutasCuenta);
 app.use('/api/carrito', sesionVisita, rutasCarrito);
