@@ -21,6 +21,11 @@ interface ImagenProductoProps {
   tipo?: TipoMarcador;
   url?: string;
   className?: string;
+  // 'eager' por defecto: no cambia nada donde no se pase explícito. Las
+  // grillas (catálogo, kits) pasan 'lazy' porque son muchas fotos de
+  // 1600px de ancho fuera de la vista inicial; el héroe de portada nunca
+  // lo usa, para no demorar la imagen más grande del primer pantallazo.
+  carga?: 'lazy' | 'eager';
 }
 
 // Misma paleta de tonos reales de la tienda (ver seed de `color`): cuando
@@ -125,6 +130,7 @@ export function ImagenProducto({
   tipo = 'cabello',
   url,
   className = '',
+  carga = 'eager',
 }: ImagenProductoProps) {
   const [fotoFallida, setFotoFallida] = useState(false);
   const gradId = useId();
@@ -137,6 +143,8 @@ export function ImagenProducto({
         alt={nombre}
         className={clases}
         style={{ objectFit: 'cover' }}
+        loading={carga}
+        decoding="async"
         onError={() => setFotoFallida(true)}
       />
     );

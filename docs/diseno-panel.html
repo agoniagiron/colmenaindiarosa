@@ -1,768 +1,182 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>India Rosa — Pantallas del panel</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Yeseva+One&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
-<style>
-:root{
-  --negro:#141110; --blanco:#FFFFFF; --sup:#FAF8F6; --linea:#E9E4DF;
-  --texto:#1A1513; --tenue:#7B7069; --rosa:#A32050; --rosaluz:#F6DEDA;
-  --verde:#1F7A4D; --verdeluz:#E4F1EA; --ambar:#B07A12; --ambarluz:#FBF0DC;
-  --azul:#1F5C7A; --azulluz:#E2EEF4; --lienzo:#FFFFFF; --panel:#FAF8F6;
-}
-:root:not([data-theme="light"]){
-  @media (prefers-color-scheme: dark){
-    --blanco:#1B1817; --sup:#151211; --linea:#2E2724; --texto:#EFE7E1; --tenue:#A4928A;
-    --lienzo:#151211; --panel:#1B1817; --verdeluz:#16281F; --ambarluz:#2A2113;
-    --rosaluz:#2E1A20; --azulluz:#16242B;
-  }
-}
-:root[data-theme="dark"]{
-  --blanco:#1B1817; --sup:#151211; --linea:#2E2724; --texto:#EFE7E1; --tenue:#A4928A;
-  --lienzo:#151211; --panel:#1B1817; --verdeluz:#16281F; --ambarluz:#2A2113;
-  --rosaluz:#2E1A20; --azulluz:#16242B;
-}
-*{box-sizing:border-box;}
-body{margin:0; background:var(--lienzo); color:var(--texto);
-  font-family:"Jost","Segoe UI",system-ui,sans-serif; font-size:15px; font-weight:300; line-height:1.55;}
-h1,h2,h3{font-family:"Yeseva One",Georgia,serif; font-weight:400; margin:0; line-height:1.15;}
-button{font:inherit; color:inherit; background:none; border:none; cursor:pointer;}
-input,select,textarea{font:inherit; color:inherit; background:var(--blanco);
-  border:1px solid var(--linea); border-radius:7px; padding:9px 11px; width:100%;}
-table{border-collapse:collapse; width:100%;}
-:focus-visible{outline:2px solid var(--rosa); outline-offset:2px;}
-
-.app{display:grid; grid-template-columns:232px 1fr; min-height:100vh;}
-.lado{background:var(--negro); color:#CFC5BF; padding:22px 0; position:sticky; top:0; height:100vh; overflow:auto;}
-.lado .logo{font-family:"Yeseva One",serif; color:#F5EFEA; font-size:18px; letter-spacing:.08em; padding:0 22px 6px;}
-.lado .rol{font-size:11.5px; color:#8A7C75; padding:0 22px 22px; letter-spacing:.1em;}
-.lado button.nav{display:flex; justify-content:space-between; align-items:center; width:100%;
-  padding:10px 22px; font-size:14px; color:#B7ABA4; text-align:left;}
-.lado button.nav:hover{background:rgba(245,239,234,.06); color:#F5EFEA;}
-.lado button.nav.on{background:rgba(245,239,234,.1); color:#F5EFEA; box-shadow:inset 3px 0 0 var(--rosa);}
-.lado button.nav.pronto{color:#6E625C; cursor:not-allowed;}
-.lado button.nav.pronto:hover{background:none; color:#6E625C;}
-.lado .marca{font-size:9.5px; letter-spacing:.1em; background:rgba(245,239,234,.09); padding:2px 7px; border-radius:99px;}
-.lado .grupo{font-size:10.5px; letter-spacing:.14em; color:#6E625C; padding:18px 22px 7px;}
-
-.cuerpo{padding:28px 32px 70px; max-width:1300px;}
-.enc{display:flex; align-items:flex-end; justify-content:space-between; gap:18px; flex-wrap:wrap; margin-bottom:22px;}
-.enc h1{font-size:28px;}
-.enc .ruta{font-size:12.5px; color:var(--tenue); margin-bottom:5px;}
-.enc p{margin:5px 0 0; color:var(--tenue); font-size:13.5px;}
-
-.btn{background:var(--negro); color:#F5EFEA; padding:10px 18px; border-radius:99px; font-size:13.5px;}
-.btn:hover{background:var(--rosa);}
-.btn.sec{background:none; color:var(--texto); box-shadow:inset 0 0 0 1px var(--linea);}
-.btn.sec:hover{background:var(--sup); color:var(--texto);}
-.btn.peli{background:var(--rosa);}
-.btn:disabled{opacity:.4; cursor:not-allowed;}
-
-.pest{display:flex; gap:2px; border-bottom:1px solid var(--linea); margin-bottom:18px; overflow-x:auto;}
-.pest button{padding:10px 15px; font-size:13.5px; color:var(--tenue); border-bottom:2px solid transparent; white-space:nowrap;}
-.pest button[aria-pressed="true"]{color:var(--texto); border-color:var(--rosa);}
-.pest .n{font-size:11.5px; background:var(--sup); padding:1px 7px; border-radius:99px; margin-left:6px;}
-
-.barra{display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;}
-.barra input,.barra select{width:auto; min-width:150px;}
-
-.caja{background:var(--panel); border:1px solid var(--linea); border-radius:10px; padding:20px 22px; margin-bottom:18px;}
-.caja h2{font-size:17px; margin-bottom:3px;}
-.caja .sub{font-size:13px; color:var(--tenue); margin:0 0 16px;}
-
-th{text-align:left; font-size:11.5px; letter-spacing:.09em; color:var(--tenue); font-weight:500; padding:0 10px 9px 0; border-bottom:1px solid var(--linea);}
-td{padding:12px 10px 12px 0; border-bottom:1px solid var(--linea); font-size:14px; vertical-align:middle;}
-tr:last-child td{border-bottom:none;}
-td.num,th.num{text-align:right; padding-right:0;}
-tr.alerta td{background:var(--ambarluz);}
-.prod{display:flex; align-items:center; gap:11px;}
-.mini{width:34px; height:45px; border-radius:5px; flex:none;}
-.mini.cuad{height:34px;}
-.pill{font-size:11.5px; padding:2px 9px; border-radius:99px; display:inline-block; white-space:nowrap;}
-.pill.ok{background:var(--verdeluz); color:var(--verde);}
-.pill.mal{background:var(--rosaluz); color:var(--rosa);}
-.pill.esp{background:var(--ambarluz); color:var(--ambar);}
-.pill.info{background:var(--azulluz); color:var(--azul);}
-.pill.gris{background:var(--sup); color:var(--tenue); box-shadow:inset 0 0 0 1px var(--linea);}
-.nota{font-size:12.5px; color:var(--tenue); background:var(--ambarluz); border-left:3px solid var(--ambar);
-  padding:11px 14px; border-radius:0 8px 8px 0; margin-top:14px;}
-.nota.azul{background:var(--azulluz); border-color:var(--azul);}
-
-.dos{display:grid; grid-template-columns:1.4fr .6fr; gap:18px;}
-.campo{margin-bottom:14px;}
-.campo label{display:block; font-size:12.5px; color:var(--tenue); margin-bottom:5px;}
-.campo .ayuda{font-size:11.5px; color:var(--tenue); margin-top:4px;}
-.linea2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
-.linea3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;}
-
-.tl{display:flex; flex-direction:column; gap:0;}
-.tl .ev{display:grid; grid-template-columns:14px 1fr; gap:12px; padding-bottom:16px; position:relative;}
-.tl .ev:not(:last-child)::before{content:""; position:absolute; left:6px; top:14px; bottom:0; width:1px; background:var(--linea);}
-.tl .pt{width:13px; height:13px; border-radius:99px; background:var(--rosa); margin-top:4px; z-index:1;}
-.tl .pt.gris{background:var(--linea);}
-.tl b{display:block; font-weight:500; font-size:14px;}
-.tl span{font-size:12px; color:var(--tenue);}
-
-.barralote{height:6px; border-radius:99px; background:var(--linea); overflow:hidden; margin-top:5px; width:130px;}
-.barralote i{display:block; height:100%; background:var(--rosa);}
-
-.zonaimg{border:1.5px dashed var(--linea); border-radius:10px; padding:28px; text-align:center; color:var(--tenue); font-size:13.5px;}
-.gal{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:14px;}
-.gal figure{margin:0; background:var(--blanco); border:1px solid var(--linea); border-radius:9px; overflow:hidden;}
-.gal .img{aspect-ratio:3/4;}
-.gal figcaption{padding:9px 10px; font-size:11.5px;}
-.gal input{font-size:12px; padding:6px 8px; margin-top:5px;}
-
-.resumen{background:var(--blanco); border:1px solid var(--linea); border-radius:9px; padding:16px 18px;}
-.resumen .f{display:flex; justify-content:space-between; padding:6px 0; font-size:14px;}
-.resumen .f.tot{border-top:1px solid var(--linea); margin-top:8px; padding-top:12px; font-size:16px; font-weight:500;}
-.resumen .f.des{color:var(--verde);}
-
-.pantalla{display:none;}
-.pantalla.activa{display:block;}
-
-@media (max-width:1050px){ .dos{grid-template-columns:1fr;} .gal{grid-template-columns:repeat(2,1fr);} }
-@media (max-width:820px){
-  .app{grid-template-columns:1fr;}
-  .lado{position:static; height:auto; display:flex; gap:4px; overflow-x:auto; padding:12px;}
-  .lado .logo,.lado .rol,.lado .grupo{display:none;}
-  .lado button.nav{white-space:nowrap; border-radius:99px; width:auto;}
-  .cuerpo{padding:18px 14px 44px;}
-  .linea2,.linea3{grid-template-columns:1fr;}
-}
-@media (prefers-reduced-motion:reduce){*{transition:none !important;}}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>India Rosa - Inicio Mejorado</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Yeseva+One&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #FAFAFA; }
+        h1, h2, h3, .logo { font-family: 'Yeseva One', serif; }
+        .bg-vino { background-color: #9A2A54; }
+        .text-vino { color: #9A2A54; }
+    </style>
 </head>
-<body>
-<div class="app">
+<body class="text-gray-900 antialiased">
 
-<aside class="lado">
-  <div class="logo">INDIA ROSA</div>
-  <div class="rol">ADMINISTRACIÓN</div>
-  <button class="nav pronto">Analítica <span class="marca">HECHO</span></button>
-  <button class="nav on" data-p="pedidos">Pedidos</button>
-  <div class="grupo">CATÁLOGO</div>
-  <button class="nav" data-p="productos">Productos</button>
-  <button class="nav" data-p="producto">· Ficha de producto</button>
-  <button class="nav" data-p="promociones">Promociones</button>
-  <button class="nav" data-p="kits">Kits</button>
-  <button class="nav" data-p="limitadas">Limitadas</button>
-  <div class="grupo">OPERACIÓN</div>
-  <button class="nav pronto">Inventario <span class="marca">PRONTO</span></button>
-  <button class="nav pronto">Abastecimiento <span class="marca">PRONTO</span></button>
-  <button class="nav pronto">Proveedores <span class="marca">PRONTO</span></button>
-  <div class="grupo">SISTEMA</div>
-  <button class="nav pronto">Configuración <span class="marca">PRONTO</span></button>
-  <button class="nav pronto">Usuarios <span class="marca">PRONTO</span></button>
-  <div class="grupo">DEL PROTOTIPO</div>
-  <button class="nav" data-p="detalle">Detalle de pedido</button>
-</aside>
-
-<main class="cuerpo">
-
-<!-- ============ PEDIDOS ============ -->
-<section class="pantalla activa" id="p-pedidos">
-  <div class="enc">
-    <div><h1>Pedidos</h1><p>96 pedidos pagados este mes</p></div>
-    <div style="display:flex;gap:8px"><button class="btn sec">Exportar CSV</button></div>
-  </div>
-
-  <div class="pest">
-    <button aria-pressed="true">Todos <span class="n">142</span></button>
-    <button aria-pressed="false">Esperando pago <span class="n">11</span></button>
-    <button aria-pressed="false">Pagados <span class="n">24</span></button>
-    <button aria-pressed="false">En preparación <span class="n">9</span></button>
-    <button aria-pressed="false">Despachados <span class="n">63</span></button>
-    <button aria-pressed="false">Entregados <span class="n">28</span></button>
-    <button aria-pressed="false">Cancelados <span class="n">7</span></button>
-  </div>
-
-  <div class="barra">
-    <input placeholder="Buscar por número, nombre o teléfono">
-    <input type="date" value="2026-09-01">
-    <input type="date" value="2026-09-17">
-    <select><option>Todos los métodos</option><option>PSE</option><option>Tarjeta</option><option>Nequi</option></select>
-  </div>
-
-  <div class="caja" style="padding:14px 18px">
-    <table>
-      <thead><tr>
-        <th>Pedido</th><th>Fecha</th><th>Clienta</th><th class="num">Artículos</th>
-        <th class="num">Total</th><th>Pago</th><th>Estado</th><th></th>
-      </tr></thead>
-      <tbody>
-        <tr class="alerta">
-          <td><b>INR-000142</b></td><td>16 sept, 9:14 a. m.</td><td>Laura Restrepo</td>
-          <td class="num">2</td><td class="num">$688.000</td><td>PSE</td>
-          <td><span class="pill esp">Esperando pago · 28 h</span></td>
-          <td class="num"><button class="btn sec" data-p="detalle">Ver</button></td>
-        </tr>
-        <tr>
-          <td><b>INR-000141</b></td><td>16 sept, 8:02 a. m.</td><td>Diana Ospina</td>
-          <td class="num">1</td><td class="num">$310.000</td><td>Nequi</td>
-          <td><span class="pill ok">Pagado</span></td>
-          <td class="num"><button class="btn sec" data-p="detalle">Ver</button></td>
-        </tr>
-        <tr>
-          <td><b>INR-000140</b></td><td>15 sept, 7:41 p. m.</td><td>Marcela Ruiz</td>
-          <td class="num">3</td><td class="num">$1.024.000</td><td>Tarjeta</td>
-          <td><span class="pill info">En preparación</span></td>
-          <td class="num"><button class="btn sec" data-p="detalle">Ver</button></td>
-        </tr>
-        <tr>
-          <td><b>INR-000139</b></td><td>15 sept, 3:20 p. m.</td><td>Carolina Vélez</td>
-          <td class="num">1</td><td class="num">$58.000</td><td>PSE</td>
-          <td><span class="pill gris">Despachado</span></td>
-          <td class="num"><button class="btn sec" data-p="detalle">Ver</button></td>
-        </tr>
-        <tr>
-          <td><b>INR-000138</b></td><td>14 sept, 11:05 a. m.</td><td>Invitada</td>
-          <td class="num">2</td><td class="num">$625.000</td><td>Tarjeta</td>
-          <td><span class="pill mal">Cancelado</span></td>
-          <td class="num"><button class="btn sec" data-p="detalle">Ver</button></td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-  <p class="nota">Las filas en ámbar llevan más de 24 horas esperando pago. O se cayó la transacción o vale la pena escribirle a la clienta por WhatsApp.</p>
-</section>
-
-<!-- ============ DETALLE DE PEDIDO ============ -->
-<section class="pantalla" id="p-detalle">
-  <div class="enc">
-    <div>
-      <div class="ruta">Pedidos / INR-000140</div>
-      <h1>INR-000140</h1>
-      <p>15 de septiembre de 2026, 7:41 p. m. · Marcela Ruiz</p>
+    <!-- Barra de anuncio -->
+    <div class="bg-zinc-900 text-white text-xs text-center py-2 tracking-widest">
+        10% DE DESCUENTO EN COMPRAS DESDE $400.000
     </div>
-    <div style="display:flex;gap:8px">
-      <button class="btn sec">Escribir por WhatsApp</button>
-      <button class="btn">Marcar como despachado</button>
-    </div>
-  </div>
 
-  <div class="dos">
-    <div>
-      <div class="caja">
-        <h2>Contenido</h2>
-        <p class="sub">3 artículos</p>
-        <table>
-          <tbody>
-            <tr>
-              <td style="width:60px"><span class="mini" style="background:#1c1412"></span></td>
-              <td><b>Peluca lace front lisa 26"</b><br><span style="font-size:12.5px;color:var(--tenue)">Lace front · 26" · Negro natural · Talla M · 180%</span></td>
-              <td class="num">1 × $640.000</td><td class="num"><b>$640.000</b></td>
-            </tr>
-            <tr>
-              <td><span class="mini" style="background:#c9a227"></span></td>
-              <td>
-                <b>Kit rizo definido</b> <span class="pill info">kit</span><br>
-                <span style="font-size:12.5px;color:var(--tenue)">
-                  Peluca pixie rizada · Negro natural<br>
-                  Crema para peinar rizos definidos 300 ml<br>
-                  Leave-in hidratante 200 ml
-                </span>
-              </td>
-              <td class="num">1 × $310.000</td><td class="num"><b>$310.000</b></td>
-            </tr>
-            <tr>
-              <td><span class="mini" style="background:#e0c67a"></span></td>
-              <td><b>Gel fijador de baby hair 100 ml</b></td>
-              <td class="num">2 × $34.000</td><td class="num"><b>$68.000</b></td>
-            </tr>
-          </tbody>
-        </table>
-        <p class="nota azul">La línea del kit muestra sus piezas desplegadas: es la copia histórica de lo que incluía el kit el día de la compra, no lo que incluye hoy.</p>
-      </div>
-
-      <div class="caja">
-        <h2>Envío</h2>
-        <p class="sub">Copia histórica: editarla aquí no cambia la dirección guardada de la clienta</p>
-        <div class="linea2">
-          <div class="campo"><label>Nombre de quien recibe</label><input value="Marcela Ruiz"></div>
-          <div class="campo"><label>Teléfono</label><input value="300 214 8876"></div>
+    <!-- Navegación -->
+    <nav class="flex justify-between items-center py-6 px-12 bg-white border-b border-gray-100">
+        <div class="flex items-center gap-8">
+            <div class="logo text-2xl tracking-wide">INDIA ROSA</div>
+            <div class="space-x-6 text-sm text-gray-500">
+                <a href="#" class="text-black border-b-2 border-black pb-1">INICIO</a>
+                <a href="#" class="hover:text-black">CATÁLOGO</a>
+            </div>
         </div>
-        <div class="linea2">
-          <div class="campo"><label>Departamento</label><input value="Valle del Cauca"></div>
-          <div class="campo"><label>Ciudad</label><input value="Cali"></div>
+        <div class="flex items-center gap-6">
+            <input type="text" placeholder="Buscar productos" class="border border-gray-200 rounded-full px-4 py-2 text-sm w-64 focus:outline-none focus:border-gray-400">
+            <div class="text-sm font-medium">CUENTA</div>
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
         </div>
-        <div class="campo"><label>Dirección</label><input value="Calle 5 # 38-52, apto 802, Torre B"></div>
-        <div class="linea3">
-          <div class="campo"><label>Transportadora</label><select><option>Sin asignar</option><option selected>Servientrega</option><option>Interrapidísimo</option></select></div>
-          <div class="campo"><label>Número de guía</label><input value="8422190045"></div>
-          <div class="campo"><label>Seguimiento</label><input placeholder="URL opcional"></div>
+    </nav>
+
+    <!-- Hero Section (Mejora 1 y 2: Fotos reales y Copywriting directo) -->
+    <section class="flex flex-col md:flex-row items-center justify-between px-12 py-16 max-w-7xl mx-auto gap-12">
+        <div class="md:w-1/2 space-y-6">
+            <h1 class="text-6xl leading-tight text-zinc-900">Elige tu tono<br>y nosotras el resto</h1>
+            <p class="text-gray-500 text-lg">Cabello 100% humano, seleccionado uno por uno. Empieza por el color: todo lo demás se acomoda a él.</p>
+            
+            <!-- Nuevos Beneficios (Atacando el dolor del cliente) -->
+            <ul class="space-y-3 py-4 text-sm text-gray-700 font-medium">
+                <li class="flex items-center gap-2">
+                    <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                    Cabello 100% Remy Indetectable
+                </li>
+                <li class="flex items-center gap-2">
+                    <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                    Soporta calor, plancha y tintes
+                </li>
+                <li class="flex items-center gap-2">
+                    <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                    Listas para usar (Glueless)
+                </li>
+            </ul>
+
+            <button class="bg-zinc-900 text-white px-8 py-4 rounded-full font-medium hover:bg-zinc-800 transition-colors w-64 shadow-lg">
+                Ver catálogo completo
+            </button>
         </div>
-      </div>
-
-      <div class="caja">
-        <h2>Pagos</h2>
-        <p class="sub">Un pedido puede tener varios intentos</p>
-        <table>
-          <thead><tr><th>Referencia</th><th>Método</th><th class="num">Monto</th><th class="num">Comisión</th><th>Estado</th></tr></thead>
-          <tbody>
-            <tr><td>INR-000140-2</td><td>Tarjeta · Visa ···4417</td><td class="num">$1.024.000</td><td class="num">$32.510</td><td><span class="pill ok">Aprobado</span></td></tr>
-            <tr><td>INR-000140-1</td><td>PSE · Bancolombia</td><td class="num">$1.024.000</td><td class="num">—</td><td><span class="pill mal">Rechazado</span></td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div>
-      <div class="caja">
-        <h2>Resumen</h2>
-        <div class="resumen" style="border:none;padding:0;background:none">
-          <div class="f"><span>Subtotal</span><span>$1.018.000</span></div>
-          <div class="f des"><span>Descuento automático 10%</span><span>-$101.800</span></div>
-          <div class="f"><span>Envío</span><span>$15.000</span></div>
-          <div class="f tot"><span>Total</span><span>$931.200</span></div>
+        
+        <div class="md:w-1/2">
+            <!-- La foto real transmite la calidad y textura al instante -->
+            <img src="https://images.unsplash.com/photo-1519699047748-de8e457a634e?auto=format&fit=crop&q=80&w=800" alt="Modelo con extensiones India Rosa" class="rounded-t-[10rem] object-cover h-[600px] w-full shadow-2xl">
         </div>
-        <p class="nota">Se descartó el cupón ROSA20 porque el descuento automático era mayor. Se aplica el que más le convenga a la clienta, nunca los dos.</p>
-      </div>
+    </section>
 
-      <div class="caja">
-        <h2>Historial</h2>
-        <div class="tl">
-          <div class="ev"><span class="pt"></span><div><b>En preparación</b><span>16 sept, 8:30 a. m. · Camila (Bodega)</span></div></div>
-          <div class="ev"><span class="pt"></span><div><b>Pagado</b><span>15 sept, 7:44 p. m. · webhook de Wompi</span></div></div>
-          <div class="ev"><span class="pt gris"></span><div><b>Pago rechazado</b><span>15 sept, 7:42 p. m. · PSE</span></div></div>
-          <div class="ev"><span class="pt gris"></span><div><b>Pedido creado</b><span>15 sept, 7:41 p. m.</span></div></div>
+    <!-- Navegación Visual Rápida (Mejora 4) -->
+    <section class="max-w-4xl mx-auto py-12">
+        <h3 class="text-center text-xl mb-8">Encuentra tu estilo</h3>
+        <div class="flex justify-between items-center gap-6">
+            <div class="flex flex-col items-center gap-3 cursor-pointer group">
+                <div class="w-24 h-24 rounded-full overflow-hidden border-2 border-transparent group-hover:border-[#9A2A54] transition-all">
+                    <img src="https://images.unsplash.com/photo-1605980776566-0486c3ac7617?auto=format&fit=crop&q=80&w=200" class="w-full h-full object-cover">
+                </div>
+                <span class="text-sm font-medium">Lisas</span>
+            </div>
+            <div class="flex flex-col items-center gap-3 cursor-pointer group">
+                <div class="w-24 h-24 rounded-full overflow-hidden border-2 border-transparent group-hover:border-[#9A2A54] transition-all">
+                    <img src="https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&q=80&w=200" class="w-full h-full object-cover">
+                </div>
+                <span class="text-sm font-medium">Rizadas</span>
+            </div>
+            <div class="flex flex-col items-center gap-3 cursor-pointer group">
+                <div class="w-24 h-24 rounded-full overflow-hidden border-2 border-transparent group-hover:border-[#9A2A54] transition-all">
+                    <img src="https://images.unsplash.com/photo-1580618672591-eb180b1a973f?auto=format&fit=crop&q=80&w=200" class="w-full h-full object-cover">
+                </div>
+                <span class="text-sm font-medium">Cortes Bob</span>
+            </div>
+            <div class="flex flex-col items-center gap-3 cursor-pointer group">
+                <div class="w-24 h-24 rounded-full bg-stone-200 flex items-center justify-center border-2 border-transparent group-hover:border-[#9A2A54] transition-all">
+                    <span class="text-2xl">✨</span>
+                </div>
+                <span class="text-sm font-medium">Cuidado</span>
+            </div>
         </div>
-      </div>
+    </section>
 
-      <div class="caja">
-        <h2>Acciones</h2>
-        <div style="display:flex;flex-direction:column;gap:8px">
-          <button class="btn sec">Cambiar estado</button>
-          <button class="btn sec">Registrar reembolso</button>
-          <button class="btn sec">Reenviar confirmación</button>
+    <!-- Kits Armados (Mejora 3: Prueba social / Estrellas) -->
+    <section class="max-w-7xl mx-auto px-12 py-16">
+        <h2 class="text-4xl mb-2">Kits armados</h2>
+        <p class="text-gray-500 mb-12">Lo que más se pide junto, a un precio mejor que por separado.</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <!-- Tarjeta 1 -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm hover:shadow-xl transition-shadow border border-gray-100 group">
+                <div class="relative h-80 mb-6 rounded-xl overflow-hidden bg-stone-100">
+                    <img src="https://images.unsplash.com/photo-1531123897727-8f129e1688ce?auto=format&fit=crop&q=80&w=600" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                </div>
+                <h3 class="text-2xl mb-2">Kit rizo definido</h3>
+                <!-- Prueba Social agregada aquí -->
+                <div class="flex items-center gap-2 mb-4">
+                    <div class="flex text-yellow-400 text-sm">★★★★★</div>
+                    <span class="text-xs text-gray-500 font-medium">4.8 (124 reseñas)</span>
+                </div>
+                <ul class="text-sm text-gray-500 space-y-2 mb-6">
+                    <li>• Peluca pixie rizada</li>
+                    <li>• Crema para peinar rizos 300 ml</li>
+                    <li>• Leave-in hidratante 200 ml</li>
+                </ul>
+                <div class="flex items-center gap-3 mb-6">
+                    <span class="text-xl font-semibold">$ 310.000</span>
+                    <span class="text-sm text-gray-400 line-through">$ 367.000</span>
+                    <span class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-md font-medium">Ahorras 16%</span>
+                </div>
+                <button class="w-full bg-vino text-white py-3 rounded-xl font-medium hover:opacity-90 transition-opacity">Agregar al carrito</button>
+            </div>
+
+            <!-- Tarjeta 2 -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm hover:shadow-xl transition-shadow border border-gray-100 group">
+                <div class="relative h-80 mb-6 rounded-xl overflow-hidden bg-stone-100">
+                    <img src="https://images.unsplash.com/photo-1605980776566-0486c3ac7617?auto=format&fit=crop&q=80&w=600" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                </div>
+                <h3 class="text-2xl mb-2">Kit liso perfecto</h3>
+                <div class="flex items-center gap-2 mb-4">
+                    <div class="flex text-yellow-400 text-sm">★★★★★</div>
+                    <span class="text-xs text-gray-500 font-medium">4.9 (89 reseñas)</span>
+                </div>
+                <ul class="text-sm text-gray-500 space-y-2 mb-6">
+                    <li>• Peluca lace front lisa 26"</li>
+                    <li>• Crema alisado térmico 250 ml</li>
+                    <li>• Cepillo desenredante</li>
+                </ul>
+                <div class="flex items-center gap-3 mb-6">
+                    <span class="text-xl font-semibold">$ 625.000</span>
+                    <span class="text-sm text-gray-400 line-through">$ 731.000</span>
+                    <span class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-md font-medium">Ahorras 15%</span>
+                </div>
+                <button class="w-full bg-vino text-white py-3 rounded-xl font-medium hover:opacity-90 transition-opacity">Agregar al carrito</button>
+            </div>
+            
+            <!-- Tarjeta 3 -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm hover:shadow-xl transition-shadow border border-gray-100 group">
+                <div class="relative h-80 mb-6 rounded-xl overflow-hidden bg-stone-100">
+                    <img src="https://images.unsplash.com/photo-1580618672591-eb180b1a973f?auto=format&fit=crop&q=80&w=600" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                </div>
+                <h3 class="text-2xl mb-2">Kit baby hair</h3>
+                <div class="flex items-center gap-2 mb-4">
+                    <div class="flex text-yellow-400 text-sm">★★★★★</div>
+                    <span class="text-xs text-gray-500 font-medium">4.7 (210 reseñas)</span>
+                </div>
+                <ul class="text-sm text-gray-500 space-y-2 mb-6">
+                    <li>• Peluca bob liso con flequillo</li>
+                    <li>• Gel fijador baby hair 100 ml</li>
+                    <li>• Cepillo de cerdas flexibles</li>
+                </ul>
+                <div class="flex items-center gap-3 mb-6">
+                    <span class="text-xl font-semibold">$ 335.000</span>
+                    <span class="text-sm text-gray-400 line-through">$ 393.000</span>
+                    <span class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-md font-medium">Ahorras 15%</span>
+                </div>
+                <button class="w-full bg-vino text-white py-3 rounded-xl font-medium hover:opacity-90 transition-opacity">Agregar al carrito</button>
+            </div>
         </div>
-        <p class="nota">Cancelar este pedido devolvería 4 unidades al inventario y crearía su movimiento de entrada. Se pide confirmación antes.</p>
-      </div>
-    </div>
-  </div>
-</section>
+    </section>
 
-<!-- ============ PRODUCTOS ============ -->
-<section class="pantalla" id="p-productos">
-  <div class="enc">
-    <div><h1>Productos</h1><p>25 en catálogo · 21 publicados · 4 borradores</p></div>
-    <button class="btn">Nuevo producto</button>
-  </div>
-
-  <div class="barra">
-    <input placeholder="Buscar por nombre o SKU">
-    <select><option>Todas las categorías</option><option>Pelucas</option><option>Cuidado</option><option>Extensiones</option><option>Accesorios</option></select>
-    <select><option>Todos los estados</option><option>Publicado</option><option>Borrador</option><option>Archivado</option></select>
-  </div>
-
-  <div class="caja" style="padding:14px 18px">
-    <table>
-      <thead><tr>
-        <th colspan="2">Producto</th><th>Categoría</th><th class="num">Variantes</th>
-        <th class="num">Precio</th><th class="num">Stock</th><th class="num">Nota</th><th>Estado</th><th></th>
-      </tr></thead>
-      <tbody>
-        <tr>
-          <td style="width:48px"><span class="mini" style="background:#1c1412"></span></td>
-          <td><b>Peluca lace front lisa 26"</b></td><td>Pelucas</td><td class="num">3</td>
-          <td class="num">$640.000 – $660.000</td><td class="num">12</td><td class="num">4,9</td>
-          <td><span class="pill ok">Publicado</span></td>
-          <td class="num"><button class="btn sec" data-p="producto">Editar</button></td>
-        </tr>
-        <tr class="alerta">
-          <td><span class="mini" style="background:#3b2620"></span></td>
-          <td><b>Peluca bob liso con flequillo</b><br><span style="font-size:12px;color:var(--ambar)">Todas las variantes agotadas</span></td>
-          <td>Pelucas</td><td class="num">2</td><td class="num">$330.000</td><td class="num">0</td><td class="num">4,5</td>
-          <td><span class="pill ok">Publicado</span></td>
-          <td class="num"><button class="btn sec" data-p="producto">Editar</button></td>
-        </tr>
-        <tr>
-          <td><span class="mini" style="background:#c9a227"></span></td>
-          <td><b>Crema para peinar rizos definidos 300 ml</b></td><td>Cuidado</td><td class="num">1</td>
-          <td class="num">$58.000</td><td class="num">34</td><td class="num">4,8</td>
-          <td><span class="pill ok">Publicado</span></td>
-          <td class="num"><button class="btn sec" data-p="producto">Editar</button></td>
-        </tr>
-        <tr>
-          <td><span class="mini" style="background:#a97e4c"></span></td>
-          <td><b>Peluca balayage rubio ceniza</b></td><td>Pelucas</td><td class="num">0</td>
-          <td class="num">—</td><td class="num">0</td><td class="num">—</td>
-          <td><span class="pill gris">Borrador</span></td>
-          <td class="num"><button class="btn sec" data-p="producto">Editar</button></td>
-        </tr>
-        <tr>
-          <td><span class="mini" style="background:#b98a72"></span></td>
-          <td><b>Cepillo desenredante</b></td><td>Accesorios</td><td class="num">1</td>
-          <td class="num">$29.000</td><td class="num">37</td><td class="num">4,5</td>
-          <td><span class="pill gris">Archivado</span></td>
-          <td class="num"><button class="btn sec" data-p="producto">Editar</button></td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-  <p class="nota">Un producto publicado con todas sus variantes agotadas sigue apareciendo en la tienda marcado como agotado. La fila en ámbar lo señala para que decidas si reponer o despublicar.</p>
-</section>
-
-<!-- ============ FICHA DE PRODUCTO ============ -->
-<section class="pantalla" id="p-producto">
-  <div class="enc">
-    <div>
-      <div class="ruta">Productos / Peluca lace front lisa 26"</div>
-      <h1>Peluca lace front lisa 26"</h1>
-      <p><span class="pill ok">Publicado</span> · 3 variantes · 12 unidades en bodega</p>
-    </div>
-    <div style="display:flex;gap:8px">
-      <button class="btn sec">Ver en la tienda</button>
-      <button class="btn">Guardar cambios</button>
-    </div>
-  </div>
-
-  <div class="pest">
-    <button aria-pressed="true" data-t="gen">General</button>
-    <button aria-pressed="false" data-t="var">Variantes <span class="n">3</span></button>
-    <button aria-pressed="false" data-t="pre">Precios</button>
-    <button aria-pressed="false" data-t="img">Imágenes <span class="n">4</span></button>
-    <button aria-pressed="false" data-t="seo">SEO</button>
-  </div>
-
-  <div class="tab" id="t-gen">
-    <div class="dos">
-      <div class="caja">
-        <div class="campo"><label>Nombre</label><input value='Peluca lace front lisa 26"'></div>
-        <div class="linea2">
-          <div class="campo"><label>Slug</label><input value="ir-peluca-lisa-26"><div class="ayuda">indiarosa.co/producto/ir-peluca-lisa-26</div></div>
-          <div class="campo"><label>Categoría</label><select><option selected>Pelucas</option><option>Cuidado</option><option>Extensiones</option><option>Accesorios</option></select></div>
-        </div>
-        <div class="campo"><label>Descripción corta</label><input value="Cabello humano remy, encaje HD transparente."><div class="ayuda">Aparece en las tarjetas del catálogo</div></div>
-        <div class="campo"><label>Descripción</label><textarea rows="4">Largo hasta la cintura con caída pesada y brillo natural. El encaje HD se funde con el cuero cabelludo y admite partición libre.</textarea></div>
-        <div class="campo"><label>Cuidados</label><textarea rows="2">Lava cada 8 a 10 usos con shampoo sin sulfatos y agua tibia.</textarea></div>
-        <div class="campo"><label>Notas de envío</label><textarea rows="2">Despacho en 24 horas hábiles. Incluye gorro de malla y banda elástica.</textarea></div>
-      </div>
-      <div>
-        <div class="caja">
-          <h2>Publicación</h2>
-          <div class="campo"><label>Estado</label><select><option>Borrador</option><option selected>Publicado</option><option>Archivado</option></select></div>
-          <p class="nota">No se puede publicar un producto sin al menos una variante activa y una imagen con texto alternativo.</p>
-        </div>
-        <div class="caja">
-          <h2>Destacado</h2>
-          <div class="campo"><label>Sección de portada</label><select><option>No destacado</option><option selected>Inicio</option></select></div>
-          <div class="campo"><label>Orden</label><input type="number" value="1"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="tab" id="t-var" style="display:none">
-    <div class="caja" style="padding:14px 18px">
-      <table>
-        <thead><tr><th>SKU</th><th>Color</th><th>Longitud</th><th>Base</th><th class="num">Precio</th><th class="num">Costo</th><th class="num">Stock</th><th class="num">Reorden</th><th>Activa</th><th></th></tr></thead>
-        <tbody>
-          <tr>
-            <td><b>IR-PL26-NEG</b></td>
-            <td><span class="prod"><span class="mini cuad" style="background:#1c1412;width:18px;height:18px;border-radius:99px"></span>Negro natural</span></td>
-            <td>26"</td><td>Lace front</td><td class="num">$640.000</td><td class="num">$330.000</td>
-            <td class="num">6</td><td class="num">2</td><td><span class="pill ok">Sí</span></td>
-            <td class="num"><button class="btn sec">Editar</button></td>
-          </tr>
-          <tr>
-            <td><b>IR-PL26-CAS</b></td>
-            <td><span class="prod"><span class="mini cuad" style="background:#3b2620;width:18px;height:18px;border-radius:99px"></span>Castaño oscuro</span></td>
-            <td>26"</td><td>Lace front</td><td class="num">$640.000</td><td class="num">$330.000</td>
-            <td class="num">4</td><td class="num">2</td><td><span class="pill ok">Sí</span></td>
-            <td class="num"><button class="btn sec">Editar</button></td>
-          </tr>
-          <tr>
-            <td><b>IR-PL26-CHO</b></td>
-            <td><span class="prod"><span class="mini cuad" style="background:#5a3a2a;width:18px;height:18px;border-radius:99px"></span>Chocolate</span></td>
-            <td>26"</td><td>Lace front</td><td class="num">$660.000</td><td class="num">$340.000</td>
-            <td class="num">2</td><td class="num">2</td><td><span class="pill esp">Punto de reorden</span></td>
-            <td class="num"><button class="btn sec">Editar</button></td>
-          </tr>
-        </tbody>
-      </table>
-      <div style="margin-top:14px"><button class="btn sec">Agregar variante</button></div>
-      <p class="nota">El stock no se edita aquí: se ajusta desde Inventario, donde cada cambio pide un motivo y queda registrado como movimiento.</p>
-    </div>
-  </div>
-
-  <div class="tab" id="t-pre" style="display:none">
-    <div class="dos">
-      <div class="caja">
-        <h2>Cambiar precio</h2>
-        <p class="sub">Se aplica a IR-PL26-NEG</p>
-        <div class="linea2">
-          <div class="campo"><label>Precio actual</label><input value="$640.000" disabled></div>
-          <div class="campo"><label>Precio nuevo</label><input value="$590.000"></div>
-        </div>
-        <div class="linea2">
-          <div class="campo"><label>Precio tachado</label><input value="$760.000"><div class="ayuda">Opcional, para mostrar descuento</div></div>
-          <div class="campo"><label>Precio en dólares</label><input placeholder="US$143,90 calculado"><div class="ayuda">Vacío = se calcula con la tasa vigente</div></div>
-        </div>
-        <div class="campo"><label>Motivo</label><input placeholder="Ajuste de proveedor, temporada, corrección..."><div class="ayuda">Obligatorio. Queda en el historial.</div></div>
-        <div class="resumen" style="margin:14px 0">
-          <div class="f"><span>Variación</span><span style="color:var(--rosa)">−7,8%</span></div>
-          <div class="f"><span>Costo</span><span>$330.000</span></div>
-          <div class="f tot"><span>Margen resultante</span><span style="color:var(--verde)">44,1%</span></div>
-        </div>
-        <button class="btn">Guardar precio</button>
-        <p class="nota">Un precio por debajo del costo pide confirmación explícita antes de guardarse.</p>
-      </div>
-      <div class="caja">
-        <h2>Historial</h2>
-        <p class="sub">IR-PL26-NEG</p>
-        <div class="tl">
-          <div class="ev"><span class="pt"></span><div><b>$640.000</b><span>1 sept · temporada · Andrés</span></div></div>
-          <div class="ev"><span class="pt gris"></span><div><b>$680.000</b><span>14 jul · ajuste de proveedor · Andrés</span></div></div>
-          <div class="ev"><span class="pt gris"></span><div><b>$620.000</b><span>3 may · corrección · Camila</span></div></div>
-          <div class="ev"><span class="pt gris"></span><div><b>$620.000</b><span>12 mar · carga inicial</span></div></div>
-        </div>
-        <p class="nota">El historial solo se inserta, nunca se edita. Es la única prueba de cuánto costaba algo el día que se vendió.</p>
-      </div>
-    </div>
-  </div>
-
-  <div class="tab" id="t-img" style="display:none">
-    <div class="caja">
-      <h2>Imágenes</h2>
-      <p class="sub">Arrastra aquí. Se redimensionan a 1600 px y se convierten a WebP antes de subir.</p>
-      <div class="zonaimg">Arrastra las fotos o haz clic para elegirlas<br><span style="font-size:12px">JPG, PNG o WebP · máximo 5 MB cada una</span></div>
-      <div class="gal">
-        <figure>
-          <div class="img" style="background:#1c1412"></div>
-          <figcaption><span class="pill info">Principal</span><input value="Peluca lisa negra, vista frontal"></figcaption>
-        </figure>
-        <figure>
-          <div class="img" style="background:#241a16"></div>
-          <figcaption><span class="pill gris">Galería</span><input value="Peluca lisa negra, vista lateral"></figcaption>
-        </figure>
-        <figure>
-          <div class="img" style="background:#3b2620"></div>
-          <figcaption><span class="pill gris">Detalle</span><input value="Detalle del encaje HD"></figcaption>
-        </figure>
-        <figure>
-          <div class="img" style="background:#5a3a2a"></div>
-          <figcaption><span class="pill esp">Falta texto</span><input placeholder="Texto alternativo obligatorio"></figcaption>
-        </figure>
-      </div>
-      <p class="nota">El texto alternativo es obligatorio: Google lo usa para indexar y un lector de pantalla depende de él. Una imagen sin texto bloquea la publicación.</p>
-    </div>
-  </div>
-
-  <div class="tab" id="t-seo" style="display:none">
-    <div class="caja" style="max-width:640px">
-      <div class="campo"><label>Título SEO</label><input placeholder='Peluca lace front lisa 26" cabello humano | India Rosa'><div class="ayuda">Vacío = se usa el nombre del producto</div></div>
-      <div class="campo"><label>Descripción SEO</label><textarea rows="3" placeholder="Vacío = se usa la descripción corta"></textarea><div class="ayuda">Google corta alrededor de los 155 caracteres</div></div>
-      <div class="resumen" style="margin-top:6px">
-        <div style="font-size:12px;color:var(--tenue);margin-bottom:6px">Así se vería en Google</div>
-        <div style="color:var(--azul);font-size:16px">Peluca lace front lisa 26" cabello humano | India Rosa</div>
-        <div style="font-size:12.5px;color:var(--verde)">indiarosa.co › producto › ir-peluca-lisa-26</div>
-        <div style="font-size:13px;color:var(--tenue)">Cabello humano remy, encaje HD transparente. Largo hasta la cintura con caída pesada y brillo natural.</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ============ PROMOCIONES ============ -->
-<section class="pantalla" id="p-promociones">
-  <div class="enc">
-    <div><h1>Promociones</h1><p>2 vigentes · 1 programada</p></div>
-    <button class="btn">Nueva promoción</button>
-  </div>
-
-  <div class="caja" style="padding:14px 18px">
-    <table>
-      <thead><tr><th>Nombre</th><th>Tipo</th><th class="num">Valor</th><th>Alcance</th><th>Vigencia</th><th class="num">Afecta</th><th>Estado</th><th></th></tr></thead>
-      <tbody>
-        <tr>
-          <td><b>Cuidado en promoción</b></td><td>Porcentaje</td><td class="num">20%</td>
-          <td>Categoría · Cuidado</td><td>14 sept – 12 oct</td><td class="num">4 productos</td>
-          <td><span class="pill ok">Vigente</span></td><td class="num"><button class="btn sec">Editar</button></td>
-        </tr>
-        <tr>
-          <td><b>Bob con flequillo rebajado</b></td><td>Porcentaje</td><td class="num">15%</td>
-          <td>Producto</td><td>16 sept – 6 oct</td><td class="num">1 producto</td>
-          <td><span class="pill ok">Vigente</span></td><td class="num"><button class="btn sec">Editar</button></td>
-        </tr>
-        <tr>
-          <td><b>Día de la madre</b></td><td>Porcentaje</td><td class="num">25%</td>
-          <td>Categoría · Pelucas</td><td>8 may – 12 may</td><td class="num">9 productos</td>
-          <td><span class="pill info">Programada</span></td><td class="num"><button class="btn sec">Editar</button></td>
-        </tr>
-        <tr>
-          <td><b>Llegó el frontal 13x6</b></td><td>Anuncio</td><td class="num">—</td>
-          <td>Global</td><td>15 sept – 25 oct</td><td class="num">—</td>
-          <td><span class="pill ok">Vigente</span></td><td class="num"><button class="btn sec">Editar</button></td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div class="dos">
-    <div class="caja">
-      <h2>Nueva promoción</h2>
-      <div class="linea2">
-        <div class="campo"><label>Nombre</label><input value="Semana de las extensiones"></div>
-        <div class="campo"><label>Tipo</label><select><option selected>Descuento porcentaje</option><option>Descuento monto</option><option>Precio fijo</option><option>Anuncio sin descuento</option></select></div>
-      </div>
-      <div class="linea2">
-        <div class="campo"><label>Valor</label><input value="18"><div class="ayuda">Porcentaje, máximo 90</div></div>
-        <div class="campo"><label>Prioridad</label><input value="10"><div class="ayuda">Si dos promociones cubren el mismo producto, gana la mayor</div></div>
-      </div>
-      <div class="linea2">
-        <div class="campo"><label>Alcance</label><select><option>Global</option><option selected>Categoría</option><option>Producto</option><option>Variante</option></select></div>
-        <div class="campo"><label>Categoría</label><select><option selected>Extensiones</option><option>Pelucas</option><option>Cuidado</option></select></div>
-      </div>
-      <div class="linea2">
-        <div class="campo"><label>Desde</label><input type="date" value="2026-09-20"></div>
-        <div class="campo"><label>Hasta</label><input type="date"><div class="ayuda">Vacío = indefinida</div></div>
-      </div>
-      <button class="btn">Crear promoción</button>
-    </div>
-
-    <div class="caja">
-      <h2>Vista previa</h2>
-      <p class="sub">Productos que quedarían afectados</p>
-      <table>
-        <tbody>
-          <tr><td><span class="prod"><span class="mini" style="background:#2a1c18"></span>Extensiones tape-in 22"</span></td>
-              <td class="num"><s style="color:var(--tenue)">$360.000</s><br><b>$295.200</b></td></tr>
-          <tr><td><span class="prod"><span class="mini" style="background:#1c1412"></span>Cierre 5x5 HD 20"</span></td>
-              <td class="num"><s style="color:var(--tenue)">$245.000</s><br><b>$200.900</b></td></tr>
-          <tr><td><span class="prod"><span class="mini" style="background:#3b2620"></span>Extensiones cortina lisas</span></td>
-              <td class="num"><s style="color:var(--tenue)">$240.000</s><br><b>$196.800</b></td></tr>
-        </tbody>
-      </table>
-      <p class="nota">Revisa esta lista antes de guardar. Un alcance de categoría puede cubrir productos que no tenías en mente.</p>
-    </div>
-  </div>
-</section>
-
-<!-- ============ KITS ============ -->
-<section class="pantalla" id="p-kits">
-  <div class="enc">
-    <div><h1>Kits</h1><p>4 publicados · 1 sin stock</p></div>
-    <button class="btn">Nuevo kit</button>
-  </div>
-
-  <div class="caja" style="padding:14px 18px">
-    <table>
-      <thead><tr><th>Kit</th><th class="num">Piezas</th><th class="num">Precio suelto</th><th class="num">Precio del kit</th><th class="num">Ahorro</th><th>Vigencia</th><th>Estado</th><th></th></tr></thead>
-      <tbody>
-        <tr><td><b>Kit rizo definido</b></td><td class="num">3</td><td class="num">$367.000</td><td class="num">$310.000</td>
-            <td class="num"><span class="pill ok">16%</span></td><td>desde 12 sept</td><td><span class="pill ok">Disponible</span></td><td class="num"><button class="btn sec">Editar</button></td></tr>
-        <tr><td><b>Kit liso perfecto</b></td><td class="num">3</td><td class="num">$731.000</td><td class="num">$625.000</td>
-            <td class="num"><span class="pill ok">15%</span></td><td>desde 12 sept</td><td><span class="pill ok">Disponible</span></td><td class="num"><button class="btn sec">Editar</button></td></tr>
-        <tr class="alerta"><td><b>Kit baby hair</b></td><td class="num">3</td><td class="num">$393.000</td><td class="num">$335.000</td>
-            <td class="num"><span class="pill ok">15%</span></td><td>desde 12 sept</td><td><span class="pill esp">Sin stock: bob con flequillo</span></td><td class="num"><button class="btn sec">Editar</button></td></tr>
-        <tr><td><b>Kit ondas completo</b></td><td class="num">3</td><td class="num">$577.000</td><td class="num">$489.000</td>
-            <td class="num"><span class="pill ok">15%</span></td><td>desde 12 sept</td><td><span class="pill ok">Disponible</span></td><td class="num"><button class="btn sec">Editar</button></td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div class="dos">
-    <div class="caja">
-      <h2>Armar kit</h2>
-      <div class="campo"><label>Nombre</label><input value="Kit primera peluca"></div>
-      <div class="campo"><label>Descripción</label><textarea rows="2">Todo lo que necesitas el primer mes: la peluca, el shampoo y el gorro de satín.</textarea></div>
-      <div class="campo"><label>Agregar pieza</label><input placeholder="Buscar variante por nombre o SKU"></div>
-      <table style="margin-top:6px">
-        <tbody>
-          <tr><td><span class="prod"><span class="mini" style="background:#1c1412"></span>Peluca lace front lisa 26" · Negro</span></td>
-              <td class="num" style="width:80px"><input value="1" style="text-align:right"></td>
-              <td class="num">$640.000</td><td class="num"><button class="btn sec">Quitar</button></td></tr>
-          <tr><td><span class="prod"><span class="mini" style="background:#c9a227"></span>Shampoo reparador de argán</span></td>
-              <td class="num"><input value="1" style="text-align:right"></td>
-              <td class="num">$68.000</td><td class="num"><button class="btn sec">Quitar</button></td></tr>
-          <tr><td><span class="prod"><span class="mini" style="background:#c98fa0"></span>Gorro de satín nocturno</span></td>
-              <td class="num"><input value="1" style="text-align:right"></td>
-              <td class="num">$39.000</td><td class="num"><button class="btn sec">Quitar</button></td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="caja">
-      <h2>Resumen</h2>
-      <p class="sub">Se actualiza mientras armas</p>
-      <div class="campo"><label>Precio del kit</label><input value="$635.000"></div>
-      <div class="campo"><label>Precio en dólares</label><input placeholder="US$154,88 calculado"></div>
-      <div class="resumen">
-        <div class="f"><span>Suelto</span><span>$747.000</span></div>
-        <div class="f"><span>Kit</span><span>$635.000</span></div>
-        <div class="f des"><span>Ahorro</span><span>$112.000</span></div>
-        <div class="f tot"><span>Descuento</span><span style="color:var(--verde)">15%</span></div>
-      </div>
-      <div class="linea2" style="margin-top:14px">
-        <div class="campo"><label>Desde</label><input type="date" value="2026-09-20"></div>
-        <div class="campo"><label>Hasta</label><input type="date"></div>
-      </div>
-      <button class="btn">Crear kit</button>
-      <p class="nota">Un kit necesita al menos dos piezas. Si el precio del kit es igual o mayor al suelto, no se puede guardar: no sería un kit.</p>
-    </div>
-  </div>
-</section>
-
-<!-- ============ LIMITADAS ============ -->
-<section class="pantalla" id="p-limitadas">
-  <div class="enc">
-    <div><h1>Ediciones limitadas</h1><p>3 vigentes</p></div>
-    <button class="btn">Nueva edición</button>
-  </div>
-
-  <div class="caja" style="padding:14px 18px">
-    <table>
-      <thead><tr><th colspan="2">Producto</th><th>Colección</th><th class="num">Lote</th><th class="num">Vendidas</th><th class="num">Restantes</th><th>Avance</th><th>Vigencia</th><th></th></tr></thead>
-      <tbody>
-        <tr>
-          <td style="width:48px"><span class="mini" style="background:#5a3a2a"></span></td>
-          <td><b>Peluca frontal 13x6 lisa 24"</b></td><td>Colección de octubre</td>
-          <td class="num">6</td><td class="num">3</td><td class="num"><b>3</b></td>
-          <td><div class="barralote"><i style="width:50%"></i></div></td>
-          <td>hasta 15 nov</td><td class="num"><button class="btn sec">Editar</button></td>
-        </tr>
-        <tr>
-          <td><span class="mini" style="background:#3b2620"></span></td>
-          <td><b>Peluca ondas playeras 20"</b></td><td>Lote único de noviembre</td>
-          <td class="num">10</td><td class="num">5</td><td class="num"><b>5</b></td>
-          <td><div class="barralote"><i style="width:50%"></i></div></td>
-          <td>hasta 15 nov</td><td class="num"><button class="btn sec">Editar</button></td>
-        </tr>
-        <tr class="alerta">
-          <td><span class="mini" style="background:#1c1412"></span></td>
-          <td><b>Peluca pixie rizada</b></td><td>Edición cápsula</td>
-          <td class="num">4</td><td class="num">3</td><td class="num"><b>1</b></td>
-          <td><div class="barralote"><i style="width:25%"></i></div></td>
-          <td>hasta 15 nov</td><td class="num"><button class="btn sec">Editar</button></td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-  <p class="nota">Las unidades restantes se calculan contando las ventas desde la fecha de inicio, no desde el stock actual. Si repones inventario, el lote no se infla: sigue siendo el lote que anunciaste.</p>
-</section>
-
-</main>
-</div>
-
-<script>
-function mostrar(id){
-  document.querySelectorAll('.pantalla').forEach(function(s){ s.classList.toggle('activa', s.id === 'p-'+id); });
-  document.querySelectorAll('.lado button.nav').forEach(function(b){ b.classList.toggle('on', b.dataset.p === id); });
-  window.scrollTo(0,0);
-}
-document.querySelectorAll('[data-p]').forEach(function(b){
-  b.onclick = function(){ mostrar(b.dataset.p); };
-});
-document.querySelectorAll('.pest [data-t]').forEach(function(b){
-  b.onclick = function(){
-    document.querySelectorAll('.pest [data-t]').forEach(function(x){ x.setAttribute('aria-pressed', String(x===b)); });
-    document.querySelectorAll('.tab').forEach(function(t){ t.style.display = (t.id === 't-'+b.dataset.t) ? '' : 'none'; });
-  };
-});
-</script>
 </body>
 </html>

@@ -179,7 +179,10 @@ function SeccionHeroe() {
         </div>
 
         {cargando || !tono ? (
-          <EsqueletoCarga alto="aspect-[2/3] h-auto" redondeado="rounded-lg" />
+          <EsqueletoCarga
+            alto="h-[52vh] max-h-[440px] lg:aspect-[2/3] lg:h-auto lg:max-h-none"
+            redondeado="rounded-lg"
+          />
         ) : hayDestacadas ? (
           <CarruselHeroe
             productos={recorrido.map((item) => item.producto)}
@@ -191,7 +194,7 @@ function SeccionHeroe() {
             <ImagenProducto
               nombre={tono.nombre}
               colorHex={tono.hex}
-              className="aspect-[2/3] rounded-tl-[999px] rounded-tr-[999px] rounded-bl-lg rounded-br-lg"
+              className="h-[52vh] max-h-[440px] rounded-tl-[999px] rounded-tr-[999px] rounded-bl-lg rounded-br-lg lg:aspect-[2/3] lg:h-auto lg:max-h-none"
             />
             <figcaption className="absolute bottom-5 left-5 rounded-full bg-white px-4 py-2 text-xs tracking-[0.1em] text-tinta shadow-lg">
               {tono.nombre}
@@ -417,7 +420,7 @@ function SeccionKits() {
     return (
       <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
         <EsqueletoCarga ancho="w-1/3" alto="h-8" />
-        <div className="mt-7 grid gap-6 sm:grid-cols-3">
+        <div className="mt-7 grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-6">
           {Array.from({ length: 3 }).map((_, indice) => (
             <EsqueletoCarga key={indice} alto="h-96" redondeado="rounded-lg" />
           ))}
@@ -437,7 +440,7 @@ function SeccionKits() {
         </p>
       </div>
 
-      <div className="mt-8 grid gap-6 sm:grid-cols-3">
+      <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-6">
         {combos.map((combo) => (
           <TarjetaKit
             key={combo.id}
@@ -480,19 +483,33 @@ function TarjetaKit({
   return (
     <article className="flex flex-col overflow-hidden rounded-lg border border-linea bg-white">
       <div className="relative overflow-hidden">
-        <ImagenProducto nombre={combo.nombre} />
+        <ImagenProducto nombre={combo.nombre} carga="lazy" />
         {!combo.disponible ? (
           <span className="absolute inset-0 flex items-center justify-center bg-tinta/40 text-sm font-medium text-hueso">
             Agotado
           </span>
         ) : null}
       </div>
-      <div className="flex flex-1 flex-col gap-2 p-5">
-        <h3 className="font-serif text-lg text-tinta">{combo.nombre}</h3>
+      <div className="flex flex-1 flex-col gap-2 p-2.5 sm:p-5">
+        <h3 className="line-clamp-2 font-serif text-base text-tinta lg:text-lg">{combo.nombre}</h3>
         {combo.items.length > 0 ? (
           <ul className="list-disc pl-4 text-[13.5px] leading-relaxed text-texto-secundario">
+            {/* Tope de 3 en celular (no se desbordan): a partir de lg se ven
+                todas — dos listas separadas en vez de recortar con JS, para
+                no depender de un listener de resize. */}
+            {combo.items.slice(0, 3).map((item) => (
+              <li key={item.varianteId} className="truncate lg:hidden">
+                {item.cantidad > 1 ? `${item.cantidad} × ` : ''}
+                {item.nombreProducto}
+              </li>
+            ))}
+            {combo.items.length > 3 ? (
+              <li className="lg:hidden" aria-hidden="true">
+                y {combo.items.length - 3} más
+              </li>
+            ) : null}
             {combo.items.map((item) => (
-              <li key={item.varianteId}>
+              <li key={item.varianteId} className="hidden truncate lg:block">
                 {item.cantidad > 1 ? `${item.cantidad} × ` : ''}
                 {item.nombreProducto}
               </li>
@@ -500,16 +517,23 @@ function TarjetaKit({
           </ul>
         ) : null}
 
-        <div className="mt-auto flex flex-wrap items-baseline gap-2.5 pt-3">
-          <span className="text-lg font-medium text-tinta">{formatearDual(combo.precio)}</span>
+        <div className="mt-auto flex flex-wrap items-baseline gap-1 pt-3 sm:gap-2.5">
+          <span className="text-sm font-medium text-tinta sm:text-base lg:text-lg">
+            {formatearDual(combo.precio)}
+          </span>
+          {/* La píldora va antes del tachado a propósito: con flex-wrap, si
+              no entran los tres a 360px, el que salta a la línea de abajo
+              es el último del DOM (el tachado) — la píldora no se achica
+              ni cambia de padding, solo se abrevia el texto en celular. */}
+          {ahorro > 0 ? (
+            <span className="rounded-full bg-rosa px-2.5 py-0.5 text-xs text-hueso">
+              <span className="sm:hidden">-{ahorro}%</span>
+              <span className="hidden sm:inline">ahorras {ahorro}%</span>
+            </span>
+          ) : null}
           <span className="text-sm text-texto-secundario line-through">
             {formatearDual(combo.precioPiezasPorSeparado)}
           </span>
-          {ahorro > 0 ? (
-            <span className="rounded-full bg-rosa px-2.5 py-0.5 text-xs text-hueso">
-              ahorras {ahorro}%
-            </span>
-          ) : null}
         </div>
 
         <Boton
@@ -518,9 +542,16 @@ function TarjetaKit({
           disabled={!combo.disponible}
           cargando={agregando}
           onClick={() => void alAgregar()}
-          className="mt-3 w-full"
+          className="mt-3 min-h-11 w-full"
         >
-          {!combo.disponible ? 'Agotado' : 'Agregar al carrito'}
+          {!combo.disponible ? (
+            'Agotado'
+          ) : (
+            <>
+              <span className="sm:hidden">Agregar</span>
+              <span className="hidden sm:inline">Agregar al carrito</span>
+            </>
+          )}
         </Boton>
       </div>
     </article>

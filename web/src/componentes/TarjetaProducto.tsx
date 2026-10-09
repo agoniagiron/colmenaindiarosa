@@ -41,6 +41,7 @@ export function TarjetaProducto({ producto }: TarjetaProductoProps) {
             nombre={producto.nombre}
             colorHex={colorPrincipal}
             url={imagenPrincipal?.url}
+            carga="lazy"
           />
         </div>
         {producto.destacado ? (
@@ -55,7 +56,9 @@ export function TarjetaProducto({ producto }: TarjetaProductoProps) {
         ) : null}
       </div>
       <div className="flex flex-1 flex-col gap-1 p-4">
-        <h3 className="font-serif text-base text-tinta">{producto.nombre}</h3>
+        <h3 className="line-clamp-2 font-serif text-sm text-tinta lg:text-base">
+          {producto.nombre}
+        </h3>
         <div className="flex items-center gap-2 text-sm">
           <Estrellas calificacion={producto.calificacion} />
           <span className="text-texto-secundario">({producto.cantidadResenas})</span>

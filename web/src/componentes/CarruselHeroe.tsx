@@ -159,7 +159,11 @@ function TarjetaDestacada({ producto }: { producto: ProductoHeroe }) {
         nombre={producto.nombre}
         colorHex={producto.colores[0]?.hex}
         url={producto.imagenPrincipal?.url}
-        className="aspect-[2/3] rounded-tl-[999px] rounded-tr-[999px] rounded-bl-lg rounded-br-lg transition-opacity group-hover:opacity-90"
+        // Altura propia hasta lg (que es donde el layout de SeccionHeroe
+        // pasa a dos columnas lado a lado): con el aspect-[2/3] de
+        // escritorio sin tope, en celular la foto sola ocupa toda la
+        // pantalla y la clienta no ve que abajo hay más contenido.
+        className="h-[52vh] max-h-[440px] rounded-tl-[999px] rounded-tr-[999px] rounded-bl-lg rounded-br-lg transition-opacity group-hover:opacity-90 lg:aspect-[2/3] lg:h-auto lg:max-h-none"
       />
       <p className="mt-4 text-center font-serif text-lg text-tinta">{producto.nombre}</p>
     </Link>
