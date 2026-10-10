@@ -2,16 +2,18 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Boton } from '../componentes/Boton.tsx';
 import { registrarEvento } from '../contexto/apiAnalitica.ts';
-import { obtenerEstadoPedido } from '../contexto/apiCheckout.ts';
+import { obtenerEstadoPedido } from '../contexto/apiPedidos.ts';
 import { useConfiguracion } from '../contexto/ContextoConfiguracion.tsx';
 import { useSesion } from '../contexto/ContextoSesion.tsx';
 
 // Wompi puede tardar en confirmar, sobre todo con PSE: se consulta cada 3
-// segundos hasta 20 veces (~1 minuto) antes de rendirse. Nunca se confía en
+// segundos hasta 40 veces (~2 minutos) antes de rendirse. Nunca se confía en
 // los query params de la redirección: la verdad viene de esta consulta,
-// que refleja lo que ya procesó el webhook.
+// que refleja lo que ya procesó el webhook. Si se agota el sondeo no es un
+// callejón sin salida: VistaSigueEnProceso manda a /cuenta, donde el estado
+// real se termina viendo apenas llegue (ver TANDA 3).
 const INTERVALO_MS = 3000;
-const MAX_INTENTOS = 20;
+const MAX_INTENTOS = 40;
 
 const ESTADOS_APROBADOS = new Set(['pagado']);
 const ESTADOS_RECHAZADOS = new Set(['pagoRechazado', 'cancelado']);
@@ -148,14 +150,14 @@ function VistaRechazado({ numero }: { numero: string }) {
 function VistaSigueEnProceso({ numero }: { numero: string }) {
   return (
     <div className="flex flex-col items-center gap-4 text-center">
-      <h1 className="font-serif text-2xl text-tinta">Tu pago sigue en proceso</h1>
+      <h1 className="font-serif text-2xl text-tinta">La confirmación está tardando</h1>
       <p className="text-sm text-texto-secundario">
-        Pedido {numero}. Algunos métodos de pago tardan más en confirmarse. Te avisamos por WhatsApp
-        apenas se confirme.
+        Pedido {numero}. Algunos métodos de pago tardan más de lo normal en confirmarse. Entrá a tu
+        cuenta para ver el estado real de tu pedido apenas se confirme.
       </p>
-      <Link to="/">
-        <Boton type="button" variante="fantasma">
-          Volver al inicio
+      <Link to={`/cuenta/pedidos/${encodeURIComponent(numero)}`}>
+        <Boton type="button" variante="rosa">
+          Ver mi pedido
         </Boton>
       </Link>
     </div>

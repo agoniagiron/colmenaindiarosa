@@ -562,6 +562,13 @@ const SELECT_PEDIDO_DETALLE = {
       },
     },
   },
+  // Para la línea de tiempo en /cuenta (ver TANDA 3). A propósito sin
+  // `nota` ni `usuario`: esos campos de PedidoHistorial son para ojos de
+  // admin (notas operativas, quién lo cambió), no para la clienta.
+  historial: {
+    select: { id: true, estadoAnterior: true, estadoNuevo: true, creadoEn: true },
+    orderBy: { creadoEn: 'asc' },
+  },
 } satisfies Prisma.PedidoSelect;
 
 export async function listarPedidosUsuario(usuarioId: string) {

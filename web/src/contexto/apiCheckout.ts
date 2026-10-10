@@ -1,6 +1,7 @@
-// Cliente HTTP para api/src/modulos/pedidos (checkout + historial). El
-// backend es la única fuente de verdad de precios, totales y firma: acá no
-// se calcula nada, solo se tipa y reenvía.
+// Cliente HTTP para api/src/modulos/pedidos, solo el paso de iniciar el
+// checkout. Consultar pedidos después de creados (lista, detalle, sondeo de
+// estado) vive en apiPedidos.ts. El backend es la única fuente de verdad de
+// precios, totales y firma: acá no se calcula nada, solo se tipa y reenvía.
 
 import { BASE_URL_API } from '../datos/urlApi.ts';
 
@@ -88,31 +89,4 @@ export function iniciarCheckout(
     method: 'POST',
     body: JSON.stringify(datos),
   });
-}
-
-export interface PedidoResumen {
-  numero: string;
-  estado: string;
-  subtotal: number;
-  descuento: number;
-  envio: number;
-  total: number;
-  creadoEn: string;
-}
-
-export function listarPedidos(accessToken: string | null): Promise<PedidoResumen[]> {
-  return solicitar('/pedidos', accessToken);
-}
-
-export interface EstadoPedido {
-  numero: string;
-  estado: string;
-  total: number;
-}
-
-export function obtenerEstadoPedido(
-  accessToken: string | null,
-  numero: string,
-): Promise<EstadoPedido> {
-  return solicitar(`/pedidos/${encodeURIComponent(numero)}/estado`, accessToken);
 }

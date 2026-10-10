@@ -224,6 +224,10 @@ export interface DetallePedido {
   id: string;
   numero: string;
   estado: EstadoPedido;
+  // Calculado en el servidor desde maquinaEstados.ts (ver
+  // transicionesDisponibles en admin/pedidos/servicio.ts): única fuente de
+  // verdad, el <select> de "Cambiar estado" no tiene su propia copia.
+  transicionesDisponibles: EstadoPedido[];
   creadoEn: string;
   actualizadoEn: string;
   nombreContacto: string;

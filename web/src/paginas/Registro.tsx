@@ -32,9 +32,15 @@ export function Registro() {
   const [error, setError] = useState<string | null>(null);
 
   // Ya con sesión activa (p. ej. /cuenta mandó para acá pero la sesión se
-  // restauró justo después), /registro no tiene nada que mostrar.
+  // restauró justo después), /registro no tiene nada que mostrar. Con
+  // `destino` (no un "/cuenta" fijo) a propósito: el mismo re-render
+  // dispara justo después de un registro recién hecho acá mismo (entrar()
+  // actualiza `usuario` antes de que navigate(destino) alcance a tomar
+  // efecto), así que si este guard ignorara el regresar, pisaría ese
+  // navigate y la visitante volvería siempre a /cuenta sin importar de
+  // dónde vino.
   if (usuarioActivo) {
-    return <Navigate to="/cuenta" replace />;
+    return <Navigate to={destino} replace />;
   }
 
   async function alEnviar(evento: FormEvent<HTMLFormElement>) {

@@ -1,15 +1,20 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { Boton } from '../componentes/Boton.tsx';
 import { CampoTexto } from '../componentes/CampoTexto.tsx';
 import { Contenedor } from '../componentes/Contenedor.tsx';
 import * as apiAuth from '../contexto/apiAuth.ts';
 import * as apiCuenta from '../contexto/apiCuenta.ts';
 import type { DatosDireccion, DireccionApi } from '../contexto/apiCuenta.ts';
+import * as apiPedidos from '../contexto/apiPedidos.ts';
+import type { PedidoResumen } from '../contexto/apiPedidos.ts';
 import { useAvisos } from '../contexto/ContextoAvisos.tsx';
 import { useSesion } from '../contexto/ContextoSesion.tsx';
+import { ETIQUETAS_ESTADO_PEDIDO_CLIENTA } from '../dominio/etiquetasPedidoClienta.ts';
 import type { Usuario } from '../tipos/index.ts';
+import { formatearFechaHora } from '../utilidades/formatearFechaHora.ts';
+import { formatearPesos } from '../utilidades/formatearPesos.ts';
 import { useAccionAsincrona } from '../utilidades/useAccionAsincrona.ts';
 
 export function Cuenta() {
@@ -65,6 +70,8 @@ export function Cuenta() {
       </div>
 
       <SeccionDirecciones accessToken={accessToken} />
+
+      <SeccionPedidos accessToken={accessToken} />
     </Contenedor>
   );
 }
@@ -384,5 +391,65 @@ function FormularioDireccion({
         </Boton>
       </div>
     </form>
+  );
+}
+
+// --- Pedidos ----------------------------------------------------------------
+
+function SeccionPedidos({ accessToken }: { accessToken: string }) {
+  const [pedidos, setPedidos] = useState<PedidoResumen[] | null>(null);
+
+  useEffect(() => {
+    let vigente = true;
+    apiPedidos
+      .listarPedidos(accessToken)
+      .then((r) => {
+        if (vigente) setPedidos(r);
+      })
+      .catch(() => {
+        if (vigente) setPedidos([]);
+      });
+    return () => {
+      vigente = false;
+    };
+  }, [accessToken]);
+
+  return (
+    <section className="mt-8 max-w-md rounded-2xl border border-linea bg-white p-6">
+      <h2 className="font-serif text-lg text-tinta">Tus pedidos</h2>
+
+      {pedidos === null ? (
+        <p className="mt-3 text-sm text-texto-secundario">Cargando…</p>
+      ) : pedidos.length === 0 ? (
+        <div className="mt-3 flex flex-col items-start gap-2">
+          <p className="text-sm text-texto-secundario">Todavía no tienes pedidos.</p>
+          <Link to="/catalogo" className="text-sm text-rosa hover:underline">
+            Ver el catálogo
+          </Link>
+        </div>
+      ) : (
+        <ul className="mt-4 flex flex-col gap-3">
+          {pedidos.map((pedido) => (
+            <li key={pedido.numero}>
+              <Link
+                to={`/cuenta/pedidos/${encodeURIComponent(pedido.numero)}`}
+                className="block rounded-lg border border-linea p-4 text-sm transition-colors hover:bg-arena"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-medium text-tinta">{pedido.numero}</span>
+                  <span className="text-texto-secundario">
+                    {ETIQUETAS_ESTADO_PEDIDO_CLIENTA[pedido.estado]}
+                  </span>
+                </div>
+                <div className="mt-1 flex items-center justify-between gap-3 text-texto-secundario">
+                  <span>{formatearFechaHora(pedido.creadoEn)}</span>
+                  <span>{formatearPesos(pedido.total)}</span>
+                </div>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

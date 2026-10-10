@@ -53,7 +53,7 @@ const METODOS: { valor: MetodoPagoCheckout; etiqueta: string; descripcion: strin
 
 export function CheckoutPagina() {
   const navigate = useNavigate();
-  const { lineas, cupon, totales, quitarCupon } = useCarrito();
+  const { lineas, cupon, totales, cargado: carritoCargado, quitarCupon } = useCarrito();
   const { usuario, accessToken, restaurando } = useSesion();
   const { formatearMonto } = useConfiguracion();
 
@@ -81,14 +81,22 @@ export function CheckoutPagina() {
   const { avisarError } = useAvisos();
 
   // Requiere sesión: el checkout, los pedidos y la pantalla de espera son
-  // siempre del usuario logueado.
+  // siempre del usuario logueado. Vuelve a /ingresar con ?regresar=/checkout
+  // (no a /cuenta) para que, al terminar de iniciar sesión o de
+  // registrarse, la visitante vuelva derecho acá en vez de a /cuenta.
   useEffect(() => {
-    if (!restaurando && !usuario) navigate('/cuenta');
+    if (!restaurando && !usuario) navigate('/ingresar?regresar=/checkout');
   }, [restaurando, usuario, navigate]);
 
+  // Espera a carritoCargado antes de decidir que el carrito está vacío: en
+  // una entrada directa a /checkout (link, recarga, pestaña nueva) `lineas`
+  // arranca en [] nomás porque ContextoCarrito todavía no trajo el carrito
+  // real, no porque esté confirmado vacío. Sin este freno, esa carrera
+  // mandaba a /carrito SIEMPRE en una entrada directa, con sesión o sin
+  // ella, tapando el redirect a /ingresar de acá arriba.
   useEffect(() => {
-    if (lineas.length === 0) navigate('/carrito');
-  }, [lineas.length, navigate]);
+    if (carritoCargado && lineas.length === 0) navigate('/carrito');
+  }, [carritoCargado, lineas.length, navigate]);
 
   useEffect(() => {
     registrarEvento('iniciarCheckout');

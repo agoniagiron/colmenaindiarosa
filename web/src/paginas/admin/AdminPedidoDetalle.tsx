@@ -18,7 +18,6 @@ import {
   ETIQUETAS_ESTADO_PEDIDO,
   ETIQUETAS_METODO_PAGO,
   ETIQUETAS_TIPO_REEMBOLSO,
-  TODOS_LOS_ESTADOS,
 } from '../../dominio/etiquetasPedido.ts';
 import { formatearFechaHora } from '../../utilidades/formatearFechaHora.ts';
 import { formatearPesos } from '../../utilidades/formatearPesos.ts';
@@ -27,7 +26,11 @@ import { formatearPesos } from '../../utilidades/formatearPesos.ts';
 // vive del lado del servidor en maquinaEstados.ts, que es la única fuente
 // de verdad). Si esto queda desactualizado, lo peor que pasa es un texto
 // impreciso en el modal, nunca un movimiento de inventario equivocado —
-// eso lo decide siempre el backend.
+// eso lo decide siempre el backend. A diferencia de las transiciones
+// disponibles (que ahora vienen de pedido.transicionesDisponibles, ver
+// TANDA 3), esto sigue duplicado acá porque es solo texto; convendría
+// moverlo al servidor con el mismo criterio si en algún momento se vuelve
+// a tocar este archivo.
 function mensajeConsecuenciaInventario(actual: EstadoPedido, nuevo: EstadoPedido): string | null {
   if (nuevo !== 'cancelado') return null;
   if (actual === 'esperandoPago') {
@@ -337,7 +340,7 @@ function SeccionCambioEstado({
             className="rounded-lg border border-linea bg-hueso px-3 py-2 text-sm"
           >
             <option value="">Seleccionar…</option>
-            {TODOS_LOS_ESTADOS.filter((e) => e !== pedido.estado).map((e) => (
+            {pedido.transicionesDisponibles.map((e) => (
               <option key={e} value={e}>
                 {ETIQUETAS_ESTADO_PEDIDO[e]}
               </option>

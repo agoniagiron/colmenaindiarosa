@@ -41,6 +41,14 @@ export const ESTADOS_POSTERIORES_A_PAGADO: readonly EstadoPedido[] = [
   'entregado',
 ];
 
+// Única fuente para qué transiciones mostrar en el admin (select de
+// "Cambiar estado" en AdminPedidoDetalle.tsx): el endpoint de detalle
+// devuelve esto calculado desde acá, así el frontend nunca tiene su propia
+// copia de TRANSICIONES que se pueda desincronizar.
+export function transicionesDisponibles(actual: EstadoPedido): EstadoPedido[] {
+  return [...TRANSICIONES[actual]];
+}
+
 export function validarTransicion(actual: EstadoPedido, nuevo: EstadoPedido): void {
   if (actual === nuevo) {
     throw ErrorApi.conflicto(`El pedido ya está en estado "${nuevo}"`);

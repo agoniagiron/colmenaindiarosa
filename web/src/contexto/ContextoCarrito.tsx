@@ -21,6 +21,13 @@ interface ContextoCarritoValor {
   lineas: LineaCarrito[];
   cupon: Cupon | null;
   totales: TotalesCarrito;
+  // true recién después de la primera respuesta (o error) de
+  // obtenerCarrito. Antes de eso, lineas vale [] solo porque todavía no se
+  // sabe qué hay en el carrito — nunca porque esté confirmado vacío. Quien
+  // decida "el carrito está vacío, redirigir" (CheckoutPagina) tiene que
+  // esperar a que esto sea true, o una entrada directa a /checkout
+  // redirige por las dudas antes de que el fetch alcance a responder.
+  cargado: boolean;
   cargandoCupon: boolean;
   errorCupon: string | null;
   agregar: (varianteId: string, cantidad: number) => Promise<void>;
@@ -43,6 +50,7 @@ export function ProveedorCarrito({ children }: { children: ReactNode }) {
   const [lineas, setLineas] = useState<LineaCarrito[]>([]);
   const [cupon, setCupon] = useState<Cupon | null>(null);
   const [totales, setTotales] = useState<TotalesCarrito>(TOTALES_VACIOS);
+  const [cargado, setCargado] = useState(false);
   // Cubre tanto aplicar como quitar: son la misma sección de la UI y no
   // tiene sentido permitir una mientras la otra está en curso.
   const [cargandoCupon, setCargandoCupon] = useState(false);
@@ -67,6 +75,9 @@ export function ProveedorCarrito({ children }: { children: ReactNode }) {
       })
       .catch(() => {
         // Sin carrito todavía (o error de red): se queda vacío.
+      })
+      .finally(() => {
+        if (vigente) setCargado(true);
       });
 
     return () => {
@@ -153,6 +164,7 @@ export function ProveedorCarrito({ children }: { children: ReactNode }) {
       lineas,
       cupon,
       totales,
+      cargado,
       cargandoCupon,
       errorCupon,
       agregar,
@@ -166,6 +178,7 @@ export function ProveedorCarrito({ children }: { children: ReactNode }) {
       lineas,
       cupon,
       totales,
+      cargado,
       cargandoCupon,
       errorCupon,
       agregar,

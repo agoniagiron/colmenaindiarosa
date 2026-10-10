@@ -24,9 +24,14 @@ export function Ingresar() {
   const [error, setError] = useState<string | null>(null);
 
   // Ya con sesión activa, /ingresar no tiene nada que mostrar — evita el
-  // caso de entrar acá por un link viejo estando logueada.
+  // caso de entrar acá por un link viejo estando logueada. Con `destino`
+  // (no un "/cuenta" fijo) a propósito: el mismo re-render dispara justo
+  // después de un login recién hecho acá mismo (entrar() actualiza
+  // `usuario` antes de que navigate(destino) alcance a tomar efecto), así
+  // que si este guard ignorara el regresar, pisaría ese navigate y la
+  // visitante volvería siempre a /cuenta sin importar de dónde vino.
   if (usuario) {
-    return <Navigate to="/cuenta" replace />;
+    return <Navigate to={destino} replace />;
   }
 
   async function alEnviar(evento: FormEvent<HTMLFormElement>) {

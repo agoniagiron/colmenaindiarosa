@@ -4,7 +4,11 @@ import { limitesDia, limitesRango } from '../../../lib/fechasReporte.js';
 import { prisma } from '../../../lib/prisma.js';
 import { obtenerUnidadesPorVariante } from '../../../lib/unidadesPedido.js';
 import type { BodyEnvio, BodyEstado, BodyReembolso, QueryListadoPedidos } from './esquemas.js';
-import { consecuenciaInventario, validarTransicion } from './maquinaEstados.js';
+import {
+  consecuenciaInventario,
+  transicionesDisponibles,
+  validarTransicion,
+} from './maquinaEstados.js';
 
 // ---------------------------------------------------------------------------
 // Listado
@@ -231,12 +235,21 @@ const SELECT_DETALLE = {
   },
 } satisfies Prisma.PedidoSelect;
 
+// Agrega las transiciones válidas desde el estado actual a cualquier
+// resultado con forma SELECT_DETALLE, para que el <select> de "Cambiar
+// estado" del admin nunca tenga que adivinarlas ni traer su propia copia.
+function conTransicionesDisponibles<T extends { estado: EstadoPedido }>(
+  pedido: T,
+): T & { transicionesDisponibles: EstadoPedido[] } {
+  return { ...pedido, transicionesDisponibles: transicionesDisponibles(pedido.estado) };
+}
+
 export async function obtenerDetallePedido(numero: string) {
   const pedido = await prisma.pedido.findUnique({ where: { numero }, select: SELECT_DETALLE });
   if (!pedido) {
     throw ErrorApi.noEncontrado('El pedido no existe');
   }
-  return pedido;
+  return conTransicionesDisponibles(pedido);
 }
 
 // ---------------------------------------------------------------------------
@@ -353,7 +366,11 @@ export async function cambiarEstadoPedido(
 
     // Select final, después de escribir historial y auditoría, para que el
     // pedido devuelto ya incluya el registro de historial recién creado.
-    return tx.pedido.findUniqueOrThrow({ where: { id }, select: SELECT_DETALLE });
+    const pedidoActualizado = await tx.pedido.findUniqueOrThrow({
+      where: { id },
+      select: SELECT_DETALLE,
+    });
+    return conTransicionesDisponibles(pedidoActualizado);
   });
 }
 
@@ -389,7 +406,7 @@ export async function actualizarEnvioPedido(
     },
   });
 
-  return pedidoActualizado;
+  return conTransicionesDisponibles(pedidoActualizado);
 }
 
 // ---------------------------------------------------------------------------

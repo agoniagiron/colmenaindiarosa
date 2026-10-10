@@ -40,14 +40,3 @@ export const ETIQUETAS_TIPO_REEMBOLSO: Record<string, string> = {
   defecto: 'Producto con defecto',
   no_disponible: 'Producto no disponible',
 };
-
-export const TODOS_LOS_ESTADOS: EstadoPedido[] = [
-  'esperandoPago',
-  'pagoRechazado',
-  'pagado',
-  'enPreparacion',
-  'despachado',
-  'entregado',
-  'cancelado',
-  'reembolsado',
-];
