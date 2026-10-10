@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requierePermiso } from '../../../middleware/requiereAuthAdmin.js';
 import { validar } from '../../../middleware/validar.js';
 import * as controlador from './controlador.js';
+import * as controladorImagenes from './controladorImagenes.js';
 import {
   esquemaBodyCrearKit,
   esquemaBodyEditarKit,
@@ -9,6 +10,11 @@ import {
   esquemaQueryBuscarVariantes,
   esquemaQueryListadoKits,
 } from './esquemas.js';
+import {
+  esquemaBodyCrearImagenCombo,
+  esquemaBodyFirmarImagenCombo,
+  esquemaBodyOrdenImagenesCombo,
+} from './esquemasImagenes.js';
 
 // Montado en app.ts con requiereAuthAdmin + requierePermiso('combos.ver')
 // a nivel de prefijo (/api/admin/combos): cubre las lecturas. Crear y
@@ -44,4 +50,25 @@ rutasAdminCombos.patch(
   requierePermiso('combos.gestionar'),
   validar({ body: esquemaBodyEditarKit }),
   controlador.editar,
+);
+
+rutasAdminCombos.post(
+  '/:id/imagenes/firmar',
+  requierePermiso('combos.gestionar'),
+  validar({ body: esquemaBodyFirmarImagenCombo }),
+  controladorImagenes.firmar,
+);
+
+rutasAdminCombos.post(
+  '/:id/imagenes',
+  requierePermiso('combos.gestionar'),
+  validar({ body: esquemaBodyCrearImagenCombo }),
+  controladorImagenes.crear,
+);
+
+rutasAdminCombos.patch(
+  '/:id/imagenes/orden',
+  requierePermiso('combos.gestionar'),
+  validar({ body: esquemaBodyOrdenImagenesCombo }),
+  controladorImagenes.reordenar,
 );

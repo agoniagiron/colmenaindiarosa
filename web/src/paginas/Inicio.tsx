@@ -5,6 +5,7 @@ import { CarruselHeroe } from '../componentes/CarruselHeroe.tsx';
 import { Contenedor } from '../componentes/Contenedor.tsx';
 import { EsqueletoCarga } from '../componentes/EsqueletoCarga.tsx';
 import { ImagenProducto } from '../componentes/ImagenProducto.tsx';
+import { MiniaturaGaleria } from '../componentes/MiniaturaGaleria.tsx';
 import { useCarrito } from '../contexto/ContextoCarrito.tsx';
 import { useConfiguracion } from '../contexto/ContextoConfiguracion.tsx';
 import { repositorio } from '../datos/index.ts';
@@ -424,7 +425,16 @@ function TarjetaLimitada({
     >
       <div className="overflow-hidden">
         <div className="transition-transform group-hover:scale-105">
-          <ImagenProducto nombre={edicion.producto.nombre} />
+          <MiniaturaGaleria
+            nombre={edicion.producto.nombre}
+            imagenPrincipal={edicion.producto.imagen}
+            cantidadImagenes={edicion.producto.cantidadImagenes}
+            cargarGaleria={() =>
+              repositorio
+                .obtenerProducto(edicion.producto.slug)
+                .then((producto) => producto?.imagenes ?? [])
+            }
+          />
         </div>
       </div>
       <div className="flex flex-1 flex-col gap-2 p-5">
@@ -535,7 +545,7 @@ function TarjetaKit({
   return (
     <article className="flex flex-col overflow-hidden rounded-lg border border-linea bg-white">
       <div className="relative overflow-hidden">
-        <ImagenProducto nombre={combo.nombre} carga="lazy" />
+        <ImagenProducto nombre={combo.nombre} carga="lazy" url={combo.imagenPrincipal?.url} />
         {!combo.disponible ? (
           <span className="absolute inset-0 flex items-center justify-center bg-tinta/40 text-sm font-medium text-hueso">
             Agotado

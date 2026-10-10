@@ -11,6 +11,7 @@ import { requiereAuth } from './middleware/requiereAuth.js';
 import { requiereAuthAdmin, requierePermiso } from './middleware/requiereAuthAdmin.js';
 import { sesionVisita } from './middleware/sesionVisita.js';
 import { rutasAdminCombos } from './modulos/admin/combos/rutas.js';
+import { rutasAdminImagenesCombo } from './modulos/admin/combos/rutasImagenes.js';
 import { rutasAdminLimitadas } from './modulos/admin/limitadas/rutas.js';
 import { rutasAdminPedidos } from './modulos/admin/pedidos/rutas.js';
 import { rutasAdminAtributos } from './modulos/admin/productos/rutasAtributos.js';
@@ -94,6 +95,12 @@ app.use(
   rutasAdminImagenes,
 );
 app.use('/api/admin/combos', requiereAuthAdmin, requierePermiso('combos.ver'), rutasAdminCombos);
+app.use(
+  '/api/admin/imagenes-combo',
+  requiereAuthAdmin,
+  requierePermiso('combos.ver'),
+  rutasAdminImagenesCombo,
+);
 app.use(
   '/api/admin/promociones',
   requiereAuthAdmin,

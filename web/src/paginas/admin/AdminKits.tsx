@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Navigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { Boton } from '../../componentes/Boton.tsx';
 import { EsqueletoCarga } from '../../componentes/EsqueletoCarga.tsx';
 import * as api from '../../contexto/apiCombosAdmin.ts';
@@ -342,9 +342,17 @@ export function AdminKits() {
                   <td className="px-4 py-3">
                     <PillDisponibilidad kit={kit} />
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                    <Link to={`/admin/kits/${kit.id}`} className="text-sm text-rosa hover:underline">
+                      Ver
+                    </Link>
                     {puedeGestionar ? (
-                      <Boton type="button" variante="fantasma" onClick={() => void editar(kit.id)}>
+                      <Boton
+                        type="button"
+                        variante="fantasma"
+                        className="ml-2"
+                        onClick={() => void editar(kit.id)}
+                      >
                         Editar
                       </Boton>
                     ) : null}

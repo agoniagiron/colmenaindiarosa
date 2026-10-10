@@ -61,6 +61,9 @@ export async function listarEdicionesLimitadasVigentes() {
             take: 1,
             select: { url: true, altTexto: true },
           },
+          // Para el indicador "1/N" en celular (MiniaturaGaleria) sin
+          // traer la galería completa solo para contar.
+          _count: { select: { imagenes: { where: { varianteId: null } } } },
           variantes: {
             where: { activa: true },
             select: { id: true, precioActual: true, precioUsd: true },
@@ -111,6 +114,7 @@ export async function listarEdicionesLimitadasVigentes() {
           nombre: edicion.producto.nombre,
           slug: edicion.producto.slug,
           imagen: edicion.producto.imagenes[0] ?? null,
+          cantidadImagenes: edicion.producto._count.imagenes,
         },
         precio: calcularPrecioDualConTasa(precioMinimo, varianteBase?.precioUsd, tasaUsd),
         desde: edicion.desde,

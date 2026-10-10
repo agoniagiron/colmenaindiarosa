@@ -18,12 +18,19 @@ const SELECT_FILA = {
       id: true,
       nombre: true,
       slug: true,
+      // Hasta 5 (tope de rotación de MiniaturaGaleria): el listado ya trae
+      // lo necesario para la galería del hover, así la fila no tiene que
+      // pedir el detalle completo del producto solo para 5 URLs — ver
+      // AdminLimitadas.tsx, que ya no llama a apiProductosAdmin por fila.
       imagenes: {
         where: { varianteId: null },
         orderBy: { orden: 'asc' },
-        take: 1,
+        take: 5,
         select: { url: true, altTexto: true },
       },
+      // Total real (puede ser más de 5): para el indicador "1/N" en
+      // celular sin tener que traer la galería completa solo para contar.
+      _count: { select: { imagenes: { where: { varianteId: null } } } },
       variantes: { where: { activa: true }, select: { id: true } },
     },
   },
@@ -68,6 +75,8 @@ async function mapearFila(edicion: FilaCruda) {
       nombre: edicion.producto.nombre,
       slug: edicion.producto.slug,
       imagen: edicion.producto.imagenes[0] ?? null,
+      imagenes: edicion.producto.imagenes,
+      cantidadImagenes: edicion.producto._count.imagenes,
     },
     unidadesLote: edicion.unidadesLote,
     unidadesVendidas,

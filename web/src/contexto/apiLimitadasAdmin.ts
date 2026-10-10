@@ -59,7 +59,19 @@ export interface EdicionLimitadaAdmin {
   id: string;
   nombre: string;
   descripcion: string | null;
-  producto: { id: string; nombre: string; slug: string; imagen: ImagenMini | null };
+  producto: {
+    id: string;
+    nombre: string;
+    slug: string;
+    imagen: ImagenMini | null;
+    // Hasta 5 (tope de rotación de MiniaturaGaleria), ya resueltas por el
+    // listado: la fila no pide el detalle completo del producto solo
+    // para esto.
+    imagenes: ImagenMini[];
+    // Total real de fotos (puede ser más de 5), para el indicador "1/N"
+    // de MiniaturaGaleria en táctil.
+    cantidadImagenes: number;
+  };
   // null = sin tope (ver AJUSTE 2): el lote se define por fecha, no por
   // cantidad, y nunca llega a "agotada" por ventas.
   unidadesLote: number | null;

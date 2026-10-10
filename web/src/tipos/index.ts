@@ -161,6 +161,9 @@ export interface EdicionLimitada {
     nombre: string;
     slug: string;
     imagen: { url: string; altTexto: string } | null;
+    // Total de fotos del producto (sin contar las de variante), para el
+    // indicador "1/N" en táctil sin traer la galería completa.
+    cantidadImagenes: number;
   };
   precio: PrecioDual;
 }
@@ -179,6 +182,10 @@ export interface Combo {
   slug: string;
   descripcion: string | null;
   imagenUrl: string | null;
+  // Foto propia del kit (no de los productos que lo componen). null si
+  // todavía no le subieron ninguna — ahí el front cae al SVG de respaldo.
+  imagenPrincipal: { url: string; altTexto: string } | null;
+  cantidadImagenes: number;
   precio: PrecioDual;
   precioPiezasPorSeparado: PrecioDual;
   disponible: boolean;

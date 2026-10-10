@@ -94,6 +94,10 @@ export interface KitDetalle extends ResumenKit {
   slug: string;
   descripcion: string | null;
   imagenUrl: string | null;
+  // Fotos propias del kit (punto 2): nunca las de los productos que lo
+  // componen. Ordenadas por orden ascendente, la principal puede no ser
+  // la primera del arreglo — ver tipo en ImagenComboDetalle.
+  imagenes: ImagenComboDetalle[];
   precioCop: number;
   precioUsd: number | null;
   vigenteDesde: string;
@@ -179,5 +183,126 @@ export function previsualizarKit(
   return solicitar('/previsualizar', accessToken, {
     method: 'POST',
     body: JSON.stringify(datos),
+  });
+}
+
+// --- Imágenes propias del kit (punto 2) ----------------------------------------
+// Misma mecánica de subida que ya existe para productos (ver
+// apiProductosAdmin.ts, sección "Imágenes"): firmar → subir al storage →
+// crear la fila. No se duplica ese helper, solo se adapta la forma de los
+// datos a un kit (sin varianteId, con menos tipos posibles).
+
+const BASE_IMAGENES_COMBO = `${BASE_URL_API}/api/admin/imagenes-combo`;
+
+async function solicitarImagen<T>(
+  ruta: string,
+  accessToken: string,
+  opciones: RequestInit = {},
+): Promise<T> {
+  const respuesta = await fetch(`${BASE_IMAGENES_COMBO}${ruta}`, {
+    ...opciones,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+      ...opciones.headers,
+    },
+  });
+
+  if (!respuesta.ok) {
+    const cuerpo = (await respuesta.json().catch(() => null)) as {
+      error?: { mensaje?: string; detalles?: unknown };
+    } | null;
+    throw new ErrorKitsAdmin(
+      respuesta.status,
+      cuerpo?.error?.mensaje ?? 'Error al comunicarse con el servidor',
+      cuerpo?.error?.detalles,
+    );
+  }
+
+  if (respuesta.status === 204) return undefined as T;
+  return (await respuesta.json()) as T;
+}
+
+export type TipoImagenCombo = 'principal' | 'galeria';
+
+export interface ImagenComboDetalle {
+  id: string;
+  comboId: string;
+  url: string;
+  altTexto: string;
+  tipo: TipoImagenCombo;
+  orden: number;
+  ancho: number | null;
+  alto: number | null;
+  creadoEn: string;
+}
+
+export interface SubidaFirmadaImagenCombo {
+  urlFirmada: string;
+  ruta: string;
+  token: string;
+  urlPublica: string;
+}
+
+export function firmarSubidaImagenCombo(
+  accessToken: string,
+  comboId: string,
+  tipo: string,
+  tamano: number,
+): Promise<SubidaFirmadaImagenCombo> {
+  return solicitar(`/${encodeURIComponent(comboId)}/imagenes/firmar`, accessToken, {
+    method: 'POST',
+    body: JSON.stringify({ tipo, tamano }),
+  });
+}
+
+export interface DatosCrearImagenCombo {
+  url: string;
+  altTexto: string;
+  tipo: TipoImagenCombo;
+  orden: number;
+  ancho: number;
+  alto: number;
+}
+
+export function crearImagenCombo(
+  accessToken: string,
+  comboId: string,
+  datos: DatosCrearImagenCombo,
+): Promise<ImagenComboDetalle> {
+  return solicitar(`/${encodeURIComponent(comboId)}/imagenes`, accessToken, {
+    method: 'POST',
+    body: JSON.stringify(datos),
+  });
+}
+
+export interface DatosEditarImagenCombo {
+  altTexto?: string;
+  tipo?: TipoImagenCombo;
+}
+
+export function editarImagenCombo(
+  accessToken: string,
+  id: string,
+  datos: DatosEditarImagenCombo,
+): Promise<ImagenComboDetalle> {
+  return solicitarImagen(`/${encodeURIComponent(id)}`, accessToken, {
+    method: 'PATCH',
+    body: JSON.stringify(datos),
+  });
+}
+
+export function eliminarImagenCombo(accessToken: string, id: string): Promise<void> {
+  return solicitarImagen(`/${encodeURIComponent(id)}`, accessToken, { method: 'DELETE' });
+}
+
+export function reordenarImagenesCombo(
+  accessToken: string,
+  comboId: string,
+  ids: string[],
+): Promise<ImagenComboDetalle[]> {
+  return solicitar(`/${encodeURIComponent(comboId)}/imagenes/orden`, accessToken, {
+    method: 'PATCH',
+    body: JSON.stringify({ ids }),
   });
 }

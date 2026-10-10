@@ -315,51 +315,51 @@ model Pago {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model Pedido {
-  id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  numero             String            @unique
-  usuarioId          String?           @map("usuario_id") @db.Uuid
-  sesionId           String?           @map("sesion_id") @db.Uuid
-  nombreContacto     String            @map("nombre_contacto")
-  telefonoContacto   String            @map("telefono_contacto")
-  correoContacto     String?           @map("correo_contacto")
-  envioNombre        String            @map("envio_nombre")
-  envioTelefono      String            @map("envio_telefono")
-  envioDepartamento  String            @map("envio_departamento")
-  envioCiudad        String            @map("envio_ciudad")
-  envioDireccion     String            @map("envio_direccion")
-  envioComplemento   String?           @map("envio_complemento")
-  envioNotas         String?           @map("envio_notas")
-  transportadora     String?
-  numeroGuia         String?           @map("numero_guia")
-  urlSeguimiento     String?           @map("url_seguimiento")
-  subtotal           Int
-  descuento          Int               @default(0)
-  envio              Int               @default(0)
-  total              Int
-  costoTotal         Int?              @map("costo_total")
-  cuponId            String?           @map("cupon_id") @db.Uuid
-  cuponCodigo        String?           @map("cupon_codigo")
-  estado             EstadoPedido      @default(esperandoPago)
-  pagadoEn           DateTime?         @map("pagado_en") @db.Timestamptz(6)
-  despachadoEn       DateTime?         @map("despachado_en") @db.Timestamptz(6)
-  entregadoEn        DateTime?         @map("entregado_en") @db.Timestamptz(6)
-  canceladoEn        DateTime?         @map("cancelado_en") @db.Timestamptz(6)
-  motivoCancelacion  String?           @map("motivo_cancelacion")
-  creadoEn           DateTime          @default(now()) @map("creado_en") @db.Timestamptz(6)
-  actualizadoEn      DateTime          @default(now()) @map("actualizado_en") @db.Timestamptz(6)
-  monedaMostrada     String            @default("COP") @map("moneda_mostrada")
-  tasaUsdUsada       Int?              @map("tasa_usd_usada")
-  claveIdempotencia  String?           @unique @map("clave_idempotencia")
-  carrito            Carrito?
-  eventosAnalitica   EventoAnalitica[]
-  pagos              Pago[]
-  cupon              Cupon?            @relation(fields: [cuponId], references: [id], onUpdate: NoAction)
-  sesionVisita       SesionVisita?     @relation(fields: [sesionId], references: [id], onUpdate: NoAction)
-  usuario            Usuario?          @relation(fields: [usuarioId], references: [id], onUpdate: NoAction)
-  historial          PedidoHistorial[]
-  items              PedidoItem[]
-  resenas            Resena[]
-  reservasStock      ReservaStock[]
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  numero            String            @unique
+  usuarioId         String?           @map("usuario_id") @db.Uuid
+  sesionId          String?           @map("sesion_id") @db.Uuid
+  nombreContacto    String            @map("nombre_contacto")
+  telefonoContacto  String            @map("telefono_contacto")
+  correoContacto    String?           @map("correo_contacto")
+  envioNombre       String            @map("envio_nombre")
+  envioTelefono     String            @map("envio_telefono")
+  envioDepartamento String            @map("envio_departamento")
+  envioCiudad       String            @map("envio_ciudad")
+  envioDireccion    String            @map("envio_direccion")
+  envioComplemento  String?           @map("envio_complemento")
+  envioNotas        String?           @map("envio_notas")
+  transportadora    String?
+  numeroGuia        String?           @map("numero_guia")
+  urlSeguimiento    String?           @map("url_seguimiento")
+  subtotal          Int
+  descuento         Int               @default(0)
+  envio             Int               @default(0)
+  total             Int
+  costoTotal        Int?              @map("costo_total")
+  cuponId           String?           @map("cupon_id") @db.Uuid
+  cuponCodigo       String?           @map("cupon_codigo")
+  estado            EstadoPedido      @default(esperandoPago)
+  pagadoEn          DateTime?         @map("pagado_en") @db.Timestamptz(6)
+  despachadoEn      DateTime?         @map("despachado_en") @db.Timestamptz(6)
+  entregadoEn       DateTime?         @map("entregado_en") @db.Timestamptz(6)
+  canceladoEn       DateTime?         @map("cancelado_en") @db.Timestamptz(6)
+  motivoCancelacion String?           @map("motivo_cancelacion")
+  creadoEn          DateTime          @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn     DateTime          @default(now()) @map("actualizado_en") @db.Timestamptz(6)
+  monedaMostrada    String            @default("COP") @map("moneda_mostrada")
+  tasaUsdUsada      Int?              @map("tasa_usd_usada")
+  claveIdempotencia String?           @unique @map("clave_idempotencia")
+  carrito           Carrito?
+  eventosAnalitica  EventoAnalitica[]
+  pagos             Pago[]
+  cupon             Cupon?            @relation(fields: [cuponId], references: [id], onUpdate: NoAction)
+  sesionVisita      SesionVisita?     @relation(fields: [sesionId], references: [id], onUpdate: NoAction)
+  usuario           Usuario?          @relation(fields: [usuarioId], references: [id], onUpdate: NoAction)
+  historial         PedidoHistorial[]
+  items             PedidoItem[]
+  resenas           Resena[]
+  reservasStock     ReservaStock[]
 
   @@index([creadoEn], map: "idx_pedido_creado")
   @@index([estado, creadoEn], map: "idx_pedido_estado")
@@ -943,23 +943,24 @@ model UsuarioAdminRol {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model Combo {
-  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   nombre        String
-  slug          String        @unique
+  slug          String         @unique
   descripcion   String?
-  precioCop     Int           @map("precio_cop")
-  precioUsd     Int?          @map("precio_usd")
-  imagenUrl     String?       @map("imagen_url")
-  vigenteDesde  DateTime      @default(now()) @map("vigente_desde") @db.Timestamptz(6)
-  vigenteHasta  DateTime?     @map("vigente_hasta") @db.Timestamptz(6)
-  activo        Boolean       @default(true)
-  destacado     Boolean       @default(false)
-  creadoPorId   String?       @map("creado_por_id") @db.Uuid
-  creadoEn      DateTime      @default(now()) @map("creado_en") @db.Timestamptz(6)
-  actualizadoEn DateTime      @default(now()) @map("actualizado_en") @db.Timestamptz(6)
+  precioCop     Int            @map("precio_cop")
+  precioUsd     Int?           @map("precio_usd")
+  imagenUrl     String?        @map("imagen_url")
+  vigenteDesde  DateTime       @default(now()) @map("vigente_desde") @db.Timestamptz(6)
+  vigenteHasta  DateTime?      @map("vigente_hasta") @db.Timestamptz(6)
+  activo        Boolean        @default(true)
+  destacado     Boolean        @default(false)
+  creadoPorId   String?        @map("creado_por_id") @db.Uuid
+  creadoEn      DateTime       @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn DateTime       @default(now()) @map("actualizado_en") @db.Timestamptz(6)
   itemsCarrito  CarritoItem[]
-  usuarioAdmin  UsuarioAdmin? @relation(fields: [creadoPorId], references: [id], onUpdate: NoAction)
+  usuarioAdmin  UsuarioAdmin?  @relation(fields: [creadoPorId], references: [id], onUpdate: NoAction)
   items         ComboItem[]
+  imagenes      ImagenCombo[]
   itemsPedido   PedidoItem[]
 
   @@index([activo, vigenteDesde, vigenteHasta], map: "idx_combo_vigencia")
@@ -1057,6 +1058,24 @@ model PedidoItemComboDetalle {
   @@map("pedido_item_combo_detalle")
 }
 
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model ImagenCombo {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  comboId      String     @map("combo_id") @db.Uuid
+  url          String
+  urlMiniatura String?    @map("url_miniatura")
+  altTexto     String     @map("alt_texto")
+  tipo         TipoImagen @default(galeria)
+  orden        Int        @default(0)
+  ancho        Int?
+  alto         Int?
+  creadoEn     DateTime   @default(now()) @map("creado_en") @db.Timestamptz(6)
+  combo        Combo      @relation(fields: [comboId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([comboId, orden], map: "idx_imagen_combo")
+  @@map("imagen_combo")
+}
+
 enum AlcancePromocion {
   global
   categoria
@@ -1104,6 +1123,7 @@ enum EstadoPublicacion {
   borrador
   publicado
   archivado
+  solo_kits
 
   @@map("estado_publicacion")
 }

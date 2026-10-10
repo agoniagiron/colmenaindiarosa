@@ -18,6 +18,16 @@ export async function listarCombosVigentes() {
       precioCop: true,
       precioUsd: true,
       imagenUrl: true,
+      // Fotos propias del kit (punto 2 del pedido) — nunca las de los
+      // productos que lo componen. imagenUrl de arriba es el campo viejo
+      // de una sola foto, que se deja de usar en el front una vez que hay
+      // filas acá; si no hay ninguna, el front cae al SVG de respaldo.
+      imagenes: {
+        orderBy: { orden: 'asc' },
+        take: 1,
+        select: { url: true, altTexto: true },
+      },
+      _count: { select: { imagenes: true } },
       items: {
         select: {
           cantidad: true,
@@ -57,6 +67,8 @@ export async function listarCombosVigentes() {
       slug: combo.slug,
       descripcion: combo.descripcion,
       imagenUrl: combo.imagenUrl,
+      imagenPrincipal: combo.imagenes[0] ?? null,
+      cantidadImagenes: combo._count.imagenes,
       precio: calcularPrecioDualConTasa(combo.precioCop, combo.precioUsd, tasaUsd),
       precioPiezasPorSeparado: calcularPrecioDualConTasa(precioPiezasCop, null, tasaUsd),
       disponible,

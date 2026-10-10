@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { Navigate } from 'react-router-dom';
 import { Boton } from '../../componentes/Boton.tsx';
 import { EsqueletoCarga } from '../../componentes/EsqueletoCarga.tsx';
+import { MiniaturaGaleria } from '../../componentes/MiniaturaGaleria.tsx';
 import { Modal } from '../../componentes/Modal.tsx';
 import * as api from '../../contexto/apiLimitadasAdmin.ts';
 import type {
@@ -309,15 +310,13 @@ export function AdminLimitadas() {
                     } ${!edicion.activa ? 'opacity-60' : ''}`}
                   >
                     <td className="w-12 px-4 py-3">
-                      {edicion.producto.imagen ? (
-                        <img
-                          src={edicion.producto.imagen.url}
-                          alt=""
-                          className="h-11 w-9 rounded object-cover"
-                        />
-                      ) : (
-                        <span aria-hidden="true" className="block h-11 w-9 rounded bg-arena" />
-                      )}
+                      <MiniaturaGaleria
+                        nombre={edicion.producto.nombre}
+                        className="h-11 w-9 rounded object-cover"
+                        imagenPrincipal={edicion.producto.imagen}
+                        cantidadImagenes={edicion.producto.cantidadImagenes}
+                        cargarGaleria={() => Promise.resolve(edicion.producto.imagenes)}
+                      />
                     </td>
                     <td className="px-4 py-3 font-medium text-tinta">{edicion.producto.nombre}</td>
                     <td className="px-4 py-3 text-texto-secundario">{edicion.nombre}</td>

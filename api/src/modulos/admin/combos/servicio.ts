@@ -181,6 +181,16 @@ export async function listarKits(query: QueryListadoKits) {
   };
 }
 
+const SELECT_IMAGEN_COMBO = {
+  id: true,
+  url: true,
+  altTexto: true,
+  tipo: true,
+  orden: true,
+  ancho: true,
+  alto: true,
+} satisfies Prisma.ImagenComboSelect;
+
 const SELECT_DETALLE = {
   id: true,
   nombre: true,
@@ -194,6 +204,9 @@ const SELECT_DETALLE = {
   activo: true,
   destacado: true,
   items: { select: SELECT_ITEM },
+  // Fotos propias del kit (punto 2 del pedido) — orden asc para que la
+  // galería y el selector de reordenamiento siempre empiecen igual.
+  imagenes: { select: SELECT_IMAGEN_COMBO, orderBy: { orden: 'asc' } },
 } satisfies Prisma.ComboSelect;
 
 function mapearDetalle(kit: Prisma.ComboGetPayload<{ select: typeof SELECT_DETALLE }>) {
@@ -211,6 +224,7 @@ function mapearDetalle(kit: Prisma.ComboGetPayload<{ select: typeof SELECT_DETAL
     activo: kit.activo,
     destacado: kit.destacado,
     items: kit.items.map(mapearItem),
+    imagenes: kit.imagenes,
     ...resumen,
   };
 }

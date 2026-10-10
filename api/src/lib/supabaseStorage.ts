@@ -62,6 +62,19 @@ export function generarRutaImagen(productoId: string, tipoMime: string): string 
   return `productos/${productoId}/${randomUUID()}.${extension}`;
 }
 
+// combos/{comboId}/{uuid}.{ext} — mismo bucket "productos" que los
+// productos, solo cambia el prefijo de carpeta (así no hace falta
+// aprovisionar ni configurar un bucket nuevo en Supabase). Las fotos de
+// un kit son propias, no las de los productos que lo componen — ver
+// servicioImagenes.ts de combos.
+export function generarRutaImagenCombo(comboId: string, tipoMime: string): string {
+  const extension = extensionParaTipo(tipoMime);
+  if (!extension) {
+    throw new Error(`Tipo de imagen no soportado: ${tipoMime}`);
+  }
+  return `combos/${comboId}/${randomUUID()}.${extension}`;
+}
+
 export function urlPublica(ruta: string): string {
   const { data } = supabaseAdmin.storage.from(BUCKET).getPublicUrl(ruta);
   return data.publicUrl;
