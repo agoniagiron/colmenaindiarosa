@@ -33,13 +33,16 @@ async function obtenerComboOFallar(comboId: string): Promise<void> {
   }
 }
 
-// La base garantiza que no haya dos 'principal' del mismo kit (índice
-// único parcial idx_imagen_combo_principal, ver el SQL que corrió el
-// usuario) — esto solo traduce esa violación a un mensaje claro en vez de
-// dejar pasar el 500 crudo de Postgres. No hace falta distinguir el
-// nombre del índice en el error: en este módulo, el único insert/update
-// que puede chocar con esa restricción es justo el que está marcando una
-// imagen como 'principal'.
+// La portada de un kit es la primera foto por `orden`, no el campo
+// `tipo` — ningún código de este módulo escribe tipo:'principal' nunca
+// más (ver TIPOS_IMAGEN_COMBO en esquemasImagenes.ts). El índice único
+// parcial idx_imagen_combo_principal (combo_id, where tipo='principal')
+// sigue existiendo en la base sin uso: no se borró porque no hace daño
+// dejarlo, pero la regla vigente es la posición, no ese índice.
+//
+// Este manejo de error queda como defensa por si acaso (un valor viejo
+// en la base, un bypass de Zod) — en el flujo normal nunca se dispara,
+// porque nada vuelve a intentar escribir 'principal'.
 function esColisionPrincipal(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
 }
@@ -69,7 +72,7 @@ export async function crearImagenCombo(comboId: string, datos: BodyCrearImagenCo
       select: SELECT_IMAGEN,
     });
   } catch (error) {
-    if (datos.tipo === 'principal' && esColisionPrincipal(error)) {
+    if (esColisionPrincipal(error)) {
       throw ErrorApi.conflicto(MENSAJE_COLISION_PRINCIPAL);
     }
     throw error;
@@ -92,7 +95,7 @@ export async function editarImagenCombo(id: string, datos: BodyEditarImagenCombo
       select: SELECT_IMAGEN,
     });
   } catch (error) {
-    if (datos.tipo === 'principal' && esColisionPrincipal(error)) {
+    if (esColisionPrincipal(error)) {
       throw ErrorApi.conflicto(MENSAJE_COLISION_PRINCIPAL);
     }
     throw error;

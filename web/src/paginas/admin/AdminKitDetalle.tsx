@@ -71,7 +71,9 @@ export function AdminKitDetalle() {
     );
   }
 
-  const imagenPrincipal = kit.imagenes.find((i) => i.tipo === 'principal') ?? kit.imagenes[0] ?? null;
+  // La portada es la primera foto por orden, no el tipo — kit.imagenes ya
+  // viene ordenado por el backend (ver SELECT_DETALLE en servicio.ts).
+  const imagenPrincipal = kit.imagenes[0] ?? null;
 
   return (
     <div className="flex flex-col gap-6">

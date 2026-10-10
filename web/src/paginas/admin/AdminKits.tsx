@@ -4,6 +4,7 @@ import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { Boton } from '../../componentes/Boton.tsx';
 import { EsqueletoCarga } from '../../componentes/EsqueletoCarga.tsx';
 import * as api from '../../contexto/apiCombosAdmin.ts';
+import { PestanaImagenesCombo } from './PestanaImagenesCombo.tsx';
 import type {
   DatosItemKit,
   FilaKitAdmin,
@@ -101,6 +102,12 @@ export function AdminKits() {
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Detalle completo solo para la sección de fotos (necesita el id del
+  // kit y su arreglo de imágenes, que el resto del formulario no usa).
+  // null mientras se crea un kit nuevo (todavía sin id) o mientras se
+  // carga el detalle al editar uno existente.
+  const [kitParaImagenes, setKitParaImagenes] = useState<KitDetalle | null>(null);
+
   function recargarListado() {
     if (!accessToken) return;
     setListado(null);
@@ -187,6 +194,7 @@ export function AdminKits() {
     setBuscarPieza('');
     setResultadosBusqueda([]);
     setError(null);
+    setKitParaImagenes(null);
   }
 
   async function editar(id: string) {
@@ -201,8 +209,25 @@ export function AdminKits() {
       setVigenteDesde(fechaISO(kit.vigenteDesde));
       setVigenteHasta(kit.vigenteHasta ? fechaISO(kit.vigenteHasta) : '');
       setPiezas(kit.items.map(piezaDesdeDetalle));
+      setKitParaImagenes(kit);
     } catch (e) {
       setError(e instanceof api.ErrorKitsAdmin ? e.message : 'No se pudo cargar el kit');
+    }
+  }
+
+  // Vuelve a pedir el detalle del kit después de subir, reordenar o
+  // eliminar una foto: PestanaImagenesCombo no trae su propio estado de
+  // "imágenes guardadas", depende de que el padre se lo pase actualizado
+  // (mismo patrón que AdminKitDetalle.tsx).
+  async function recargarImagenesKit() {
+    if (!editandoId) return;
+    try {
+      const kit = await api.obtenerDetalleKit(token, editandoId);
+      setKitParaImagenes(kit);
+    } catch {
+      // Falla silenciosa: la próxima acción sobre una imagen vuelve a
+      // intentar recargar. No hay un lugar natural en esta sección para
+      // mostrar un error aparte del de cada operación.
     }
   }
 
@@ -248,10 +273,16 @@ export function AdminKits() {
       };
       if (editandoId) {
         await api.editarKit(token, editandoId, datos);
+        limpiarFormulario();
       } else {
-        await api.crearKit(token, datos);
+        // No se limpia el formulario ni se vuelve a la lista: el kit
+        // recién creado necesita su id para la sección de fotos de abajo,
+        // así que el formulario queda abierto, ya en modo edición, para
+        // poder seguir de corrido sin buscar el kit otra vez.
+        const creado = await api.crearKit(token, datos);
+        setEditandoId(creado.id);
+        setKitParaImagenes(creado);
       }
-      limpiarFormulario();
       recargarListado();
     } catch (e) {
       setError(e instanceof api.ErrorKitsAdmin ? e.message : 'No se pudo guardar el kit');
@@ -471,6 +502,24 @@ export function AdminKits() {
               ) : (
                 <p className="text-sm text-texto-secundario">Todavía no agregaste ninguna pieza.</p>
               )}
+
+              <div className="border-t border-linea pt-4">
+                <h3 className="mb-2 text-sm font-medium text-tinta">Fotos del kit</h3>
+                {!editandoId ? (
+                  <p className="text-sm text-texto-secundario">
+                    Guardá el kit para agregar fotos.
+                  </p>
+                ) : kitParaImagenes ? (
+                  <PestanaImagenesCombo
+                    kit={kitParaImagenes}
+                    accessToken={token}
+                    puedeGestionar={puedeGestionar}
+                    onCambiado={() => void recargarImagenesKit()}
+                  />
+                ) : (
+                  <EsqueletoCarga alto="h-32" />
+                )}
+              </div>
 
               {error ? <p className="text-sm text-rosa">{error}</p> : null}
               <div className="flex gap-2">

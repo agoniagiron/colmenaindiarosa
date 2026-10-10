@@ -16,8 +16,9 @@ export const esquemaBodyFirmarImagenCombo = z.object({
 
 // Un kit no tiene variantes propias ni el resto de los tipos de imagen de
 // producto (modelo, medida, video no aplican a una foto de vitrina
-// armada): solo principal o galería.
-const TIPOS_IMAGEN_COMBO = ['principal', 'galeria'] as const;
+// armada): solo galería. La portada es la primera foto por `orden`, no
+// un tipo — acá nunca se escribe 'principal' (ver servicioImagenes.ts).
+const TIPOS_IMAGEN_COMBO = ['galeria'] as const;
 
 export const esquemaBodyCrearImagenCombo = z.object({
   url: z.string().url(),

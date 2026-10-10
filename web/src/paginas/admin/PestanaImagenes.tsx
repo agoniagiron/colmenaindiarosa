@@ -14,7 +14,6 @@ import { redimensionarAWebp } from '../../utilidades/redimensionarImagen.ts';
 const BUCKET = 'productos';
 
 const ETIQUETAS_TIPO: Record<Exclude<TipoImagenProducto, 'video'>, string> = {
-  principal: 'Principal',
   galeria: 'Galería',
   detalle: 'Detalle',
   modelo: 'Modelo',
@@ -71,19 +70,15 @@ export function PestanaImagenes({
     );
   }
 
+  // La portada es la primera foto por orden (se arrastra ahí, no se
+  // elige al subir): toda foto nueva entra como 'galeria' y al final de
+  // la lista — ver subirItem, orden: producto.imagenes.length.
   async function agregarArchivos(archivos: FileList | File[]) {
-    const yaHayPrincipal =
-      producto.imagenes.some((i) => i.tipo === 'principal') ||
-      cola.some((i) => i.tipo === 'principal');
-
-    let asignoPrincipal = yaHayPrincipal;
     for (const archivo of Array.from(archivos)) {
       if (!archivo.type.startsWith('image/')) continue;
       try {
         const { blob, ancho, alto } = await redimensionarAWebp(archivo);
         const previewUrl = URL.createObjectURL(blob);
-        const esPrincipal = !asignoPrincipal;
-        asignoPrincipal = true;
         setCola((actual) => [
           ...actual,
           {
@@ -94,7 +89,7 @@ export function PestanaImagenes({
             ancho,
             alto,
             altTexto: '',
-            tipo: esPrincipal ? 'principal' : 'galeria',
+            tipo: 'galeria',
             varianteId: '',
             subiendo: false,
             error: null,

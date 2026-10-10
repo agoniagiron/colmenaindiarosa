@@ -139,8 +139,9 @@ export interface VarianteDetalle {
   historialPrecios: HistorialPrecioVariante[];
 }
 
-export type TipoImagenProducto =
-  'principal' | 'galeria' | 'detalle' | 'modelo' | 'medida' | 'video';
+// La portada de un producto es la primera foto por orden, nunca se elige
+// por tipo: 'principal' ya no es un valor que este código escriba.
+export type TipoImagenProducto = 'galeria' | 'detalle' | 'modelo' | 'medida' | 'video';
 
 export interface ImagenProductoDetalle {
   id: string;

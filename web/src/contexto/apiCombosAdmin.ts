@@ -95,8 +95,8 @@ export interface KitDetalle extends ResumenKit {
   descripcion: string | null;
   imagenUrl: string | null;
   // Fotos propias del kit (punto 2): nunca las de los productos que lo
-  // componen. Ordenadas por orden ascendente, la principal puede no ser
-  // la primera del arreglo — ver tipo en ImagenComboDetalle.
+  // componen. Ordenadas por orden ascendente — la portada es siempre
+  // imagenes[0], nunca se elige por tipo.
   imagenes: ImagenComboDetalle[];
   precioCop: number;
   precioUsd: number | null;
@@ -223,7 +223,9 @@ async function solicitarImagen<T>(
   return (await respuesta.json()) as T;
 }
 
-export type TipoImagenCombo = 'principal' | 'galeria';
+// Único valor posible: la portada de un kit es la primera foto por
+// orden, nunca se elige por tipo (ver servicioImagenes.ts en el backend).
+export type TipoImagenCombo = 'galeria';
 
 export interface ImagenComboDetalle {
   id: string;
@@ -278,7 +280,6 @@ export function crearImagenCombo(
 
 export interface DatosEditarImagenCombo {
   altTexto?: string;
-  tipo?: TipoImagenCombo;
 }
 
 export function editarImagenCombo(

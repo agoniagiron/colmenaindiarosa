@@ -1,26 +1,19 @@
 // Fotos propias del kit (punto 2): misma mecánica de subida que
-// PestanaImagenes.tsx (producto), adaptada a un kit — sin variante y con
-// solo dos tipos posibles (principal/galería, ver TipoImagenCombo). No se
-// duplica el helper de subida ni la conversión a WebP, solo la forma de
-// los datos.
+// PestanaImagenes.tsx (producto), adaptada a un kit — sin variante y sin
+// selector de tipo: la portada es siempre la primera foto por orden (se
+// arrastra ahí), nunca se elige. No se duplica el helper de subida ni la
+// conversión a WebP, solo la forma de los datos.
 
 import { useEffect, useRef, useState } from 'react';
 import type { DragEvent } from 'react';
 import { Boton } from '../../componentes/Boton.tsx';
 import { CampoTexto } from '../../componentes/CampoTexto.tsx';
 import * as api from '../../contexto/apiCombosAdmin.ts';
-import type { ImagenComboDetalle, KitDetalle, TipoImagenCombo } from '../../contexto/apiCombosAdmin.ts';
+import type { ImagenComboDetalle, KitDetalle } from '../../contexto/apiCombosAdmin.ts';
 import { subirArchivoFirmado } from '../../contexto/supabaseClient.ts';
 import { redimensionarAWebp } from '../../utilidades/redimensionarImagen.ts';
 
 const BUCKET = 'productos';
-
-const ETIQUETAS_TIPO: Record<TipoImagenCombo, string> = {
-  principal: 'Principal',
-  galeria: 'Galería',
-};
-
-const TIPOS_SELECCIONABLES = Object.keys(ETIQUETAS_TIPO) as TipoImagenCombo[];
 
 interface ItemCola {
   id: string;
@@ -30,7 +23,6 @@ interface ItemCola {
   ancho: number;
   alto: number;
   altTexto: string;
-  tipo: TipoImagenCombo;
   subiendo: boolean;
   error: string | null;
 }
@@ -68,17 +60,11 @@ export function PestanaImagenesCombo({
   }
 
   async function agregarArchivos(archivos: FileList | File[]) {
-    const yaHayPrincipal =
-      kit.imagenes.some((i) => i.tipo === 'principal') || cola.some((i) => i.tipo === 'principal');
-
-    let asignoPrincipal = yaHayPrincipal;
     for (const archivo of Array.from(archivos)) {
       if (!archivo.type.startsWith('image/')) continue;
       try {
         const { blob, ancho, alto } = await redimensionarAWebp(archivo);
         const previewUrl = URL.createObjectURL(blob);
-        const esPrincipal = !asignoPrincipal;
-        asignoPrincipal = true;
         setCola((actual) => [
           ...actual,
           {
@@ -89,7 +75,6 @@ export function PestanaImagenesCombo({
             ancho,
             alto,
             altTexto: '',
-            tipo: esPrincipal ? 'principal' : 'galeria',
             subiendo: false,
             error: null,
           },
@@ -127,7 +112,7 @@ export function PestanaImagenesCombo({
       await api.crearImagenCombo(accessToken, kit.id, {
         url: firmada.urlPublica,
         altTexto: item.altTexto.trim(),
-        tipo: item.tipo,
+        tipo: 'galeria',
         orden: kit.imagenes.length,
         ancho: item.ancho,
         alto: item.alto,
@@ -135,9 +120,6 @@ export function PestanaImagenesCombo({
       quitarDeCola(item.id);
       onCambiado();
     } catch (e) {
-      // Incluye el 409 de "ya hay una principal" que devuelve el backend
-      // (ver api/src/modulos/admin/combos/servicioImagenes.ts): llega acá
-      // como mensaje de error normal, sin tratamiento especial.
       actualizarItemCola(item.id, {
         subiendo: false,
         error: e instanceof Error ? e.message : 'No se pudo subir la imagen',
@@ -213,19 +195,6 @@ export function PestanaImagenesCombo({
                   onChange={(e) => actualizarItemCola(item.id, { altTexto: e.target.value })}
                   required
                 />
-                <select
-                  value={item.tipo}
-                  onChange={(e) =>
-                    actualizarItemCola(item.id, { tipo: e.target.value as TipoImagenCombo })
-                  }
-                  className="w-fit rounded-lg border border-linea bg-white px-2 py-1.5 text-[13px]"
-                >
-                  {TIPOS_SELECCIONABLES.map((t) => (
-                    <option key={t} value={t}>
-                      {ETIQUETAS_TIPO[t]}
-                    </option>
-                  ))}
-                </select>
                 {item.error ? <p className="text-[12.5px] text-rosa">{item.error}</p> : null}
                 <div className="flex gap-2">
                   <Boton
@@ -249,17 +218,22 @@ export function PestanaImagenesCombo({
         {kit.imagenes.length === 0 ? (
           <p className="text-sm text-texto-secundario">Todavía no hay imágenes subidas.</p>
         ) : (
-          kit.imagenes.map((imagen, indice) => (
-            <TarjetaImagenGuardada
-              key={imagen.id}
-              imagen={imagen}
-              esPrimera={indice === 0}
-              accessToken={accessToken}
-              onGuardar={onCambiado}
-              onEliminar={() => void eliminar(imagen.id)}
-              onSoltar={(idArrastrado) => void reordenar(idArrastrado, imagen.id)}
-            />
-          ))
+          <>
+            <p className="text-[12.5px] text-texto-secundario">
+              Arrastrá una foto al primer lugar para que sea la portada del kit.
+            </p>
+            {kit.imagenes.map((imagen, indice) => (
+              <TarjetaImagenGuardada
+                key={imagen.id}
+                imagen={imagen}
+                esPrimera={indice === 0}
+                accessToken={accessToken}
+                onGuardar={onCambiado}
+                onEliminar={() => void eliminar(imagen.id)}
+                onSoltar={(idArrastrado) => void reordenar(idArrastrado, imagen.id)}
+              />
+            ))}
+          </>
         )}
       </section>
     </div>
@@ -282,21 +256,19 @@ function TarjetaImagenGuardada({
   onSoltar: (idArrastrado: string) => void;
 }) {
   const [altTexto, setAltTexto] = useState(imagen.altTexto);
-  const [tipo, setTipo] = useState<TipoImagenCombo>(imagen.tipo);
   const [guardando, setGuardando] = useState(false);
   const [sobreZona, setSobreZona] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setAltTexto(imagen.altTexto);
-    setTipo(imagen.tipo);
   }, [imagen]);
 
   async function guardar() {
     setGuardando(true);
     setError(null);
     try {
-      await api.editarImagenCombo(accessToken, imagen.id, { altTexto, tipo });
+      await api.editarImagenCombo(accessToken, imagen.id, { altTexto });
       onGuardar();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo guardar el cambio');
@@ -345,17 +317,6 @@ function TarjetaImagenGuardada({
           onChange={(e) => setAltTexto(e.target.value)}
           required
         />
-        <select
-          value={tipo}
-          onChange={(e) => setTipo(e.target.value as TipoImagenCombo)}
-          className="w-fit rounded-lg border border-linea bg-white px-2 py-1.5 text-[13px]"
-        >
-          {TIPOS_SELECCIONABLES.map((t) => (
-            <option key={t} value={t}>
-              {ETIQUETAS_TIPO[t]}
-            </option>
-          ))}
-        </select>
         {error ? <p className="text-[12.5px] text-rosa">{error}</p> : null}
         <div className="flex gap-2">
           <Boton

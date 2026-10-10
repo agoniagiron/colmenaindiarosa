@@ -14,14 +14,10 @@ export const esquemaBodyFirmarImagen = z.object({
     .max(TAMANO_MAXIMO_BYTES, `La imagen no puede superar los 5 MB`),
 });
 
-const TIPOS_IMAGEN_PRODUCTO = [
-  'principal',
-  'galeria',
-  'detalle',
-  'modelo',
-  'medida',
-  'video',
-] as const;
+// La portada es la primera foto por `orden`, no un tipo — acá nunca se
+// escribe 'principal' (el valor sigue existiendo en la columna de la
+// base para clasificar, no para marcar portada).
+const TIPOS_IMAGEN_PRODUCTO = ['galeria', 'detalle', 'modelo', 'medida', 'video'] as const;
 
 export const esquemaBodyCrearImagen = z.object({
   url: z.string().url(),

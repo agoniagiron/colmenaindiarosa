@@ -194,10 +194,12 @@ function imagenesProducto(nombre: string, cantidad: 3 | 4): ImagenSeed[] {
     `${nombre}, tono más oscuro`,
     `${nombre}, tono intenso`,
   ];
+  // La portada es la primera por orden (sufijo 1 → orden 0 al insertar
+  // más abajo), no el campo tipo: acá nunca se escribe 'principal'.
   return alts.slice(0, cantidad).map((altTexto, indice) => ({
     sufijo: indice + 1,
     altTexto,
-    tipo: indice === 0 ? 'principal' : 'galeria',
+    tipo: 'galeria',
   }));
 }
 

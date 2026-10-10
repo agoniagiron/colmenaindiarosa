@@ -40,6 +40,7 @@ la tienda confirma disponibilidad y forma de pago por chat.
 - Textos de interfaz en español, en tono cercano y directo, sin mayúsculas
   sostenidas ni signos de admiración de relleno.
 - Errores de la API con forma `{ error: { codigo, mensaje, detalles? } }`.
+- La imagen de portada de un producto o un kit es la primera por orden. El campo tipo nunca vale 'principal'.
 
 ## Reglas de trabajo
 - Antes de escribir código, presenta un plan corto y espera aprobación
