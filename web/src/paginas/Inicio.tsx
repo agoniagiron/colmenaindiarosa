@@ -32,20 +32,11 @@ export function Inicio() {
 function SeccionHeroe() {
   const [heroe, setHeroe] = useState<HeroePortada | null>(null);
   const [facetasCatalogo, setFacetasCatalogo] = useState<Facetas | null>(null);
-  // Solo se usa en la rama de respaldo (sin destacadas): ahí el tono lo
-  // elige la clienta a mano, como siempre. Con destacadas, el tono activo
-  // no se guarda acá — se deriva de `indiceRecorrido` más abajo, para que
-  // la hilera siga al carrusel y nunca al revés (punto 2 del pedido).
   const [tonoActivoManual, setTonoActivoManual] = useState<string | null>(null);
   const [indiceRecorrido, setIndiceRecorrido] = useState(0);
 
   useEffect(() => {
     let vigente = true;
-
-    // Las dos piden en paralelo: el héroe (destacadas de portada, si hay)
-    // y las facetas del catálogo completo, que siguen siendo la fuente
-    // del conteo ("N piezas") y del respaldo cuando no hay destacadas
-    // (ver abajo) — nunca se duplica esa cuenta acá.
     Promise.all([repositorio.obtenerHeroePortada(), repositorio.listarFacetas({})]).then(
       ([heroeCargado, facetas]) => {
         if (!vigente) return;
@@ -53,7 +44,6 @@ function SeccionHeroe() {
         setFacetasCatalogo(facetas);
       },
     );
-
     return () => {
       vigente = false;
     };
@@ -62,9 +52,6 @@ function SeccionHeroe() {
   const cargando = heroe === null || facetasCatalogo === null;
   const hayDestacadas = !cargando && heroe.destacadas.length > 0;
 
-  // Sin destacadas de portada, la hilera sale del catálogo completo (como
-  // siempre); con destacadas, solo de los colores que de verdad tienen —
-  // el conteo ("N piezas") sigue siendo el del catálogo en los dos casos.
   const conteoPorNombre = useMemo(
     () => new Map((facetasCatalogo?.colores ?? []).map((c) => [c.nombre, c.conteo])),
     [facetasCatalogo],
@@ -75,10 +62,6 @@ function SeccionHeroe() {
       ? heroe.colores.map((color) => ({ ...color, conteo: conteoPorNombre.get(color.nombre) ?? 0 }))
       : facetasCatalogo.colores;
 
-  // El recorrido completo: las pelucas del primer tono, una por una, y al
-  // terminar las del siguiente — en el mismo orden en que aparecen los
-  // tonos (punto 1). Una peluca con más de un color aparece una vez por
-  // cada tono que tenga, así que no sirve deduplicarla.
   const recorrido = useMemo(() => {
     if (!hayDestacadas) return [];
     return heroe.colores.flatMap((color) =>
@@ -97,16 +80,10 @@ function SeccionHeroe() {
         ? (tonos.find((t) => t.nombre === recorrido[indiceSeguro]?.tonoNombre) ?? tonos[0]!)
         : (tonos.find((t) => t.nombre === tonoActivoManual) ?? tonos[0]!);
 
-  // Sin ningún color publicado en el catálogo no hay héroe que armar: nada
-  // de titular con una hilera vacía debajo. Mientras carga (tonos === null)
-  // sigue sin saberse si va a quedar vacío, así que el titular ya se
-  // muestra (con la hilera y el retrato en esqueleto).
   if (tonos !== null && tonos.length === 0) return null;
 
   function elegirTono(nombreTono: string) {
     if (hayDestacadas) {
-      // Reposiciona el recorrido a la primera peluca de ese tono; el
-      // autoavance sigue de ahí, hacia el siguiente tono (punto 5).
       const indice = recorrido.findIndex((item) => item.tonoNombre === nombreTono);
       if (indice !== -1) setIndiceRecorrido(indice);
     } else {
@@ -119,12 +96,11 @@ function SeccionHeroe() {
       <Contenedor className="grid gap-10 lg:grid-cols-[0.42fr_0.58fr] lg:items-center">
         <div>
           <h1 className="font-serif text-5xl text-tinta sm:text-6xl lg:text-7xl">
-            Elige tu tono
-            <br />y nosotras el resto
+            Encuentra tu tono
+            <br />y brilla al instante
           </h1>
           <p className="mt-5 line-clamp-3 max-w-[38ch] text-[15.5px] text-texto-secundario">
-            Cabello 100% humano, seleccionado uno por uno. Empieza por el color: todo lo demás se
-            acomoda a él.
+            Cabello 100% humano Remy, indetectable y listo para usar (Glueless). Selecciona tu color ideal y nosotras hacemos el resto.
           </p>
 
           {cargando || !tono ? (
@@ -143,11 +119,6 @@ function SeccionHeroe() {
             </>
           ) : (
             <>
-              {/* Celular/tablet: fila horizontal con scroll si no caben,
-                  círculo + nombre debajo, 44px mínimo de blanco tocable.
-                  Desde lg: lista vertical con el activo en píldora (ver
-                  abajo) — son dos layouts bastante distintos como para
-                  compartir un solo árbol de elementos. */}
               <div
                 role="group"
                 aria-label="Elegir tono de cabello"
@@ -221,7 +192,7 @@ function SeccionHeroe() {
                   variante="tinta"
                   className="w-full uppercase tracking-[0.14em] lg:w-auto"
                 >
-                  Ver piezas
+                  Descubrir colección
                 </Boton>
               </Link>
             </>
@@ -286,9 +257,6 @@ function BarraEntrega() {
     );
   }
 
-  // El envío nunca falta (es una regla de negocio fija): si no llegó esta
-  // clave, algo anda mal con configuracion y mejor no mostrar nada mal
-  // calculado.
   if (
     envioCosto === undefined ||
     diasCali === undefined ||
@@ -312,8 +280,8 @@ function BarraEntrega() {
     <section className="border-y border-linea py-5">
       <Contenedor className="flex flex-wrap items-center gap-3.5 text-[14.5px]">
         <span>
-          Envío de <strong className="font-medium text-rosa">{formatearMonto(envioCosto)}</strong> a
-          todo el país.
+          Envío seguro de <strong className="font-medium text-rosa">{formatearMonto(envioCosto)}</strong> a
+          toda Colombia.
         </span>
 
         <label className="flex items-center gap-2">
@@ -334,17 +302,17 @@ function BarraEntrega() {
         </label>
 
         <span>
-          Tu pedido llega <strong className="font-medium text-rosa">{estimacion.texto}</strong>.
+          Lo recibes <strong className="font-medium text-rosa">{estimacion.texto}</strong>.
         </span>
 
         {hayDescuento ? (
           <>
             <span aria-hidden="true" className="h-5 w-px bg-linea" />
             <span>
-              Desde{' '}
+              Compras sobre{' '}
               <strong className="font-medium text-rosa">{formatearMonto(descuentoUmbral)}</strong>{' '}
-              te descontamos el{' '}
-              <strong className="font-medium text-rosa">{descuentoPorcentaje}%</strong>.
+              tienen un{' '}
+              <strong className="font-medium text-rosa">{descuentoPorcentaje}% de descuento automático</strong>.
             </span>
           </>
         ) : null}
@@ -390,9 +358,9 @@ function SeccionLimitadas() {
     <section className="border-t border-linea bg-arena py-16 sm:py-20">
       <Contenedor>
         <div className="max-w-[46ch]">
-          <h2 className="font-serif text-3xl text-tinta sm:text-4xl">Ediciones limitadas</h2>
+          <h2 className="font-serif text-3xl text-tinta sm:text-4xl">Piezas Exclusivas (Stock Limitado)</h2>
           <p className="mt-2 text-sm text-texto-secundario">
-            Lotes que no se repiten. Cuando se acaban las unidades, la pieza sale del catálogo.
+            Lotes premium irrepetibles. Si te enamoras de una, asegúrala antes de que desaparezca del catálogo para siempre.
           </p>
         </div>
 
@@ -441,8 +409,8 @@ function TarjetaLimitada({
         <h3 className="font-serif text-lg text-tinta">{edicion.nombre}</h3>
         {hayBarra ? (
           <div className="flex flex-col gap-1">
-            <span className="text-xs text-texto-secundario">
-              Quedan {edicion.unidadesRestantes} de {edicion.unidadesLote} unidades
+            <span className="text-xs font-medium text-rosa">
+              ¡Solo quedan {edicion.unidadesRestantes} disponibles!
             </span>
             <div className="h-1.5 overflow-hidden rounded-full bg-linea">
               <div className="h-full rounded-full bg-rosa" style={{ width: `${porcentaje}%` }} />
@@ -495,9 +463,9 @@ function SeccionKits() {
     <section className="py-16 sm:py-20">
       <Contenedor>
         <div className="max-w-[46ch]">
-          <h2 className="font-serif text-3xl text-tinta sm:text-4xl">Kits armados</h2>
+          <h2 className="font-serif text-3xl text-tinta sm:text-4xl">Nuestros Favoritos (Ahorra más)</h2>
           <p className="mt-2 text-sm text-texto-secundario">
-            Lo que más se pide junto, a un precio mejor que por separado.
+            El estilo que buscas con todo lo que necesitas para un acabado de salón, a un precio irresistible.
           </p>
         </div>
 
@@ -538,7 +506,6 @@ function TarjetaKit({
     try {
       await ejecutarAgregar();
     } catch {
-      // El hook ya mostró el aviso de error.
     }
   }
 
@@ -548,7 +515,7 @@ function TarjetaKit({
         <ImagenProducto nombre={combo.nombre} carga="lazy" url={combo.imagenPrincipal?.url} />
         {!combo.disponible ? (
           <span className="absolute inset-0 flex items-center justify-center bg-tinta/40 text-sm font-medium text-hueso">
-            Agotado
+            Agotado temporalmente
           </span>
         ) : null}
       </div>
@@ -556,9 +523,6 @@ function TarjetaKit({
         <h3 className="line-clamp-2 font-serif text-base text-tinta lg:text-lg">{combo.nombre}</h3>
         {combo.items.length > 0 ? (
           <ul className="list-disc pl-4 text-[13.5px] leading-relaxed text-texto-secundario">
-            {/* Tope de 3 en celular (no se desbordan): a partir de lg se ven
-                todas — dos listas separadas en vez de recortar con JS, para
-                no depender de un listener de resize. */}
             {combo.items.slice(0, 3).map((item) => (
               <li key={item.varianteId} className="truncate lg:hidden">
                 {item.cantidad > 1 ? `${item.cantidad} × ` : ''}
@@ -583,10 +547,6 @@ function TarjetaKit({
           <span className="text-sm font-medium text-tinta sm:text-base lg:text-lg">
             {formatearDual(combo.precio)}
           </span>
-          {/* La píldora va antes del tachado a propósito: con flex-wrap, si
-              no entran los tres a 360px, el que salta a la línea de abajo
-              es el último del DOM (el tachado) — la píldora no se achica
-              ni cambia de padding, solo se abrevia el texto en celular. */}
           {ahorro > 0 ? (
             <span className="rounded-full bg-rosa px-2.5 py-0.5 text-xs text-hueso">
               <span className="sm:hidden">-{ahorro}%</span>
@@ -634,30 +594,30 @@ function SeccionMarca() {
       <Contenedor className="grid gap-14 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
         <ImagenProducto nombre="India Rosa" className="aspect-square rounded-full" />
         <div>
-          <h2 className="font-serif text-3xl text-tinta sm:text-4xl">Detrás de India Rosa</h2>
+          <h2 className="font-serif text-3xl text-tinta sm:text-4xl">La experiencia India Rosa</h2>
           <p className="mt-4 max-w-[52ch] text-[15px] text-texto-secundario">
-            Empezamos en Cali vendiendo por WhatsApp a clientas que llegaban por recomendación.
-            Seguimos igual de cerca: cada peluca se revisa antes de salir y te acompañamos a elegir
-            la talla del gorro, la densidad y el tono.
+            Nacimos en Cali vendiendo por WhatsApp gracias a las recomendaciones de nuestras clientas. 
+            Mantenemos esa misma cercanía: revisamos meticulosamente cada peluca antes del envío y te 
+            asesoramos personalmente en talla, densidad y tono.
           </p>
           <p className="mt-3 max-w-[52ch] text-[15px] text-texto-secundario">
-            Trabajamos con cabello humano remy, que se puede planchar, ondular y teñir. No vendemos
-            nada que no nos pondríamos.
+            Trabajamos exclusivamente con cabello humano Remy de la más alta calidad: puedes plancharlo, 
+            ondularlo y teñirlo sin miedo. No vendemos absolutamente nada que no usaríamos nosotras mismas.
           </p>
 
           <div className="mt-8 flex flex-wrap gap-11">
             <div>
               <p className="font-serif text-3xl text-rosa">+1.400</p>
-              <span className="text-[13px] text-texto-secundario">clientas desde 2021</span>
+              <span className="text-[13px] font-medium text-texto-secundario">clientas enamoradas</span>
             </div>
             <div>
               <p className="font-serif text-3xl text-rosa">4,8</p>
-              <span className="text-[13px] text-texto-secundario">calificación promedio</span>
+              <span className="text-[13px] font-medium text-texto-secundario">estrellas de satisfacción</span>
             </div>
             {rangoEntrega ? (
               <div>
                 <p className="font-serif text-3xl text-rosa">{rangoEntrega}</p>
-                <span className="text-[13px] text-texto-secundario">días hábiles de entrega</span>
+                <span className="text-[13px] font-medium text-texto-secundario">días hábiles de entrega</span>
               </div>
             ) : null}
           </div>
