@@ -45,6 +45,10 @@ export function AdminPedidos() {
   const estado: EstadoPedido | 'todos' = TABS.some((t) => t.valor === estadoParam)
     ? (estadoParam as EstadoPedido | 'todos')
     : 'todos';
+  // Filtro aparte de `estado` (ver apiPedidosAdmin.ts): "requiere
+  // revisión" es sobre el pago, no un estado_pedido, así que vive en su
+  // propio parámetro en vez de forzarlo adentro de `estado`.
+  const revisionActiva = searchParams.get('revision') === '1';
   const desde = searchParams.get('desde') ?? '';
   const hasta = searchParams.get('hasta') ?? '';
   const buscarUrl = searchParams.get('buscar') ?? '';
@@ -93,7 +97,8 @@ export function AdminPedidos() {
     setListado(null);
     api
       .listarPedidos(accessToken, {
-        estado: estado === 'todos' ? undefined : estado,
+        requiereRevision: revisionActiva || undefined,
+        estado: revisionActiva || estado === 'todos' ? undefined : estado,
         desde: desde || undefined,
         hasta: hasta || undefined,
         buscar: buscarUrl || undefined,
@@ -113,7 +118,7 @@ export function AdminPedidos() {
     return () => {
       vigente = false;
     };
-  }, [accessToken, estado, desde, hasta, buscarUrl, pagina]);
+  }, [accessToken, estado, revisionActiva, desde, hasta, buscarUrl, pagina]);
 
   if (!usuarioAdmin || !accessToken) return null;
   if (!usuarioAdmin.permisos.includes('pedidos.ver')) {
@@ -122,8 +127,21 @@ export function AdminPedidos() {
 
   function cambiarTab(nuevoEstado: EstadoPedido | 'todos') {
     const params = new URLSearchParams(searchParams);
+    params.delete('revision');
     if (nuevoEstado === 'todos') params.delete('estado');
     else params.set('estado', nuevoEstado);
+    params.delete('pagina');
+    setSearchParams(params, { replace: true });
+  }
+
+  function alternarFiltroRevision() {
+    const params = new URLSearchParams(searchParams);
+    if (revisionActiva) {
+      params.delete('revision');
+    } else {
+      params.delete('estado');
+      params.set('revision', '1');
+    }
     params.delete('pagina');
     setSearchParams(params, { replace: true });
   }
@@ -152,35 +170,52 @@ export function AdminPedidos() {
         </p>
       </div>
 
-      <nav
-        aria-label="Filtro por estado"
-        className="flex flex-wrap gap-1.5 rounded-full border border-linea bg-arena p-1"
-      >
-        {TABS.map((tab) => (
-          <button
-            key={tab.valor}
-            type="button"
-            aria-pressed={tab.valor === estado}
-            onClick={() => cambiarTab(tab.valor)}
-            className={`rounded-full px-4 py-1.5 text-[13px] whitespace-nowrap transition-colors ${
-              tab.valor === estado
-                ? 'bg-negro text-hueso'
-                : 'text-texto-secundario hover:text-tinta'
-            }`}
-          >
-            {tab.etiqueta}
-            {resumen ? (
-              <span className="ml-1.5 opacity-70">
-                (
-                {tab.valor === 'todos'
-                  ? resumen.todos
-                  : (resumen[tab.valor as keyof ResumenEstadosPedidos] ?? 0)}
-                )
-              </span>
-            ) : null}
-          </button>
-        ))}
-      </nav>
+      <div className="flex flex-wrap items-center gap-3">
+        <nav
+          aria-label="Filtro por estado"
+          className="flex flex-wrap gap-1.5 rounded-full border border-linea bg-arena p-1"
+        >
+          {TABS.map((tab) => (
+            <button
+              key={tab.valor}
+              type="button"
+              aria-pressed={!revisionActiva && tab.valor === estado}
+              onClick={() => cambiarTab(tab.valor)}
+              className={`rounded-full px-4 py-1.5 text-[13px] whitespace-nowrap transition-colors ${
+                !revisionActiva && tab.valor === estado
+                  ? 'bg-negro text-hueso'
+                  : 'text-texto-secundario hover:text-tinta'
+              }`}
+            >
+              {tab.etiqueta}
+              {resumen ? (
+                <span className="ml-1.5 opacity-70">
+                  (
+                  {tab.valor === 'todos'
+                    ? resumen.todos
+                    : (resumen[tab.valor as keyof ResumenEstadosPedidos] ?? 0)}
+                  )
+                </span>
+              ) : null}
+            </button>
+          ))}
+        </nav>
+
+        {/* Aparte de los tabs de estado_pedido: "requiere revisión" es sobre
+            el pago (ver TANDA 1) y es la única forma de que una conflicto
+            de pago aprobado llegue a una persona sin mirar logs. */}
+        <button
+          type="button"
+          aria-pressed={revisionActiva}
+          onClick={alternarFiltroRevision}
+          className={`rounded-full px-4 py-1.5 text-[13px] font-medium whitespace-nowrap transition-colors ${
+            revisionActiva ? 'bg-ambar text-hueso' : 'bg-ambar-luz text-ambar hover:opacity-80'
+          }`}
+        >
+          Requieren revisión
+          {resumen ? <span className="ml-1.5 opacity-70">({resumen.requiereRevision})</span> : null}
+        </button>
+      </div>
 
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-[12.5px] text-texto-secundario">
@@ -240,10 +275,11 @@ export function AdminPedidos() {
             <tbody>
               {listado.datos.map((pedido) => {
                 const alerta = llevaMasDeUnDiaEsperandoPago(pedido);
+                const destacar = alerta || pedido.requiereRevision;
                 return (
                   <tr
                     key={pedido.numero}
-                    className={`border-t border-linea ${alerta ? 'bg-ambar-luz/60' : 'bg-hueso hover:bg-arena'}`}
+                    className={`border-t border-linea ${destacar ? 'bg-ambar-luz/60' : 'bg-hueso hover:bg-arena'}`}
                   >
                     <td className="px-4 py-3">
                       <Link
@@ -252,7 +288,11 @@ export function AdminPedidos() {
                       >
                         {pedido.numero}
                       </Link>
-                      {alerta ? (
+                      {pedido.requiereRevision ? (
+                        <p className="mt-0.5 text-[11px] text-ambar">
+                          Requiere revisión: pago aprobado sin confirmar
+                        </p>
+                      ) : alerta ? (
                         <p className="mt-0.5 text-[11px] text-ambar">
                           Más de {HORAS_ALERTA_ESPERANDO_PAGO}h esperando pago
                         </p>

@@ -19,12 +19,26 @@ const SELECT_LISTADO = {
   estado: true,
   items: { select: { cantidad: true } },
   pagos: { select: { metodo: true }, orderBy: { creadoEn: 'desc' }, take: 1 },
+  // Para el distintivo de la fila (TANDA 1, ajuste 2): no reemplaza el
+  // `pagos` de arriba (que trae el método del pago más reciente, de
+  // cualquier estado) porque filtrar ESE por estado perdería el método a
+  // mostrar en la columna cuando el pago más reciente no sea el que
+  // requiere revisión.
+  _count: { select: { pagos: { where: { estado: 'requiereRevision' } } } },
 } satisfies Prisma.PedidoSelect;
 
 export async function listarPedidos(query: QueryListadoPedidos) {
   const where: Prisma.PedidoWhereInput = {};
 
-  if (query.estado) where.estado = query.estado;
+  // Mutuamente excluyente con `estado`: un pedido que requiere revisión
+  // puede estar en cualquier estado_pedido (típicamente cancelado o
+  // pago_rechazado, nunca se lo movimos — ver procesarAprobado), así que
+  // filtrar por los dos a la vez no tendría sentido para este tab.
+  if (query.requiereRevision) {
+    where.pagos = { some: { estado: 'requiereRevision' } };
+  } else if (query.estado) {
+    where.estado = query.estado;
+  }
 
   if (query.desde && query.hasta) {
     const { inicio, fin } = limitesRango(query.desde, query.hasta);
@@ -63,6 +77,7 @@ export async function listarPedidos(query: QueryListadoPedidos) {
     total: pedido.total,
     estado: pedido.estado,
     metodoPago: pedido.pagos[0]?.metodo ?? null,
+    requiereRevision: pedido._count.pagos > 0,
   }));
 
   return {
@@ -89,12 +104,15 @@ const ESTADOS_TAB: EstadoPedido[] = [
 ];
 
 export async function obtenerResumenEstados(): Promise<Record<string, number>> {
-  const [todos, grupos] = await Promise.all([
+  const [todos, grupos, requiereRevision] = await Promise.all([
     prisma.pedido.count(),
     prisma.pedido.groupBy({ by: ['estado'], _count: { _all: true } }),
+    // Mismo criterio que el filtro de arriba: pedidos con al menos un
+    // pago en requiereRevision, sin importar en qué estado_pedido estén.
+    prisma.pedido.count({ where: { pagos: { some: { estado: 'requiereRevision' } } } }),
   ]);
 
-  const conteos: Record<string, number> = { todos };
+  const conteos: Record<string, number> = { todos, requiereRevision };
   for (const estado of ESTADOS_TAB) conteos[estado] = 0;
   for (const grupo of grupos) {
     if (grupo.estado in conteos) conteos[grupo.estado] = grupo._count._all;

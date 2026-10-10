@@ -943,22 +943,22 @@ model UsuarioAdminRol {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model Combo {
-  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   nombre        String
-  slug          String         @unique
+  slug          String        @unique
   descripcion   String?
-  precioCop     Int            @map("precio_cop")
-  precioUsd     Int?           @map("precio_usd")
-  imagenUrl     String?        @map("imagen_url")
-  vigenteDesde  DateTime       @default(now()) @map("vigente_desde") @db.Timestamptz(6)
-  vigenteHasta  DateTime?      @map("vigente_hasta") @db.Timestamptz(6)
-  activo        Boolean        @default(true)
-  destacado     Boolean        @default(false)
-  creadoPorId   String?        @map("creado_por_id") @db.Uuid
-  creadoEn      DateTime       @default(now()) @map("creado_en") @db.Timestamptz(6)
-  actualizadoEn DateTime       @default(now()) @map("actualizado_en") @db.Timestamptz(6)
+  precioCop     Int           @map("precio_cop")
+  precioUsd     Int?          @map("precio_usd")
+  imagenUrl     String?       @map("imagen_url")
+  vigenteDesde  DateTime      @default(now()) @map("vigente_desde") @db.Timestamptz(6)
+  vigenteHasta  DateTime?     @map("vigente_hasta") @db.Timestamptz(6)
+  activo        Boolean       @default(true)
+  destacado     Boolean       @default(false)
+  creadoPorId   String?       @map("creado_por_id") @db.Uuid
+  creadoEn      DateTime      @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn DateTime      @default(now()) @map("actualizado_en") @db.Timestamptz(6)
   itemsCarrito  CarritoItem[]
-  usuarioAdmin  UsuarioAdmin?  @relation(fields: [creadoPorId], references: [id], onUpdate: NoAction)
+  usuarioAdmin  UsuarioAdmin? @relation(fields: [creadoPorId], references: [id], onUpdate: NoAction)
   items         ComboItem[]
   imagenes      ImagenCombo[]
   itemsPedido   PedidoItem[]
@@ -1102,6 +1102,7 @@ enum EstadoPago {
   rechazado
   expirado
   reembolsado
+  requiereRevision @map("requiere_revision")
 
   @@map("estado_pago")
 }

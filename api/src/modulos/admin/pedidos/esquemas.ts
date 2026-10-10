@@ -18,6 +18,11 @@ const esquemaFecha = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Se espera una fech
 export const esquemaQueryListado = z
   .object({
     estado: z.enum(ESTADOS_PEDIDO).optional(),
+    // Filtro aparte de `estado`: "requiere revisión" es sobre el pago
+    // (ver TANDA 1), no un estado_pedido — un pedido así puede estar en
+    // cualquier estado (típicamente cancelado o pago_rechazado). Si viene
+    // en true, gana sobre `estado` (ver listarPedidos en servicio.ts).
+    requiereRevision: z.coerce.boolean().optional(),
     desde: esquemaFecha.optional(),
     hasta: esquemaFecha.optional(),
     buscar: z.string().trim().min(1).optional(),

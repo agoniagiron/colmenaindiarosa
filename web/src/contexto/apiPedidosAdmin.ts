@@ -61,7 +61,16 @@ export type MetodoPago =
   'tarjetaCredito' | 'tarjetaDebito' | 'pse' | 'nequi' | 'daviplata' | 'efectivo' | 'contraentrega';
 
 export type EstadoPago =
-  'iniciado' | 'pendiente' | 'aprobado' | 'rechazado' | 'expirado' | 'reembolsado';
+  | 'iniciado'
+  | 'pendiente'
+  | 'aprobado'
+  | 'rechazado'
+  | 'expirado'
+  | 'reembolsado'
+  // Wompi aprobó el pago, pero el pedido ya no estaba en condiciones de
+  // recibirlo (carrera con el vencimiento de la reserva — ver TANDA 1):
+  // nunca se marca pagado en silencio, queda acá para que un admin decida.
+  | 'requiereRevision';
 
 export type EstadoReembolso = 'solicitado' | 'procesado' | 'rechazado';
 
@@ -76,6 +85,9 @@ export interface FilaPedidoAdmin {
   total: number;
   estado: EstadoPedido;
   metodoPago: MetodoPago | null;
+  // true si este pedido tiene al menos un pago en estado requiereRevision,
+  // sin importar en qué estado_pedido esté (ver TANDA 1).
+  requiereRevision: boolean;
 }
 
 export interface Paginacion {
@@ -92,6 +104,9 @@ export interface ListadoPedidos {
 
 export interface FiltrosListadoPedidos {
   estado?: EstadoPedido;
+  // Mutuamente excluyente con `estado` (ver servicio.ts en el backend):
+  // si viene en true, gana sobre `estado`.
+  requiereRevision?: boolean;
   desde?: string;
   hasta?: string;
   buscar?: string;
@@ -104,7 +119,8 @@ export function listarPedidos(
   filtros: FiltrosListadoPedidos,
 ): Promise<ListadoPedidos> {
   const params = new URLSearchParams();
-  if (filtros.estado) params.set('estado', filtros.estado);
+  if (filtros.requiereRevision) params.set('requiereRevision', 'true');
+  else if (filtros.estado) params.set('estado', filtros.estado);
   if (filtros.desde) params.set('desde', filtros.desde);
   if (filtros.hasta) params.set('hasta', filtros.hasta);
   if (filtros.buscar) params.set('buscar', filtros.buscar);
@@ -121,6 +137,7 @@ export type ResumenEstadosPedidos = {
   despachado: number;
   entregado: number;
   cancelado: number;
+  requiereRevision: number;
 };
 
 export function obtenerResumenEstados(accessToken: string): Promise<ResumenEstadosPedidos> {

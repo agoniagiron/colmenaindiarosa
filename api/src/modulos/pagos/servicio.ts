@@ -116,23 +116,74 @@ export async function procesarWebhook(cuerpoCrudo: unknown): Promise<void> {
   });
 }
 
+type ResultadoProcesarAprobado =
+  | { tipo: 'ninguna' }
+  | { tipo: 'pagado' }
+  | { tipo: 'conflicto'; numeroPedido: string; estadoPago: string; estadoPedido: string };
+
 async function procesarAprobado(
   pago: { id: string; pedidoId: string; estado: string },
   transaccion: unknown,
 ): Promise<void> {
   // Idempotencia a nivel de negocio, además de la del evento: si por algún
   // motivo se llega hasta acá dos veces para el mismo pago, no se descuenta
-  // stock ni se notifica a la tienda una segunda vez.
+  // stock ni se notifica a la tienda una segunda vez. Esta es la ÚNICA
+  // salida temprana antes de la lista blanca de abajo: un reenvío normal
+  // de Wompi sobre un pago ya aprobado no tiene que generar una alerta
+  // falsa.
   if (pago.estado === 'aprobado') return;
 
   const idPedidoParaNotificar = pago.pedidoId;
 
-  await prisma.$transaction(async (tx) => {
+  const resultado: ResultadoProcesarAprobado = await prisma.$transaction(async (tx) => {
     const pedido = await tx.pedido.findUnique({
       where: { id: pago.pedidoId },
       select: { id: true, numero: true, estado: true, usuarioId: true, cuponId: true },
     });
-    if (!pedido || pedido.estado === 'pagado') return;
+    if (!pedido) return { tipo: 'ninguna' };
+
+    // Lista blanca, no lista negra: el camino feliz corre SOLO si los dos
+    // están exactamente donde deberían estar para un pago que se está
+    // confirmando por primera vez. Cualquier otra combinación — pago
+    // 'expirado' o 'rechazado', pedido 'cancelado' o 'pagoRechazado', lo
+    // que sea — es una carrera entre Wompi y lo que ya pasó acá adentro
+    // (tareaReservas venciendo la reserva, un admin cancelando a mano,
+    // etc.) y nunca se resuelve sola: para entonces el inventario ya pudo
+    // liberarse o venderse a otra persona. Esto también cubre, sin
+    // enumerarlo a mano, cualquier estado nuevo que se agregue al enum
+    // más adelante.
+    const esCaminoFeliz = pago.estado === 'iniciado' && pedido.estado === 'esperandoPago';
+
+    if (!esCaminoFeliz) {
+      await tx.pago.update({
+        where: { id: pago.id },
+        data: {
+          estado: 'requiereRevision',
+          referenciaExterna: leerTexto(transaccion, ['id']),
+          mensajeError: `Wompi aprobó el pago, pero al llegar la confirmación el pago estaba en "${pago.estado}" y el pedido en "${pedido.estado}" (se esperaba "iniciado" y "esperandoPago"). Revisar manualmente.`,
+          aprobadoEn: new Date(),
+        },
+      });
+
+      // No es una transición real de pedido.estado (a propósito no se
+      // toca: queda como estaba), pero necesita quedar en el historial
+      // igual que cualquier otro evento relevante del pedido.
+      await tx.pedidoHistorial.create({
+        data: {
+          pedidoId: pedido.id,
+          estadoAnterior: pedido.estado,
+          estadoNuevo: pedido.estado,
+          nota: `Wompi aprobó el pago con el pago en "${pago.estado}" y el pedido en "${pedido.estado}". Requiere revisión manual: decidir si se reactiva el pedido o se devuelve el dinero.`,
+        },
+      });
+
+      return {
+        tipo: 'conflicto',
+        numeroPedido: pedido.numero,
+        estadoPago: pago.estado,
+        estadoPedido: pedido.estado,
+      };
+    }
 
     await tx.pago.update({
       where: { id: pago.id },
@@ -206,9 +257,31 @@ async function procesarAprobado(
         nota: 'Pago aprobado por Wompi',
       },
     });
+
+    return { tipo: 'pagado' };
   });
 
-  await notificarTiendaSiCorresponde(idPedidoParaNotificar);
+  if (resultado.tipo === 'pagado') {
+    await notificarTiendaSiCorresponde(idPedidoParaNotificar);
+  } else if (resultado.tipo === 'conflicto') {
+    await alertarConflictoPagoAprobado(resultado.numeroPedido, resultado.estadoPago, resultado.estadoPedido);
+  }
+}
+
+async function alertarConflictoPagoAprobado(
+  numeroPedido: string,
+  estadoPago: string,
+  estadoPedido: string,
+): Promise<void> {
+  try {
+    await servicioNotificacionTienda.alertarConflictoPago(
+      `ALERTA: Wompi aprobó un pago para el pedido ${numeroPedido}, pero el pago estaba en "${estadoPago}" y el pedido en "${estadoPedido}" cuando llegó la confirmación. Hay que revisar manualmente si se reactiva el pedido o se devuelve el dinero.`,
+    );
+  } catch {
+    // No crítico para el procesamiento del webhook: el conflicto ya quedó
+    // registrado en pago.estado y en el historial del pedido aunque la
+    // notificación falle.
+  }
 }
 
 async function procesarRechazado(

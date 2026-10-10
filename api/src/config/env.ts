@@ -18,21 +18,60 @@ const esquemaEnv = z.object({
   ORIGEN_WEB: z
     .string()
     .url('ORIGEN_WEB debe ser la URL del frontend, por ejemplo https://indiarosa.co'),
-  // WOMPI_ENTORNO y WOMPI_LLAVE_PRIVADA todavía no se leen en src/: quedan
-  // validadas desde ya porque son necesarias para integrar reembolsos y
-  // pagos en producción más adelante. No quitar.
-  WOMPI_ENTORNO: z.enum(['sandbox', 'produccion']).default('sandbox'),
+  // Credenciales de Wompi: todas obligatorias, el servidor no arranca sin
+  // ellas. La llave privada y los dos secretos NUNCA deben llegar a web/
+  // (ver la verificación con grep antes de cada release).
+  WOMPI_AMBIENTE: z.enum(['sandbox', 'produccion']).default('sandbox'),
+  WOMPI_URL_BASE: z.string().url('WOMPI_URL_BASE debe ser una URL válida'),
   WOMPI_LLAVE_PUBLICA: z.string().min(1, 'WOMPI_LLAVE_PUBLICA es obligatoria'),
   WOMPI_LLAVE_PRIVADA: z.string().min(1, 'WOMPI_LLAVE_PRIVADA es obligatoria'),
   WOMPI_SECRETO_INTEGRIDAD: z.string().min(1, 'WOMPI_SECRETO_INTEGRIDAD es obligatorio'),
   WOMPI_SECRETO_EVENTOS: z.string().min(1, 'WOMPI_SECRETO_EVENTOS es obligatorio'),
+  // A dónde redirige Wompi después del pago (pantalla de resultado del
+  // frontend).
   WOMPI_URL_REDIRECCION: z.string().url('WOMPI_URL_REDIRECCION debe ser una URL válida'),
   // Storage de imágenes de producto (bucket 'productos', ya creado a mano
   // en el panel de Supabase). La llave de servicio NUNCA debe llegar a
   // web/: con ella se firman las URLs de subida desde acá.
   SUPABASE_URL: z.string().url('SUPABASE_URL debe ser una URL válida'),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, 'SUPABASE_SERVICE_ROLE_KEY es obligatoria'),
-});
+})
+  // Coherencia entre WOMPI_AMBIENTE y las credenciales: Wompi prefija sus
+  // llaves y secretos según el ambiente (pub_test_/prv_test_/test_... en
+  // sandbox, pub_prod_/prv_prod_/prod_... en producción). Si no coinciden,
+  // mejor que el servidor ni arranque a que alguien cobre plata real
+  // creyendo que está probando (o al revés, que un comercio real quede
+  // corriendo contra sandbox).
+  .superRefine((datos, ctx) => {
+    const PREFIJOS_PRODUCCION = ['pub_prod_', 'prv_prod_', 'prod_'];
+    const PREFIJOS_SANDBOX = ['pub_test_', 'prv_test_', 'test_'];
+    const credenciales = [
+      ['WOMPI_LLAVE_PUBLICA', datos.WOMPI_LLAVE_PUBLICA],
+      ['WOMPI_LLAVE_PRIVADA', datos.WOMPI_LLAVE_PRIVADA],
+      ['WOMPI_SECRETO_INTEGRIDAD', datos.WOMPI_SECRETO_INTEGRIDAD],
+      ['WOMPI_SECRETO_EVENTOS', datos.WOMPI_SECRETO_EVENTOS],
+    ] as const;
+
+    for (const [campo, valor] of credenciales) {
+      const pareceDeProduccion = PREFIJOS_PRODUCCION.some((prefijo) => valor.startsWith(prefijo));
+      const pareceDeSandbox = PREFIJOS_SANDBOX.some((prefijo) => valor.startsWith(prefijo));
+
+      if (datos.WOMPI_AMBIENTE === 'sandbox' && pareceDeProduccion) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [campo],
+          message: `${campo} parece una credencial de PRODUCCIÓN (empieza con un prefijo _prod_), pero WOMPI_AMBIENTE es 'sandbox'. Esto cobraría plata real creyendo que es una prueba.`,
+        });
+      }
+      if (datos.WOMPI_AMBIENTE === 'produccion' && pareceDeSandbox) {
+        ctx.addIssue({
+          code: 'custom',
+          path: [campo],
+          message: `${campo} parece una credencial de SANDBOX (empieza con un prefijo _test_), pero WOMPI_AMBIENTE es 'produccion'.`,
+        });
+      }
+    }
+  });
 
 const resultado = esquemaEnv.safeParse(process.env);
 
