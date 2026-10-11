@@ -12,6 +12,7 @@ import * as api from '../../contexto/apiCombosAdmin.ts';
 import type { KitDetalle } from '../../contexto/apiCombosAdmin.ts';
 import { useSesionAdmin } from '../../contexto/ContextoSesionAdmin.tsx';
 import { formatearPesos } from '../../utilidades/formatearPesos.ts';
+import { PillDisponibilidad } from './AdminKits.tsx';
 import { PestanaImagenesCombo } from './PestanaImagenesCombo.tsx';
 
 function Seccion({ titulo, children }: { titulo?: string; children: ReactNode }) {
@@ -86,15 +87,7 @@ export function AdminKitDetalle() {
           <span className="rounded-full bg-hueso px-2.5 py-0.5 text-[12px] text-texto-secundario">
             {kit.activo ? 'Activo' : 'Inactivo'}
           </span>
-          {kit.disponible ? (
-            <span className="rounded-full bg-verde-luz px-2.5 py-0.5 text-[12px] text-verde">
-              Disponible
-            </span>
-          ) : (
-            <span className="rounded-full bg-ambar-luz px-2.5 py-0.5 text-[12px] text-ambar">
-              Sin stock: {kit.piezaSinStock}
-            </span>
-          )}
+          <PillDisponibilidad kit={kit} />
         </div>
       </div>
 
@@ -148,7 +141,8 @@ export function AdminKitDetalle() {
               <th className="py-2 pr-3">Producto</th>
               <th className="py-2 pr-3">SKU</th>
               <th className="py-2 pr-3 text-right">Cantidad</th>
-              <th className="py-2 text-right">Precio unitario</th>
+              <th className="py-2 pr-3 text-right">Precio unitario</th>
+              <th className="py-2">Estado</th>
             </tr>
           </thead>
           <tbody>
@@ -169,7 +163,18 @@ export function AdminKitDetalle() {
                 </td>
                 <td className="py-2 pr-3 text-texto-secundario">{item.sku}</td>
                 <td className="py-2 pr-3 text-right">{item.cantidad}</td>
-                <td className="py-2 text-right">{formatearPesos(item.precioUnitario)}</td>
+                <td className="py-2 pr-3 text-right">{formatearPesos(item.precioUnitario)}</td>
+                {/* El motivo concreto es lo que dice qué reponer o
+                    reactivar; en la tienda solo se ve un aviso genérico. */}
+                <td className="py-2">
+                  {item.motivo ? (
+                    <span className={item.bloqueaCompra ? 'text-rosa' : 'text-ambar'}>
+                      {item.motivo}
+                    </span>
+                  ) : (
+                    <span className="text-verde">En orden</span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

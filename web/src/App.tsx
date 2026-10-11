@@ -27,6 +27,7 @@ import { Cuenta } from './paginas/Cuenta.tsx';
 import { DetallePedidoPagina } from './paginas/DetallePedidoPagina.tsx';
 import { Ingresar } from './paginas/Ingresar.tsx';
 import { Inicio } from './paginas/Inicio.tsx';
+import { KitPagina } from './paginas/KitPagina.tsx';
 import { NoEncontrado } from './paginas/NoEncontrado.tsx';
 import { PoliticaPrivacidad } from './paginas/PoliticaPrivacidad.tsx';
 import { ProductoDetalle } from './paginas/ProductoDetalle.tsx';
@@ -54,6 +55,7 @@ export function ArbolRutas() {
                   <Route index element={<Inicio />} />
                   <Route path="catalogo" element={<Catalogo />} />
                   <Route path="producto/:slug" element={<ProductoDetalle />} />
+                  <Route path="kit/:slug" element={<KitPagina />} />
                   <Route path="carrito" element={<CarritoPagina />} />
                   <Route path="checkout" element={<CheckoutPagina />} />
                   <Route path="pedido/resultado" element={<ResultadoPedidoPagina />} />

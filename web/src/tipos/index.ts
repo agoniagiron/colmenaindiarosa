@@ -191,3 +191,36 @@ export interface Combo {
   disponible: boolean;
   items: ItemCombo[];
 }
+
+// Pantalla pública /kit/:slug (GET /api/combos/:slug). Distinta de Combo
+// (la tarjeta del listado): acá cada pieza trae su propia foto y, si tiene
+// ficha pública, su slug para enlazar — el listado no necesita ninguna de
+// las dos cosas.
+export interface PiezaKit {
+  varianteId: string;
+  sku: string;
+  nombreProducto: string;
+  cantidad: number;
+  precioUnitario: PrecioDual;
+  imagen: { url: string; altTexto: string } | null;
+  // null cuando la pieza no tiene ficha pública propia: porque es
+  // solo_kits (nunca se vende suelta) o porque está archivada/inactiva.
+  productoSlug: string | null;
+}
+
+export interface ComboDetalle {
+  id: string;
+  nombre: string;
+  slug: string;
+  descripcion: string | null;
+  imagenes: { url: string; altTexto: string }[];
+  precio: PrecioDual;
+  precioPiezasPorSeparado: PrecioDual;
+  // Solo stock (mismo cálculo que Combo.disponible). comprable de abajo es
+  // lo que de verdad gobierna el botón: también exige que ninguna pieza
+  // esté bloqueada. El motivo concreto no viene acá a propósito: es del
+  // panel (/admin/kits/:id), no de la tienda.
+  disponible: boolean;
+  comprable: boolean;
+  piezas: PiezaKit[];
+}

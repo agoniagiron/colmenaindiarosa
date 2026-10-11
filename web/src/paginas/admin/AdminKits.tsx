@@ -25,8 +25,12 @@ function PillPorcentaje({ valor, bajo }: { valor: number; bajo: boolean }) {
   return <span className={`rounded-full px-2.5 py-0.5 text-[12px] ${clase}`}>{valor}%</span>;
 }
 
-function PillDisponibilidad({ kit }: { kit: Pick<ResumenKit, 'disponible' | 'piezaSinStock'> }) {
-  if (kit.disponible) {
+// Compartida con AdminKitDetalle: el listado y el encabezado del detalle
+// dicen lo mismo. Muestra el primer problema (los bloqueos vienen primero
+// desde el backend) con el mismo texto de la columna "Estado".
+export function PillDisponibilidad({ kit }: { kit: Pick<ResumenKit, 'comprable' | 'problemas'> }) {
+  const [primero, ...resto] = kit.problemas;
+  if (kit.comprable || !primero) {
     return (
       <span className="rounded-full bg-verde-luz px-2.5 py-0.5 text-[12px] text-verde">
         Disponible
@@ -35,7 +39,8 @@ function PillDisponibilidad({ kit }: { kit: Pick<ResumenKit, 'disponible' | 'pie
   }
   return (
     <span className="rounded-full bg-ambar-luz px-2.5 py-0.5 text-[12px] text-ambar">
-      Sin stock: {kit.piezaSinStock}
+      No se vende · {primero.nombreProducto}: {primero.motivo}
+      {resto.length > 0 ? ` (y ${resto.length} más)` : ''}
     </span>
   );
 }

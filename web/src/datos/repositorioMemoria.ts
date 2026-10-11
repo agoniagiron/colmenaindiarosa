@@ -25,6 +25,7 @@ import type {
 import type {
   Categoria,
   Combo,
+  ComboDetalle,
   Cupon,
   EdicionLimitada,
   EntradaConfiguracion,
@@ -285,6 +286,36 @@ async function listarCombos(): Promise<Combo[]> {
   return COMBOS;
 }
 
+// Datos de muestra sin piezas reales con las que cruzar producto/estado:
+// todas las piezas quedan sin ficha propia (sin productoSlug), solo para que la pantalla /kit/:slug tenga algo que mostrar en
+// las pruebas que la usen.
+async function obtenerCombo(slug: string): Promise<ComboDetalle | null> {
+  await esperar(RETARDO_MS);
+  const combo = COMBOS.find((item) => item.slug === slug);
+  if (!combo) return null;
+
+  return {
+    id: combo.id,
+    nombre: combo.nombre,
+    slug: combo.slug,
+    descripcion: combo.descripcion,
+    imagenes: combo.imagenPrincipal ? [combo.imagenPrincipal] : [],
+    precio: combo.precio,
+    precioPiezasPorSeparado: combo.precioPiezasPorSeparado,
+    disponible: combo.disponible,
+    comprable: combo.disponible,
+    piezas: combo.items.map((item) => ({
+      varianteId: item.varianteId,
+      sku: item.sku,
+      nombreProducto: item.nombreProducto,
+      cantidad: item.cantidad,
+      precioUnitario: item.precioUnitario,
+      imagen: null,
+      productoSlug: null,
+    })),
+  };
+}
+
 export const repositorioMemoria: Repositorio = {
   listarCategorias,
   listarProductos,
@@ -296,4 +327,5 @@ export const repositorioMemoria: Repositorio = {
   obtenerConfiguracionPublica,
   listarLimitadas,
   listarCombos,
+  obtenerCombo,
 };

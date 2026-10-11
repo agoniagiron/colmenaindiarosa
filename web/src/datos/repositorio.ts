@@ -5,6 +5,7 @@
 import type {
   Categoria,
   Combo,
+  ComboDetalle,
   Cupon,
   EdicionLimitada,
   EntradaConfiguracion,
@@ -99,4 +100,5 @@ export interface Repositorio {
   obtenerConfiguracionPublica(): Promise<EntradaConfiguracion[]>;
   listarLimitadas(): Promise<EdicionLimitada[]>;
   listarCombos(): Promise<Combo[]>;
+  obtenerCombo(slug: string): Promise<ComboDetalle | null>;
 }

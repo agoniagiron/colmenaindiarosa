@@ -506,58 +506,78 @@ function TarjetaKit({
     try {
       await ejecutarAgregar();
     } catch {
+      // El hook ya mostró el aviso de error.
     }
   }
 
   return (
     <article className="flex flex-col overflow-hidden rounded-lg border border-linea bg-white">
-      <div className="relative overflow-hidden">
-        <ImagenProducto nombre={combo.nombre} carga="lazy" url={combo.imagenPrincipal?.url} />
-        {!combo.disponible ? (
-          <span className="absolute inset-0 flex items-center justify-center bg-tinta/40 text-sm font-medium text-hueso">
-            Agotado temporalmente
-          </span>
-        ) : null}
-      </div>
-      <div className="flex flex-1 flex-col gap-2 p-2.5 sm:p-5">
-        <h3 className="line-clamp-2 font-serif text-base text-tinta lg:text-lg">{combo.nombre}</h3>
-        {combo.items.length > 0 ? (
-          <ul className="list-disc pl-4 text-[13.5px] leading-relaxed text-texto-secundario">
-            {combo.items.slice(0, 3).map((item) => (
-              <li key={item.varianteId} className="truncate lg:hidden">
-                {item.cantidad > 1 ? `${item.cantidad} × ` : ''}
-                {item.nombreProducto}
-              </li>
-            ))}
-            {combo.items.length > 3 ? (
-              <li className="lg:hidden" aria-hidden="true">
-                y {combo.items.length - 3} más
-              </li>
-            ) : null}
-            {combo.items.map((item) => (
-              <li key={item.varianteId} className="hidden truncate lg:block">
-                {item.cantidad > 1 ? `${item.cantidad} × ` : ''}
-                {item.nombreProducto}
-              </li>
-            ))}
-          </ul>
-        ) : null}
-
-        <div className="mt-auto flex flex-wrap items-baseline gap-1 pt-3 sm:gap-2.5">
-          <span className="text-sm font-medium text-tinta sm:text-base lg:text-lg">
-            {formatearDual(combo.precio)}
-          </span>
-          {ahorro > 0 ? (
-            <span className="rounded-full bg-rosa px-2.5 py-0.5 text-xs text-hueso">
-              <span className="sm:hidden">-{ahorro}%</span>
-              <span className="hidden sm:inline">ahorras {ahorro}%</span>
+      <Link
+        to={`/kit/${combo.slug}`}
+        className="group flex flex-1 flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa focus-visible:ring-offset-2"
+      >
+        <div className="relative overflow-hidden">
+          <div className="transition-transform group-hover:scale-105">
+            <MiniaturaGaleria
+              nombre={combo.nombre}
+              carga="lazy"
+              imagenPrincipal={combo.imagenPrincipal}
+              cantidadImagenes={combo.cantidadImagenes}
+              cargarGaleria={() =>
+                repositorio.obtenerCombo(combo.slug).then((detalle) => detalle?.imagenes ?? [])
+              }
+            />
+          </div>
+          {!combo.disponible ? (
+            <span className="absolute inset-0 flex items-center justify-center bg-tinta/40 text-sm font-medium text-hueso">
+              Agotado temporalmente
             </span>
           ) : null}
-          <span className="text-sm text-texto-secundario line-through">
-            {formatearDual(combo.precioPiezasPorSeparado)}
-          </span>
         </div>
+        <div className="flex flex-1 flex-col gap-2 px-2.5 pt-2.5 sm:px-5 sm:pt-5">
+          <h3 className="line-clamp-2 font-serif text-base text-tinta lg:text-lg">
+            {combo.nombre}
+          </h3>
+          {combo.items.length > 0 ? (
+            <ul className="list-disc pl-4 text-[13.5px] leading-relaxed text-texto-secundario">
+              {combo.items.slice(0, 3).map((item) => (
+                <li key={item.varianteId} className="truncate lg:hidden">
+                  {item.cantidad > 1 ? `${item.cantidad} × ` : ''}
+                  {item.nombreProducto}
+                </li>
+              ))}
+              {combo.items.length > 3 ? (
+                <li className="lg:hidden" aria-hidden="true">
+                  y {combo.items.length - 3} más
+                </li>
+              ) : null}
+              {combo.items.map((item) => (
+                <li key={item.varianteId} className="hidden truncate lg:block">
+                  {item.cantidad > 1 ? `${item.cantidad} × ` : ''}
+                  {item.nombreProducto}
+                </li>
+              ))}
+            </ul>
+          ) : null}
 
+          <div className="mt-auto flex flex-wrap items-baseline gap-1 pt-3 sm:gap-2.5">
+            <span className="text-sm font-medium text-tinta sm:text-base lg:text-lg">
+              {formatearDual(combo.precio)}
+            </span>
+            {ahorro > 0 ? (
+              <span className="rounded-full bg-rosa px-2.5 py-0.5 text-xs text-hueso">
+                <span className="sm:hidden">-{ahorro}%</span>
+                <span className="hidden sm:inline">ahorras {ahorro}%</span>
+              </span>
+            ) : null}
+            <span className="text-sm text-texto-secundario line-through">
+              {formatearDual(combo.precioPiezasPorSeparado)}
+            </span>
+          </div>
+        </div>
+      </Link>
+
+      <div className="px-2.5 pb-2.5 sm:px-5 sm:pb-5">
         <Boton
           type="button"
           variante="rosa"

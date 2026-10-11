@@ -60,6 +60,12 @@ export interface PiezaKit {
   cantidad: number;
   precioUnitario: number;
   costoUnitario: number | null;
+  // Diagnóstico del backend (diagnosticarPieza): true si la pieza impide
+  // vender el kit por archivada, en borrador o variante desactivada — nunca
+  // por solo_kits. motivo trae la causa concreta (con cantidades si es
+  // falta de stock), o null si la pieza está en orden.
+  bloqueaCompra: boolean;
+  motivo: string | null;
 }
 
 // El resumen (piezas, precioSueltoCop, ahorro, margen, disponible) lo
@@ -74,8 +80,12 @@ export interface ResumenKit {
   margenCop: number | null;
   margenPorcentaje: number | null;
   margenBajo: boolean | null;
-  disponible: boolean;
-  piezaSinStock: string | null;
+  // Mismo diagnóstico que la tienda (diagnosticarPieza): comprable es
+  // false si alguna pieza bloquea o no tiene stock, no solo por stock.
+  // problemas trae cada pieza con su motivo (el mismo texto de la columna
+  // "Estado"), bloqueos primero; vacío si el kit es comprable.
+  comprable: boolean;
+  problemas: { nombreProducto: string; motivo: string }[];
 }
 
 export interface FilaKitAdmin extends ResumenKit {

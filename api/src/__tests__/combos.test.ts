@@ -40,6 +40,11 @@ function comboFalso(items: ReturnType<typeof itemCombo>[]) {
     precioCop: 90000,
     precioUsd: null,
     imagenUrl: null,
+    // El servicio pide la portada (take: 1) y el conteo de fotos propias
+    // del kit; sin estas dos claves el mapeo revienta antes de llegar a
+    // disponible y precio.
+    imagenes: [],
+    _count: { imagenes: 0 },
     items,
   };
 }
@@ -90,5 +95,19 @@ describe('listarCombosVigentes', () => {
     const [combo] = await listarCombosVigentes();
 
     expect(combo!.disponible).toBe(true);
+  });
+
+  it('precioPiezasPorSeparado suma precio por cantidad de cada pieza', async () => {
+    comboFindManyMock.mockResolvedValueOnce([
+      comboFalso([
+        itemCombo({ precioActual: 50000 }), // pide 2 => 100.000
+        itemCombo({ id: 'var-2', precioActual: 30000 }), // pide 2 => 60.000
+      ]),
+    ]);
+
+    const [combo] = await listarCombosVigentes();
+
+    expect(combo!.precioPiezasPorSeparado.cop).toBe(160000);
+    expect(combo!.precio.cop).toBe(90000);
   });
 });

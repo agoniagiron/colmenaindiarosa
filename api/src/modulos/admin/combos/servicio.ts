@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { ErrorApi } from '../../../lib/errorApi.js';
 import { prisma } from '../../../lib/prisma.js';
+import { diagnosticarPieza } from '../../combos/servicio.js';
 import type {
   BodyCrearKit,
   BodyEditarKit,
@@ -46,7 +47,8 @@ const SELECT_ITEM = {
       costoActual: true,
       stockActual: true,
       stockReservado: true,
-      producto: { select: { nombre: true } },
+      activa: true,
+      producto: { select: { nombre: true, estado: true } },
       valoresAtributo: {
         select: {
           valorAtributo: {
@@ -97,11 +99,14 @@ function calcularResumenKit(precioKitCop: number, items: ItemConVariante[]) {
     margenCop === null || precioKitCop <= 0 ? null : Math.round((margenCop / precioKitCop) * 100);
   const margenBajo = margenPorcentaje === null ? null : margenPorcentaje < UMBRAL_MARGEN_BAJO;
 
-  const piezaSinStock =
-    items.find(
-      (item) =>
-        item.varianteProducto.stockActual - item.varianteProducto.stockReservado < item.cantidad,
-    )?.varianteProducto.producto.nombre ?? null;
+  // Mismo diagnosticarPieza que la tienda y que la columna "Estado" del
+  // detalle: el kit es comprable solo si ninguna pieza tiene motivo (ni
+  // bloqueo ni falta de stock). Los bloqueos van primero porque no se
+  // resuelven reponiendo.
+  const problemas = items
+    .map((item) => ({ nombreProducto: item.varianteProducto.producto.nombre, ...diagnosticarPieza(item) }))
+    .sort((a, b) => Number(b.bloqueaCompra) - Number(a.bloqueaCompra))
+    .flatMap(({ nombreProducto, motivo }) => (motivo === null ? [] : [{ nombreProducto, motivo }]));
 
   return {
     piezas,
@@ -112,8 +117,8 @@ function calcularResumenKit(precioKitCop: number, items: ItemConVariante[]) {
     margenCop,
     margenPorcentaje,
     margenBajo,
-    disponible: piezaSinStock === null,
-    piezaSinStock,
+    comprable: problemas.length === 0,
+    problemas,
   };
 }
 
@@ -126,6 +131,10 @@ function mapearItem(item: ItemConVariante) {
     cantidad: item.cantidad,
     precioUnitario: item.varianteProducto.precioActual,
     costoUnitario: item.varianteProducto.costoActual,
+    // Desglose para saber qué reponer o reactivar: motivo concreto y
+    // cantidades. Solo viaja en el panel — el detalle público usa el mismo
+    // diagnosticarPieza pero nunca devuelve el motivo.
+    ...diagnosticarPieza(item),
   };
 }
 

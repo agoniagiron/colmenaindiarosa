@@ -19,6 +19,7 @@ import type {
 import type {
   Categoria,
   Combo,
+  ComboDetalle,
   Cupon,
   EdicionLimitada,
   EntradaConfiguracion,
@@ -199,6 +200,15 @@ async function listarCombos(): Promise<Combo[]> {
   return solicitarJson<Combo[]>('/combos');
 }
 
+async function obtenerCombo(slug: string): Promise<ComboDetalle | null> {
+  try {
+    return await solicitarJson<ComboDetalle>(`/combos/${encodeURIComponent(slug)}`);
+  } catch (error) {
+    if (error instanceof ErrorRepositorioHttp && error.estadoHttp === 404) return null;
+    throw error;
+  }
+}
+
 export const repositorioHttp: Repositorio = {
   listarCategorias,
   listarProductos,
@@ -210,4 +220,5 @@ export const repositorioHttp: Repositorio = {
   obtenerConfiguracionPublica,
   listarLimitadas,
   listarCombos,
+  obtenerCombo,
 };
