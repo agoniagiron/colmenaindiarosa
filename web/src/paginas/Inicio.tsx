@@ -612,7 +612,17 @@ function SeccionMarca() {
   return (
     <section className="border-t border-linea py-16 sm:py-20">
       <Contenedor className="grid gap-14 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-        <ImagenProducto nombre="India Rosa" className="aspect-square rounded-full" />
+        {/* PROVISIONAL: el logo completo ocupa el lugar mientras no hay
+            foto. Acá va a ir una foto real de la tienda o del equipo. */}
+        <div className="flex items-center justify-center rounded-2xl bg-arena px-10 py-16 sm:px-16 sm:py-24">
+          <img
+            src="/logo-completo.png"
+            alt="India Rosa"
+            width={445}
+            height={303}
+            className="h-auto w-full max-w-[280px]"
+          />
+        </div>
         <div>
           <h2 className="font-serif text-3xl text-tinta sm:text-4xl">La experiencia India Rosa</h2>
           <p className="mt-4 max-w-[52ch] text-[15px] text-texto-secundario">

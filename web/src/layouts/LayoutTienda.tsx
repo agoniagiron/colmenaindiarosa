@@ -73,11 +73,13 @@ export function LayoutTienda() {
             íconos — ver los dos bloques condicionales después de esta
             fila. Desde lg: la fila de siempre, sin tocar. */}
         <div className="flex h-16 items-center justify-between px-4 lg:hidden">
+          {/* El nombre en la tipografía propia del logo (logo-texto.png):
+              Yeseva One era un sustituto mientras no la teníamos. */}
           <Link
             to="/"
-            className="rounded-md font-serif text-lg tracking-[0.09em] uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa"
+            className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa"
           >
-            India Rosa
+            <img src="/logo-texto.png" alt="India Rosa" width={445} height={88} className="h-5 w-auto" />
           </Link>
 
           <div className="flex items-center">
@@ -196,11 +198,13 @@ export function LayoutTienda() {
 
         {/* Desde lg: exactamente la fila de siempre, sin cambios. */}
         <Contenedor className="hidden flex-wrap items-center gap-6 py-4 lg:flex">
+          {/* El nombre en la tipografía propia del logo (logo-texto.png):
+              Yeseva One era un sustituto mientras no la teníamos. */}
           <Link
             to="/"
-            className="rounded-md font-serif text-lg tracking-[0.09em] uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa"
+            className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa"
           >
-            India Rosa
+            <img src="/logo-texto.png" alt="India Rosa" width={445} height={88} className="h-[22px] w-auto" />
           </Link>
 
           <nav aria-label="Principal" className="flex items-center gap-6">
