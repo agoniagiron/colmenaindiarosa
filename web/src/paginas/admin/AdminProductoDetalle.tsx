@@ -20,6 +20,7 @@ import { repositorio } from '../../datos/index.ts';
 import type { Categoria } from '../../tipos/index.ts';
 import { formatearFechaHora } from '../../utilidades/formatearFechaHora.ts';
 import { formatearPesos } from '../../utilidades/formatearPesos.ts';
+import { AsistenteVariantes } from './AsistenteVariantes.tsx';
 import { PestanaImagenes } from './PestanaImagenes.tsx';
 
 const ETIQUETAS_ESTADO: Record<EstadoPublicacion, string> = {
@@ -230,6 +231,7 @@ function PestanaGeneral({
   onCambiado: () => void;
 }) {
   const [nombre, setNombre] = useState(producto.nombre);
+  const [codigoModelo, setCodigoModelo] = useState(producto.codigoModelo ?? '');
   const [slug, setSlug] = useState(producto.slug);
   const [categoriaId, setCategoriaId] = useState(producto.categoriaId);
   const [descripcionCorta, setDescripcionCorta] = useState(producto.descripcionCorta ?? '');
@@ -251,6 +253,7 @@ function PestanaGeneral({
 
   useEffect(() => {
     setNombre(producto.nombre);
+    setCodigoModelo(producto.codigoModelo ?? '');
     setSlug(producto.slug);
     setCategoriaId(producto.categoriaId);
     setDescripcionCorta(producto.descripcionCorta ?? '');
@@ -269,6 +272,10 @@ function PestanaGeneral({
   const categoriaSeleccionadaEsPelucas =
     (categorias.find((c) => c.id === categoriaId)?.slug ?? producto.categoria.slug) === 'pelucas';
 
+  // Mismo criterio que el backend (editarProducto): el código se carga si
+  // falta, o se cambia mientras no haya variantes con SKU armado desde él.
+  const codigoEditable = !producto.codigoModelo || producto.variantes.length === 0;
+
   async function guardar(evento: FormEvent) {
     evento.preventDefault();
     setGuardando(true);
@@ -276,6 +283,7 @@ function PestanaGeneral({
     try {
       await api.editarProducto(accessToken, producto.id, {
         nombre,
+        ...(codigoEditable && codigoModelo.trim() ? { codigoModelo } : {}),
         slug,
         categoriaId,
         descripcionCorta: descripcionCorta || null,
@@ -364,6 +372,35 @@ function PestanaGeneral({
             disabled={!puedeEditar}
             required
           />
+          {codigoEditable ? (
+            <div className="flex flex-col gap-1 md:col-span-2">
+              <CampoTexto
+                etiqueta="Código de modelo"
+                value={codigoModelo}
+                onChange={(e) => setCodigoModelo(e.target.value.toUpperCase())}
+                disabled={!puedeEditar}
+                placeholder="VAL"
+                maxLength={20}
+                required
+              />
+              <p className="text-[12px] text-texto-secundario">
+                {producto.codigoModelo
+                  ? `Código del producto: ${producto.codigoProducto ?? '—'}. `
+                  : 'Falta el código: sin él no se pueden crear variantes. '}
+                Letras y números, sin guiones; queda fijo cuando el producto tiene variantes.
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1 text-sm text-tinta md:col-span-2">
+              Código del producto
+              <p className="rounded-xl border border-linea bg-hueso px-3 py-2 font-mono text-sm">
+                {producto.codigoProducto ?? producto.codigoModelo}
+              </p>
+              <p className="text-[12px] text-texto-secundario">
+                Fijo: las variantes ya tienen SKU armados a partir de este código.
+              </p>
+            </div>
+          )}
           <label className="flex flex-col gap-1 text-sm text-tinta md:col-span-2">
             Descripción corta
             <input
@@ -624,14 +661,52 @@ function PestanaVariantes({
 }) {
   const [modalNuevaAbierto, setModalNuevaAbierto] = useState(false);
   const [varianteparaPrecio, setVarianteParaPrecio] = useState<VarianteDetalle | null>(null);
+  const [asistenteAbierto, setAsistenteAbierto] = useState(false);
+  const [resultadoLote, setResultadoLote] = useState<string | null>(null);
+
+  if (asistenteAbierto) {
+    return (
+      <AsistenteVariantes
+        producto={producto}
+        atributos={atributos}
+        accessToken={accessToken}
+        onCancelar={() => setAsistenteAbierto(false)}
+        onCreado={(resultado) => {
+          setAsistenteAbierto(false);
+          setResultadoLote(
+            `Se crearon ${resultado.creadas.length} ${
+              resultado.creadas.length === 1 ? 'variante' : 'variantes'
+            }${resultado.saltadas.length > 0 ? ` (${resultado.saltadas.length} ya existían y se saltaron)` : ''}.`,
+          );
+          onCambiado();
+        }}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {resultadoLote ? (
+          <p role="status" className="mr-auto text-sm text-verde">
+            {resultadoLote}
+          </p>
+        ) : null}
         {puedeCrear ? (
-          <Boton type="button" onClick={() => setModalNuevaAbierto(true)}>
-            Agregar variante
-          </Boton>
+          <>
+            <Boton type="button" variante="fantasma" onClick={() => setModalNuevaAbierto(true)}>
+              Agregar una variante
+            </Boton>
+            <Boton
+              type="button"
+              onClick={() => {
+                setResultadoLote(null);
+                setAsistenteAbierto(true);
+              }}
+            >
+              Generar variantes
+            </Boton>
+          </>
         ) : null}
       </div>
 
@@ -844,7 +919,6 @@ function ModalNuevaVariante({
   accessToken: string;
   onCreada: () => void;
 }) {
-  const [sku, setSku] = useState('');
   const [precio, setPrecio] = useState('');
   const [costo, setCosto] = useState('');
   const [stockInicial, setStockInicial] = useState('0');
@@ -855,7 +929,6 @@ function ModalNuevaVariante({
 
   useEffect(() => {
     if (abierto) {
-      setSku('');
       setPrecio('');
       setCosto('');
       setStockInicial('0');
@@ -871,7 +944,6 @@ function ModalNuevaVariante({
     setError(null);
     try {
       await api.crearVariante(accessToken, productoId, {
-        sku,
         precio: Number(precio),
         costo: costo ? Number(costo) : undefined,
         stockInicial: Number(stockInicial),
@@ -889,7 +961,9 @@ function ModalNuevaVariante({
   return (
     <Modal abierto={abierto} titulo="Agregar variante" onCerrar={onCerrar}>
       <form onSubmit={crear} className="flex flex-col gap-3">
-        <CampoTexto etiqueta="SKU" value={sku} onChange={(e) => setSku(e.target.value)} required />
+        <p className="text-[13px] text-texto-secundario">
+          El SKU se genera solo con el código del producto, el largo y el color.
+        </p>
         <div className="grid grid-cols-2 gap-3">
           <CampoTexto
             etiqueta="Precio"
@@ -943,7 +1017,7 @@ function ModalNuevaVariante({
           <Boton type="button" variante="fantasma" onClick={onCerrar}>
             Cancelar
           </Boton>
-          <Boton type="submit" disabled={!sku || !precio || enviando}>
+          <Boton type="submit" disabled={!precio || enviando}>
             Crear
           </Boton>
         </div>

@@ -293,6 +293,7 @@ function ModalNuevoProducto({
 }) {
   const [nombre, setNombre] = useState('');
   const [categoriaId, setCategoriaId] = useState('');
+  const [codigoModelo, setCodigoModelo] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -300,6 +301,7 @@ function ModalNuevoProducto({
     if (abierto) {
       setNombre('');
       setCategoriaId('');
+      setCodigoModelo('');
       setError(null);
     }
   }, [abierto]);
@@ -310,7 +312,7 @@ function ModalNuevoProducto({
     setEnviando(true);
     setError(null);
     try {
-      const producto = await api.crearProducto(accessToken, { nombre, categoriaId });
+      const producto = await api.crearProducto(accessToken, { nombre, categoriaId, codigoModelo });
       window.location.assign(`/admin/productos/${producto.id}`);
     } catch (e) {
       setError(e instanceof api.ErrorProductosAdmin ? e.message : 'No se pudo crear el producto');
@@ -347,12 +349,29 @@ function ModalNuevoProducto({
             ))}
           </select>
         </label>
+        {/* Solo la parte del modelo: el prefijo IR-{categoría}- lo agrega el
+            backend, y de este código salen todos los SKU de las variantes. */}
+        <CampoTexto
+          etiqueta="Código de modelo"
+          value={codigoModelo}
+          onChange={(e) => setCodigoModelo(e.target.value.toUpperCase())}
+          placeholder="VAL"
+          maxLength={20}
+          required
+        />
+        <p className="-mt-2 text-[12px] text-texto-secundario">
+          Letras y números, sin guiones. El código del producto queda IR-PEL-VAL, y cada variante
+          suma largo y color: IR-PEL-VAL-24-NEG. No se puede cambiar una vez que hay variantes.
+        </p>
         {error ? <p className="text-sm text-rosa">{error}</p> : null}
         <div className="flex justify-end gap-2">
           <Boton type="button" variante="fantasma" onClick={onCerrar}>
             Cancelar
           </Boton>
-          <Boton type="submit" disabled={!nombre || !categoriaId || enviando}>
+          <Boton
+            type="submit"
+            disabled={!nombre || !categoriaId || !codigoModelo.trim() || enviando}
+          >
             Crear
           </Boton>
         </div>

@@ -13,6 +13,8 @@ import type {
   BodyPrecioVariante,
   QueryListadoProductos,
 } from './esquemas.js';
+import { armarCodigoProducto, esCodigoModeloValido, normalizarCodigoModelo } from './sku.js';
+import { insertarVariantes, obtenerCodigoProducto } from './variantes.js';
 
 function generarSlug(texto: string): string {
   return texto
@@ -161,9 +163,10 @@ const SELECT_DETALLE = {
   publicadoEn: true,
   seoTitulo: true,
   seoDescripcion: true,
+  codigoModelo: true,
   creadoEn: true,
   actualizadoEn: true,
-  categoria: { select: { id: true, nombre: true, slug: true } },
+  categoria: { select: { id: true, nombre: true, slug: true, codigo: true } },
   variantes: { orderBy: { creadoEn: 'asc' }, select: SELECT_VARIANTE_DETALLE },
   imagenes: {
     orderBy: { orden: 'asc' },
@@ -195,6 +198,12 @@ function mapearDetalle(producto: ProductoDetalleCrudo) {
   const { destacados, ...resto } = producto;
   return {
     ...resto,
+    // IR-PEL-VAL: el mismo armado que usan los SKU (sku.ts). null mientras
+    // falte el código de modelo o el de la categoría.
+    codigoProducto:
+      producto.codigoModelo && producto.categoria.codigo
+        ? armarCodigoProducto(producto.categoria.codigo, producto.codigoModelo)
+        : null,
     destacadoPortada: destacados.length > 0,
     ordenPortada: destacados[0]?.orden ?? null,
   };
@@ -212,10 +221,12 @@ export async function obtenerDetalleProducto(id: string) {
 // Crear / editar producto
 // ---------------------------------------------------------------------------
 
-async function validarCategoria(categoriaId: string): Promise<{ id: string; slug: string }> {
+async function validarCategoria(
+  categoriaId: string,
+): Promise<{ id: string; slug: string; codigo: string | null }> {
   const categoria = await prisma.categoria.findUnique({
     where: { id: categoriaId },
-    select: { id: true, slug: true },
+    select: { id: true, slug: true, codigo: true },
   });
   if (!categoria) {
     throw ErrorApi.peticionInvalida('La categoría no existe');
@@ -223,8 +234,42 @@ async function validarCategoria(categoriaId: string): Promise<{ id: string; slug
   return categoria;
 }
 
+// El índice único de codigo_modelo es parcial (WHERE codigo_modelo IS NOT
+// NULL) y no figura en schema.prisma, así que la colisión se reconoce por
+// la columna o por el nombre del índice, como sea que la reporte Prisma.
+function esColisionCodigoModelo(error: unknown): boolean {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') {
+    return false;
+  }
+  return JSON.stringify(error.meta?.target ?? '').includes('codigo_modelo');
+}
+
+async function validarCodigoModelo(texto: string, productoIdActual?: string): Promise<string> {
+  const codigo = normalizarCodigoModelo(texto);
+  if (!esCodigoModeloValido(codigo)) {
+    throw ErrorApi.peticionInvalida(
+      'El código de modelo va solo con letras y números, sin guiones ni espacios (de 2 a 20). Por ejemplo VAL: el prefijo IR-PEL- se agrega solo.',
+    );
+  }
+  const otro = await prisma.producto.findFirst({
+    where: {
+      codigoModelo: codigo,
+      ...(productoIdActual ? { id: { not: productoIdActual } } : {}),
+    },
+    select: { nombre: true },
+  });
+  if (otro) {
+    throw ErrorApi.conflicto(`El código ${codigo} ya lo usa el producto "${otro.nombre}"`);
+  }
+  return codigo;
+}
+
 export async function crearProducto(datos: BodyCrearProducto, usuarioAdminId: string) {
-  await validarCategoria(datos.categoriaId);
+  const categoria = await validarCategoria(datos.categoriaId);
+  if (!categoria.codigo) {
+    throw ErrorApi.conflicto('La categoría elegida no tiene código: hace falta para armar los SKU.');
+  }
+  const codigoModelo = await validarCodigoModelo(datos.codigoModelo);
 
   const slug = generarSlug(datos.slug ?? datos.nombre);
   if (!slug) {
@@ -237,6 +282,7 @@ export async function crearProducto(datos: BodyCrearProducto, usuarioAdminId: st
         nombre: datos.nombre,
         slug,
         categoriaId: datos.categoriaId,
+        codigoModelo,
         creadoPorId: usuarioAdminId,
       },
       select: SELECT_DETALLE,
@@ -246,6 +292,9 @@ export async function crearProducto(datos: BodyCrearProducto, usuarioAdminId: st
     if (esColisionUnica(error, 'slug')) {
       throw ErrorApi.conflicto(`Ya existe un producto con el slug "${slug}"`);
     }
+    if (esColisionCodigoModelo(error)) {
+      throw ErrorApi.conflicto(`El código ${codigoModelo} ya lo usa otro producto`);
+    }
     throw error;
   }
 }
@@ -253,9 +302,27 @@ export async function crearProducto(datos: BodyCrearProducto, usuarioAdminId: st
 const SLUG_CATEGORIA_PORTADA = 'pelucas';
 
 export async function editarProducto(id: string, datos: BodyEditarProducto) {
-  const producto = await prisma.producto.findUnique({ where: { id }, select: { id: true } });
+  const producto = await prisma.producto.findUnique({
+    where: { id },
+    select: { id: true, codigoModelo: true, _count: { select: { variantes: true } } },
+  });
   if (!producto) {
     throw ErrorApi.noEncontrado('El producto no existe');
+  }
+
+  // Los SKU se arman una sola vez, al crear cada variante: cambiar el código
+  // después dejaría las variantes viejas con un prefijo que ya no es el del
+  // producto. Se puede cargar si falta (productos anteriores a la columna)
+  // o cambiar mientras el producto no tenga variantes.
+  let codigoModelo: string | undefined;
+  if (datos.codigoModelo !== undefined) {
+    codigoModelo = await validarCodigoModelo(datos.codigoModelo, id);
+    const cambia = codigoModelo !== producto.codigoModelo;
+    if (cambia && producto.codigoModelo && producto._count.variantes > 0) {
+      throw ErrorApi.conflicto(
+        'El código de modelo no se puede cambiar: el producto ya tiene variantes con SKU armados a partir de él.',
+      );
+    }
   }
 
   let nuevaCategoria: { id: string; slug: string } | undefined;
@@ -276,6 +343,7 @@ export async function editarProducto(id: string, datos: BodyEditarProducto) {
           nombre: datos.nombre,
           slug,
           categoriaId: datos.categoriaId,
+          codigoModelo,
           descripcionCorta: datos.descripcionCorta,
           descripcion: datos.descripcion,
           cuidados: datos.cuidados,
@@ -304,6 +372,9 @@ export async function editarProducto(id: string, datos: BodyEditarProducto) {
   } catch (error) {
     if (esColisionUnica(error, 'slug')) {
       throw ErrorApi.conflicto(`Ya existe un producto con el slug "${slug}"`);
+    }
+    if (esColisionCodigoModelo(error)) {
+      throw ErrorApi.conflicto(`El código ${codigoModelo} ya lo usa otro producto`);
     }
     throw error;
   }
@@ -445,59 +516,38 @@ export async function cambiarPortadaProducto(id: string, datos: BodyPortadaProdu
 // Variantes
 // ---------------------------------------------------------------------------
 
+// Misma lógica que el asistente en lote (insertarVariantes en variantes.ts):
+// SKU generado, validación de atributos, historial de precios y movimiento
+// de inventario por el stock inicial.
 export async function crearVariante(
   productoId: string,
   datos: BodyCrearVariante,
   usuarioAdminId: string,
 ) {
-  const producto = await prisma.producto.findUnique({
-    where: { id: productoId },
-    select: { id: true },
-  });
-  if (!producto) {
-    throw ErrorApi.noEncontrado('El producto no existe');
-  }
-
-  try {
-    return await prisma.$transaction(async (tx) => {
-      const variante = await tx.varianteProducto.create({
-        data: {
-          productoId,
-          sku: datos.sku,
-          precioActual: datos.precio,
+  return prisma.$transaction(async (tx) => {
+    const codigoProducto = await obtenerCodigoProducto(tx, productoId);
+    const [id] = await insertarVariantes(
+      tx,
+      productoId,
+      codigoProducto,
+      [
+        {
+          valorIds: datos.valoresAtributo,
+          precio: datos.precio,
           precioUsd: datos.precioUsd,
-          costoActual: datos.costo,
-          stockActual: datos.stockInicial,
+          costo: datos.costo,
+          stock: datos.stockInicial,
           puntoReorden: datos.puntoReorden,
           peso: datos.peso,
-          valoresAtributo: { create: datos.valoresAtributo.map((valorId) => ({ valorId })) },
         },
-      });
-
-      await tx.movimientoInventario.create({
-        data: {
-          varianteId: variante.id,
-          tipo: 'entrada',
-          cantidad: datos.stockInicial,
-          stockResultante: datos.stockInicial,
-          referenciaTipo: 'variante_creada',
-          referenciaId: variante.id,
-          usuarioId: usuarioAdminId,
-          motivo: 'Stock inicial',
-        },
-      });
-
-      return tx.varianteProducto.findUniqueOrThrow({
-        where: { id: variante.id },
-        select: SELECT_VARIANTE_DETALLE,
-      });
+      ],
+      usuarioAdminId,
+    );
+    return tx.varianteProducto.findUniqueOrThrow({
+      where: { id: id! },
+      select: SELECT_VARIANTE_DETALLE,
     });
-  } catch (error) {
-    if (esColisionUnica(error, 'sku')) {
-      throw ErrorApi.conflicto(`Ya existe una variante con el SKU "${datos.sku}"`);
-    }
-    throw error;
-  }
+  });
 }
 
 export async function editarVariante(id: string, datos: BodyEditarVariante) {
@@ -711,7 +761,10 @@ export async function listarAtributos() {
       nombre: true,
       slug: true,
       orden: true,
-      valoresAtributo: { orderBy: { orden: 'asc' }, select: { id: true, valor: true, hex: true } },
+      valoresAtributo: {
+        orderBy: { orden: 'asc' },
+        select: { id: true, valor: true, hex: true, codigo: true },
+      },
     },
   });
 }

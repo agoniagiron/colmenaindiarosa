@@ -91,3 +91,5 @@ scripts SQL y contiene 45 tablas.
 - Si un modelo o columna falta en schema.prisma, la respuesta es correr
   db pull, nunca escribirlo a mano ni empujarlo a la base.
 - Los cambios de esquema se hacen con SQL en Supabase y después db pull.
+- categoria, atributo, valor_atributo y proveedor son estructura del
+  catálogo, no contenido. No se incluyen en limpiezas de datos de prueba.

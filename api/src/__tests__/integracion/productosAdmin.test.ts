@@ -24,10 +24,12 @@ if (!DATABASE_URL_TEST) {
 const describeConDbReal = DATABASE_URL_TEST ? describe : describe.skip;
 
 const { prisma } = await import('../../lib/prisma.js');
-const { cambiarEstadoProducto, cambiarPrecioVariante, crearVariante } =
+const { cambiarEstadoProducto, cambiarPrecioVariante, crearProducto, crearVariante } =
   await import('../../modulos/admin/productos/servicio.js');
 
 const SUFIJO = `productos-admin-${Date.now()}`;
+// Códigos solo con letras y números (sku.ts), únicos por corrida.
+const CODIGO = Date.now().toString(36).toUpperCase();
 
 describeConDbReal('Admin/Productos: estado, precios y variantes contra PostgreSQL real', () => {
   let categoriaId: string;
@@ -37,7 +39,7 @@ describeConDbReal('Admin/Productos: estado, precios y variantes contra PostgreSQ
 
   beforeAll(async () => {
     const categoria = await prisma.categoria.create({
-      data: { nombre: `Cat ${SUFIJO}`, slug: `cat-${SUFIJO}` },
+      data: { nombre: `Cat ${SUFIJO}`, slug: `cat-${SUFIJO}`, codigo: `C${CODIGO}` },
     });
     categoriaId = categoria.id;
 
@@ -118,16 +120,20 @@ describeConDbReal('Admin/Productos: estado, precios y variantes contra PostgreSQ
 
   it('el SKU duplicado se rechaza al crear una variante', async () => {
     const producto = await prisma.producto.create({
-      data: { nombre: `Prod sku ${SUFIJO}`, slug: `sku-${SUFIJO}`, categoriaId },
+      data: {
+        nombre: `Prod sku ${SUFIJO}`,
+        slug: `sku-${SUFIJO}`,
+        categoriaId,
+        codigoModelo: `D${CODIGO}`,
+      },
     });
     idsProducto.push(producto.id);
 
-    const skuRepetido = `SKU-DUP-${SUFIJO}`;
-
+    // Sin largo ni color, el SKU generado es el código de producto: una
+    // segunda variante igual choca con la primera.
     const primera = await crearVariante(
       producto.id,
       {
-        sku: skuRepetido,
         precio: 90000,
         stockInicial: 5,
         puntoReorden: 2,
@@ -141,7 +147,6 @@ describeConDbReal('Admin/Productos: estado, precios y variantes contra PostgreSQ
       crearVariante(
         producto.id,
         {
-          sku: skuRepetido,
           precio: 95000,
           stockInicial: 0,
           puntoReorden: 0,
@@ -149,12 +154,37 @@ describeConDbReal('Admin/Productos: estado, precios y variantes contra PostgreSQ
         },
         usuarioAdminId,
       ),
-    ).rejects.toMatchObject({ estadoHttp: 409 });
+    ).rejects.toMatchObject({ estadoHttp: 409, detalles: { skus: [`IR-C${CODIGO}-D${CODIGO}`] } });
 
+    expect(primera.sku).toBe(`IR-C${CODIGO}-D${CODIGO}`);
     const movimiento = await prisma.movimientoInventario.findFirst({
       where: { varianteId: primera.id },
     });
     expect(movimiento?.tipo).toBe('entrada');
     expect(movimiento?.cantidad).toBe(5);
+  });
+
+  it('crear un producto exige un código de modelo válido y único, y arma el código completo', async () => {
+    await expect(
+      crearProducto(
+        { nombre: `Prod codigo malo ${SUFIJO}`, categoriaId, codigoModelo: 'IR-PEL-X' },
+        usuarioAdminId,
+      ),
+    ).rejects.toMatchObject({ estadoHttp: 400 });
+
+    const creado = await crearProducto(
+      { nombre: `Prod codigo ${SUFIJO}`, categoriaId, codigoModelo: `n${CODIGO}` },
+      usuarioAdminId,
+    );
+    idsProducto.push(creado.id);
+    expect(creado.codigoModelo).toBe(`N${CODIGO}`);
+    expect(creado.codigoProducto).toBe(`IR-C${CODIGO}-N${CODIGO}`);
+
+    await expect(
+      crearProducto(
+        { nombre: `Prod codigo repetido ${SUFIJO}`, categoriaId, codigoModelo: `N${CODIGO}` },
+        usuarioAdminId,
+      ),
+    ).rejects.toMatchObject({ estadoHttp: 409 });
   });
 });

@@ -1,25 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  TODO: reemplazar https://www.indiarosa.co por el dominio real antes de
-  publicar. Solo rutas públicas y estáticas: ni /admin ni la ruta de
-  acceso administrativo (VITE_RUTA_ADMIN) aparecen acá, a propósito.
+  Dominio real: colmenaindiarosa.com (sin www). Solo rutas públicas y
+  estáticas: ni /admin ni la ruta de acceso administrativo
+  (VITE_RUTA_ADMIN) aparecen acá, a propósito.
   Las fichas de producto (/producto/:slug) son dinámicas y no están
   generadas acá — requerirían un paso de build que las liste, fuera de
   alcance de este cambio.
 -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://www.indiarosa.co/</loc>
+    <loc>https://colmenaindiarosa.com/</loc>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://www.indiarosa.co/catalogo</loc>
+    <loc>https://colmenaindiarosa.com/catalogo</loc>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://www.indiarosa.co/politica-privacidad</loc>
+    <loc>https://colmenaindiarosa.com/politica-privacidad</loc>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>

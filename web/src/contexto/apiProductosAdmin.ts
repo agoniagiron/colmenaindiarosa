@@ -169,9 +169,14 @@ export interface ProductoDetalle {
   publicadoEn: string | null;
   seoTitulo: string | null;
   seoDescripcion: string | null;
+  // Solo la parte del modelo (VAL). El código completo (IR-PEL-VAL) lo arma
+  // el backend en codigoProducto, con la misma función que los SKU; null
+  // mientras falte el código de modelo.
+  codigoModelo: string | null;
+  codigoProducto: string | null;
   creadoEn: string;
   actualizadoEn: string;
-  categoria: { id: string; nombre: string; slug: string };
+  categoria: { id: string; nombre: string; slug: string; codigo: string | null };
   variantes: VarianteDetalle[];
   imagenes: ImagenProductoDetalle[];
   // Carrusel del héroe en la tienda (seccion:'portada'). Solo aplica a la
@@ -189,6 +194,7 @@ export function obtenerDetalleProducto(accessToken: string, id: string): Promise
 export interface DatosCrearProducto {
   nombre: string;
   categoriaId: string;
+  codigoModelo: string;
   slug?: string;
 }
 
@@ -204,6 +210,7 @@ export function crearProducto(
 
 export interface DatosEditarProducto {
   nombre?: string;
+  codigoModelo?: string;
   slug?: string;
   categoriaId?: string;
   descripcionCorta?: string | null;
@@ -259,8 +266,9 @@ export function cambiarPortadaProducto(
 
 // --- Variantes -----------------------------------------------------------------
 
+// Sin sku: lo genera el backend (sku.ts) a partir del código de producto y
+// de los códigos de largo y color.
 export interface DatosCrearVariante {
-  sku: string;
   precio: number;
   precioUsd?: number;
   costo?: number;
@@ -279,6 +287,75 @@ export function crearVariante(
     method: 'POST',
     body: JSON.stringify(datos),
   });
+}
+
+// --- Variantes en lote (asistente) -----------------------------------------------
+// El backend recalcula todo al crear: SKU, existencia, validaciones. Acá
+// solo viaja lo que la persona eligió y escribió.
+
+export interface LongitudLote {
+  valorId: string;
+  precio: number;
+  costo?: number;
+}
+
+export interface DatosPrevisualizarLote {
+  longitudes: LongitudLote[];
+  colores: string[];
+  fijos: string[];
+}
+
+export interface CombinacionLote {
+  longitud: { id: string; valor: string };
+  color: { id: string; valor: string; hex: string | null } | null;
+  sku: string;
+  precio: number;
+  costo: number | null;
+  yaExiste: boolean;
+  skuOcupado: boolean;
+}
+
+export interface VistaPreviaLote {
+  codigoProducto: string;
+  combinaciones: CombinacionLote[];
+}
+
+export interface CombinacionElegida {
+  longitudId: string;
+  colorId: string | null;
+  precio?: number;
+  stock: number;
+}
+
+export interface ResultadoLote {
+  creadas: string[];
+  saltadas: string[];
+}
+
+export function previsualizarLoteVariantes(
+  accessToken: string,
+  productoId: string,
+  datos: DatosPrevisualizarLote,
+): Promise<VistaPreviaLote> {
+  return solicitar(
+    BASE_PRODUCTOS,
+    `/${encodeURIComponent(productoId)}/variantes/lote/previsualizar`,
+    accessToken,
+    { method: 'POST', body: JSON.stringify(datos) },
+  );
+}
+
+export function crearLoteVariantes(
+  accessToken: string,
+  productoId: string,
+  datos: DatosPrevisualizarLote & { combinaciones: CombinacionElegida[] },
+): Promise<ResultadoLote> {
+  return solicitar(
+    BASE_PRODUCTOS,
+    `/${encodeURIComponent(productoId)}/variantes/lote`,
+    accessToken,
+    { method: 'POST', body: JSON.stringify(datos) },
+  );
 }
 
 export interface DatosEditarVariante {
@@ -339,6 +416,8 @@ export interface ValorAtributoOpcion {
   id: string;
   valor: string;
   hex: string | null;
+  // Parte del SKU (24, NEG). null en atributos que no van en el SKU.
+  codigo: string | null;
 }
 
 export interface AtributoConValores {

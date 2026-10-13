@@ -15,10 +15,15 @@ export const esquemaBodyCrearProducto = z.object({
   categoriaId: z.string().uuid(),
   // Si no llega, se genera del nombre (ver generarSlug en servicio.ts).
   slug: z.string().trim().min(1).optional(),
+  // Solo la parte del modelo (VAL), no el código completo (IR-PEL-VAL):
+  // el prefijo sale de la categoría. Formato validado en el servicio con
+  // sku.ts, la misma fuente que arma el SKU.
+  codigoModelo: z.string().trim().min(1),
 });
 
 export const esquemaBodyEditarProducto = z.object({
   nombre: z.string().trim().min(1).optional(),
+  codigoModelo: z.string().trim().min(1).optional(),
   slug: z.string().trim().min(1).optional(),
   categoriaId: z.string().uuid().optional(),
   descripcionCorta: z.string().trim().max(280).nullable().optional(),
@@ -48,8 +53,9 @@ export const esquemaBodyEstadoProducto = z.object({
 
 const esquemaValorAtributoId = z.string().uuid();
 
+// Sin sku: lo genera el sistema (sku.ts) a partir del código de producto y
+// de los códigos de largo y color.
 export const esquemaBodyCrearVariante = z.object({
-  sku: z.string().trim().min(1),
   precio: z.coerce.number().int().positive(),
   precioUsd: z.coerce.number().int().nonnegative().optional(),
   costo: z.coerce.number().int().nonnegative().optional(),
@@ -97,7 +103,49 @@ export const esquemaBodyCrearValorAtributo = z.object({
   hex: z.string().trim().min(1).nullable().optional(),
 });
 
+// --- Variantes en lote (asistente) ------------------------------------------
+// Mismo patrón que kits: previsualizar no guarda nada; crear recibe lo que
+// la persona eligió y editó, y el servidor recalcula SKU, existencia y
+// validaciones por su cuenta.
+
+const LIMITE_VALORES_LOTE = 40;
+const LIMITE_COMBINACIONES_LOTE = 400;
+
+const esquemaLongitudLote = z.object({
+  valorId: esquemaValorAtributoId,
+  precio: z.coerce.number().int().positive(),
+  costo: z.coerce.number().int().nonnegative().optional(),
+});
+
+export const esquemaBodyPrevisualizarLote = z.object({
+  longitudes: z.array(esquemaLongitudLote).min(1).max(LIMITE_VALORES_LOTE),
+  // Vacío = el producto no varía por color: una variante por longitud.
+  colores: z.array(esquemaValorAtributoId).max(LIMITE_VALORES_LOTE).default([]),
+  // Tipo de base, densidad, talla…: un valor por atributo, igual para
+  // todas las combinaciones.
+  fijos: z.array(esquemaValorAtributoId).max(LIMITE_VALORES_LOTE).default([]),
+});
+
+export const esquemaBodyCrearLote = esquemaBodyPrevisualizarLote.extend({
+  // Solo las combinaciones marcadas. stock es obligatorio a propósito:
+  // hasta que exista la pantalla de inventario, es la única oportunidad
+  // de cargarlo. precio solo llega si se corrigió esa combinación suelta.
+  combinaciones: z
+    .array(
+      z.object({
+        longitudId: esquemaValorAtributoId,
+        colorId: esquemaValorAtributoId.nullable(),
+        precio: z.coerce.number().int().positive().optional(),
+        stock: z.coerce.number().int().nonnegative(),
+      }),
+    )
+    .min(1)
+    .max(LIMITE_COMBINACIONES_LOTE),
+});
+
 export type QueryListadoProductos = z.infer<typeof esquemaQueryListado>;
+export type BodyPrevisualizarLote = z.infer<typeof esquemaBodyPrevisualizarLote>;
+export type BodyCrearLote = z.infer<typeof esquemaBodyCrearLote>;
 export type BodyCrearProducto = z.infer<typeof esquemaBodyCrearProducto>;
 export type BodyEditarProducto = z.infer<typeof esquemaBodyEditarProducto>;
 export type BodyEstadoProducto = z.infer<typeof esquemaBodyEstadoProducto>;

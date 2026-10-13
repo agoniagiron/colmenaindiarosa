@@ -1,7 +1,9 @@
 import type { Request, Response } from 'express';
 import { obtenerIpHash } from '../../../lib/ip.js';
 import * as servicio from './servicio.js';
+import * as variantes from './variantes.js';
 import type {
+  BodyCrearLote,
   BodyCrearProducto,
   BodyCrearValorAtributo,
   BodyCrearVariante,
@@ -11,6 +13,7 @@ import type {
   BodyPortadaProducto,
   BodyPreciosProducto,
   BodyPrecioVariante,
+  BodyPrevisualizarLote,
   QueryListadoProductos,
 } from './esquemas.js';
 
@@ -53,6 +56,18 @@ export async function crearVariante(req: Request, res: Response): Promise<void> 
   const datos = req.body as BodyCrearVariante;
   const variante = await servicio.crearVariante(productoId, datos, req.usuarioAdmin!.id);
   res.status(201).json(variante);
+}
+
+export async function previsualizarLoteVariantes(req: Request, res: Response): Promise<void> {
+  const productoId = req.params.id as string;
+  const datos = req.body as BodyPrevisualizarLote;
+  res.json(await variantes.previsualizarLote(productoId, datos));
+}
+
+export async function crearLoteVariantes(req: Request, res: Response): Promise<void> {
+  const productoId = req.params.id as string;
+  const datos = req.body as BodyCrearLote;
+  res.status(201).json(await variantes.crearLote(productoId, datos, req.usuarioAdmin!.id));
 }
 
 export async function cambiarPreciosProducto(req: Request, res: Response): Promise<void> {

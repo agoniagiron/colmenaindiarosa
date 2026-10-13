@@ -6,8 +6,10 @@ import { validar } from '../../../middleware/validar.js';
 import * as controlador from './controlador.js';
 import * as controladorImagenes from './controladorImagenes.js';
 import {
+  esquemaBodyCrearLote,
   esquemaBodyCrearProducto,
   esquemaBodyCrearVariante,
+  esquemaBodyPrevisualizarLote,
   esquemaBodyEditarProducto,
   esquemaBodyEstadoProducto,
   esquemaBodyPortadaProducto,
@@ -78,6 +80,21 @@ rutasAdminProductos.post(
   requierePermiso('productos.crear'),
   validar({ body: esquemaBodyCrearVariante }),
   controlador.crearVariante,
+);
+
+// Asistente de variantes en lote. Mismo patrón que kits: previsualizar no
+// guarda nada (alcanza con productos.ver del prefijo); crear exige el mismo
+// permiso que la creación individual.
+rutasAdminProductos.post(
+  '/:id/variantes/lote/previsualizar',
+  validar({ body: esquemaBodyPrevisualizarLote }),
+  controlador.previsualizarLoteVariantes,
+);
+rutasAdminProductos.post(
+  '/:id/variantes/lote',
+  requierePermiso('productos.crear'),
+  validar({ body: esquemaBodyCrearLote }),
+  controlador.crearLoteVariantes,
 );
 
 rutasAdminProductos.post(
