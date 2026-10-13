@@ -21,6 +21,7 @@ import type { Categoria } from '../../tipos/index.ts';
 import { formatearFechaHora } from '../../utilidades/formatearFechaHora.ts';
 import { formatearPesos } from '../../utilidades/formatearPesos.ts';
 import { AsistenteVariantes } from './AsistenteVariantes.tsx';
+import { armarDatosNuevaVariante } from './datosNuevaVariante.ts';
 import { PestanaImagenes } from './PestanaImagenes.tsx';
 
 const ETIQUETAS_ESTADO: Record<EstadoPublicacion, string> = {
@@ -904,6 +905,18 @@ function FilaVariante({
   );
 }
 
+// Etiquetas del formulario para los campos que puede nombrar un 400 de
+// validación (ver describirError en apiProductosAdmin.ts).
+const ETIQUETAS_NUEVA_VARIANTE: Record<string, string> = {
+  precio: 'Precio',
+  precioUsd: 'Precio en USD',
+  costo: 'Costo',
+  stockInicial: 'Stock inicial',
+  puntoReorden: 'Punto de reorden',
+  peso: 'Peso',
+  valoresAtributo: 'Atributos',
+};
+
 function ModalNuevaVariante({
   abierto,
   onCerrar,
@@ -943,16 +956,14 @@ function ModalNuevaVariante({
     setEnviando(true);
     setError(null);
     try {
-      await api.crearVariante(accessToken, productoId, {
-        precio: Number(precio),
-        costo: costo ? Number(costo) : undefined,
-        stockInicial: Number(stockInicial),
-        puntoReorden: Number(puntoReorden),
-        valoresAtributo: Object.values(seleccion).filter(Boolean),
-      });
+      await api.crearVariante(
+        accessToken,
+        productoId,
+        armarDatosNuevaVariante({ precio, costo, stockInicial, puntoReorden, seleccion }),
+      );
       onCreada();
     } catch (e) {
-      setError(e instanceof api.ErrorProductosAdmin ? e.message : 'No se pudo crear la variante');
+      setError(api.describirError(e, ETIQUETAS_NUEVA_VARIANTE, 'No se pudo crear la variante'));
     } finally {
       setEnviando(false);
     }

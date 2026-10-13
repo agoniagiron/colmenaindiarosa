@@ -1,6 +1,11 @@
 import type { NextFunction, Request, Response } from 'express';
 import { ZodError } from 'zod';
 import { ErrorApi } from '../lib/errorApi.js';
+import {
+  camposInvalidos,
+  ErrorValidacion,
+  mensajeCamposInvalidos,
+} from '../lib/erroresValidacion.js';
 
 export function rutaNoEncontrada(req: Request, res: Response): void {
   res.status(404).json({
@@ -29,12 +34,22 @@ export function manejadorErrores(
     return;
   }
 
-  if (err instanceof ZodError) {
+  // ErrorValidacion: lo lanza el middleware validar, con la entrada. Un
+  // ZodError suelto puede venir de un .parse() en otro lado, sin entrada.
+  if (err instanceof ErrorValidacion || err instanceof ZodError) {
+    // Qué campo falló y por qué, nunca los issues crudos de Zod. Queda en el
+    // log también: sin esto, un 400 de validación no dejaba ningún rastro
+    // del motivo en el servidor.
+    const campos =
+      err instanceof ErrorValidacion
+        ? camposInvalidos(err.errorZod, err.entrada)
+        : camposInvalidos(err);
+    req.log?.warn({ campos }, 'Validación rechazada');
     res.status(400).json({
       error: {
         codigo: 'peticion_invalida',
-        mensaje: 'Los datos enviados no son válidos',
-        detalles: err.issues,
+        mensaje: mensajeCamposInvalidos(campos),
+        detalles: { campos },
       },
     });
     return;

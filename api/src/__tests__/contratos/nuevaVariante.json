@@ -1,0 +1,23 @@
+{
+  "_descripcion": "Contrato entre el formulario 'Agregar una variante' del panel y POST /api/admin/productos/:id/variantes. El test del frontend (web/src/__tests__/datosNuevaVariante.test.ts) verifica que el formulario produce 'payload'; el de la API (integracion/crearVarianteHttp.test.ts) manda 'payload' por HTTP y espera 201. Los VALOR_n se reemplazan por ids reales en la API. Si uno de los dos lados cambia los campos, falla un test.",
+  "formulario": {
+    "precio": "990000",
+    "costo": "350000",
+    "stockInicial": "3",
+    "puntoReorden": "1",
+    "seleccion": {
+      "atributo-tipo-base": "VALOR_0",
+      "atributo-longitud": "VALOR_1",
+      "atributo-color": "VALOR_2",
+      "atributo-talla": "VALOR_3",
+      "atributo-densidad": "VALOR_4"
+    }
+  },
+  "payload": {
+    "precio": 990000,
+    "costo": 350000,
+    "stockInicial": 3,
+    "puntoReorden": 1,
+    "valoresAtributo": ["VALOR_0", "VALOR_1", "VALOR_2", "VALOR_3", "VALOR_4"]
+  }
+}

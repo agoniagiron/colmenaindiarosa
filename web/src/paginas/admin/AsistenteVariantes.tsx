@@ -22,6 +22,19 @@ const SLUG_COLOR = 'color';
 
 type Paso = 1 | 2 | 3;
 
+// Etiquetas para los campos que puede nombrar un 400 de validación del lote
+// (ver describirError en apiProductosAdmin.ts).
+const ETIQUETAS_LOTE: Record<string, string> = {
+  longitudes: 'Longitudes',
+  'longitudes.precio': 'Precio por longitud',
+  'longitudes.costo': 'Costo por longitud',
+  colores: 'Colores',
+  fijos: 'Atributos fijos',
+  combinaciones: 'Combinaciones',
+  'combinaciones.precio': 'Precio corregido',
+  'combinaciones.stock': 'Stock',
+};
+
 interface Fila {
   incluida: boolean;
   // Vacío = usa el precio de su longitud. Solo se manda si se corrigió.
@@ -146,9 +159,7 @@ export function AsistenteVariantes({
       setStockPorLongitud({});
       setPaso(3);
     } catch (e) {
-      setError(
-        e instanceof api.ErrorProductosAdmin ? e.message : 'No se pudo armar la vista previa',
-      );
+      setError(api.describirError(e, ETIQUETAS_LOTE, 'No se pudo armar la vista previa'));
     } finally {
       setCargando(false);
     }
@@ -206,7 +217,7 @@ export function AsistenteVariantes({
       onCreado(resultado);
     } catch (e) {
       if (e instanceof api.ErrorProductosAdmin) {
-        setError(e.message);
+        setError(api.describirError(e, ETIQUETAS_LOTE, 'No se pudieron crear las variantes'));
         const detalles = e.detalles as { skus?: string[] } | undefined;
         setSkusEnConflicto(detalles?.skus ?? []);
       } else {

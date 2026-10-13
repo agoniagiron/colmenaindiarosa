@@ -20,6 +20,30 @@ export class ErrorProductosAdmin extends Error {
   }
 }
 
+// Un 400 de validación trae detalles.campos: [{ campo, problema }], con la
+// ruta del campo tal como viaja en el cuerpo ("precio",
+// "combinaciones.3.stock"). Esto lo traduce a las etiquetas del formulario
+// para que se vea qué corregir. Las posiciones numéricas se ignoran al
+// buscar la etiqueta: "combinaciones.3.stock" usa la de "combinaciones.stock".
+export function describirError(
+  error: unknown,
+  etiquetas: Record<string, string>,
+  respaldo: string,
+): string {
+  if (!(error instanceof ErrorProductosAdmin)) return respaldo;
+  const campos = (error.detalles as { campos?: { campo: string; problema: string }[] } | undefined)
+    ?.campos;
+  if (!Array.isArray(campos) || campos.length === 0) return error.message;
+
+  const partes = campos.map(({ campo, problema }) => {
+    const segmentos = campo.split('.').filter((s) => !/^\d+$/.test(s));
+    const etiqueta =
+      etiquetas[segmentos.join('.')] ?? etiquetas[segmentos[0] ?? ''] ?? (campo || 'Datos');
+    return `${etiqueta}: ${problema}`;
+  });
+  return `Revisá ${partes.length === 1 ? 'este campo' : 'estos campos'}. ${partes.join('. ')}.`;
+}
+
 async function solicitar<T>(
   baseUrl: string,
   ruta: string,
