@@ -9,6 +9,8 @@ import {
 } from '../../lib/promociones.js';
 import type { PromocionVigente } from '../../lib/promociones.js';
 import type { FiltrosProducto, QueryProductos } from './esquemas.js';
+import { resolverVarianteMostrada } from './variantePrincipal.js';
+import type { VarianteMostrada } from './variantePrincipal.js';
 
 const SLUGS_ATRIBUTO = {
   tipo: 'tipo_base',
@@ -23,10 +25,12 @@ type ClaveAtributo = keyof typeof SLUGS_ATRIBUTO;
 const CLAVES_ATRIBUTO = Object.keys(SLUGS_ATRIBUTO) as ClaveAtributo[];
 
 // ---------------------------------------------------------------------------
-// Construcción de filtros: dos condiciones de atributos distintos (o precio)
-// deben cumplirse en la MISMA variante, nunca repartidas entre variantes
-// distintas del producto. Por eso todas viajan como AND dentro del mismo
-// `variantes.some`.
+// Construcción de filtros: dos condiciones de atributos distintos deben
+// cumplirse en la MISMA variante, nunca repartidas entre variantes distintas
+// del producto. Por eso todas viajan como AND dentro del mismo
+// `variantes.some`. El precio NO va acá: se filtra en memoria por el precio
+// que muestra la tarjeta (ver precioMostradoEnRango), que sale de la variante
+// principal con su promoción — no de cualquier variante.
 // ---------------------------------------------------------------------------
 
 function condicionAtributo(
@@ -56,13 +60,6 @@ function condicionesVariante(
     if (clave === excluirAtributo) continue;
     const condicion = condicionAtributo(clave, filtros[clave]);
     if (condicion) condiciones.push(condicion);
-  }
-
-  if (filtros.precioMin !== undefined) {
-    condiciones.push({ precioActual: { gte: filtros.precioMin } });
-  }
-  if (filtros.precioMax !== undefined) {
-    condiciones.push({ precioActual: { lte: filtros.precioMax } });
   }
 
   return condiciones;
@@ -179,6 +176,7 @@ const SELECT_PRODUCTO = {
     orderBy: { orden: 'asc' },
     select: { id: true, url: true, altTexto: true },
   },
+  variantePrincipalId: true,
   variantes: { where: { activa: true }, select: SELECT_VARIANTE },
   resumen: { select: { calificacionPromedio: true, cantidadResenas: true } },
   // seccion: 'inicio' a propósito — ver el comentario en construirWhereProducto.
@@ -202,16 +200,53 @@ interface ContextoPrecio {
   tasaUsd: number;
 }
 
-function mapearVariante(variante: VarianteConAtributos, contexto: ContextoPrecio) {
+// El precio que ve la clienta (con la mejor promoción que aplique). Única
+// cuenta: la usan la tarjeta, la ficha, el orden y el filtro por precio.
+function precioConPromocion(
+  variante: { id: string; precioActual: number },
+  contexto: Pick<ContextoPrecio, 'productoId' | 'categoriaId' | 'promociones'>,
+) {
   const promo = obtenerMejorPromocionDePrecio(contexto.promociones, {
     varianteId: variante.id,
     productoId: contexto.productoId,
     categoriaId: contexto.categoriaId,
   });
+  return { promo, cop: promo ? aplicarPromocionAPrecio(variante.precioActual, promo) : variante.precioActual };
+}
 
-  const precioConDescuentoCop = promo
-    ? aplicarPromocionAPrecio(variante.precioActual, promo)
-    : variante.precioActual;
+interface ProductoParaMostrar {
+  id: string;
+  categoriaId: string;
+  variantePrincipalId: string | null;
+  // Solo variantes activas (los selects del catálogo ya filtran activa: true).
+  variantes: { id: string; precioActual: number; stockActual: number; stockReservado: number }[];
+}
+
+// Qué variante y qué precio muestra la tienda para este producto. Ver
+// variantePrincipal.ts para las reglas.
+function varianteMostradaDe(
+  producto: ProductoParaMostrar,
+  promociones: PromocionVigente[],
+): VarianteMostrada {
+  const contexto = { productoId: producto.id, categoriaId: producto.categoriaId, promociones };
+  return resolverVarianteMostrada(
+    producto.variantes.map((v) => ({
+      id: v.id,
+      precio: precioConPromocion(v, contexto).cop,
+      disponible: v.stockActual - v.stockReservado,
+    })),
+    producto.variantePrincipalId,
+  );
+}
+
+function precioMostradoEnRango(precio: number, filtros: FiltrosProducto): boolean {
+  if (filtros.precioMin !== undefined && precio < filtros.precioMin) return false;
+  if (filtros.precioMax !== undefined && precio > filtros.precioMax) return false;
+  return true;
+}
+
+function mapearVariante(variante: VarianteConAtributos, contexto: ContextoPrecio) {
+  const { promo, cop: precioConDescuentoCop } = precioConPromocion(variante, contexto);
 
   return {
     id: variante.id,
@@ -252,11 +287,11 @@ function mapearProducto(
   };
   const variantes = producto.variantes.map((v) => mapearVariante(v, contexto));
 
-  // "Desde $X" del listado: el menor precio YA con descuento, para que la
-  // promoción se vea también en la tarjeta del producto, no solo al
-  // entrar al detalle.
-  const preciosConDescuento = variantes.map((v) => v.precioConDescuento.cop);
-  const precioBaseCop = preciosConDescuento.length > 0 ? Math.min(...preciosConDescuento) : 0;
+  // Precio de la tarjeta = precio de la variante mostrada (la principal, o
+  // su reemplazo si está agotada), con la promoción ya aplicada. La ficha
+  // abre en esa misma variante (varianteMostradaId).
+  const mostrada = varianteMostradaDe(producto, promociones);
+  const varianteMostrada = variantes.find((v) => v.id === mostrada.varianteId);
 
   return {
     id: producto.id,
@@ -264,7 +299,12 @@ function mapearProducto(
     slug: producto.slug,
     descripcion: producto.descripcion,
     categoriaId: producto.categoriaId,
-    precioBase: calcularPrecioDualConTasa(precioBaseCop, null, tasaUsd),
+    precioBase:
+      varianteMostrada?.precioConDescuento ?? calcularPrecioDualConTasa(0, null, tasaUsd),
+    // true solo si hay más de un precio y el mostrado es el mínimo: la
+    // tarjeta antepone "desde". Si la principal es más cara, número solo.
+    desde: mostrada.desde,
+    varianteMostradaId: mostrada.varianteId,
     calificacion: producto.resumen ? Number(producto.resumen.calificacionPromedio) : 0,
     cantidadResenas: producto.resumen?.cantidadResenas ?? 0,
     destacado: esDestacadoVigente(producto.destacados),
@@ -279,7 +319,8 @@ function mapearProducto(
 
 interface ClaveOrden {
   id: string;
-  precioMinimo: number;
+  // El mismo precio que muestra la tarjeta (varianteMostradaDe).
+  precio: number;
   calificacion: number;
   creadoEn: Date;
   coincideNombre: boolean;
@@ -292,10 +333,10 @@ function ordenarPorClave(
 ): void {
   switch (orden) {
     case 'precio_asc':
-      lista.sort((a, b) => a.precioMinimo - b.precioMinimo);
+      lista.sort((a, b) => a.precio - b.precio);
       break;
     case 'precio_desc':
-      lista.sort((a, b) => b.precioMinimo - a.precioMinimo);
+      lista.sort((a, b) => b.precio - a.precio);
       break;
     case 'calificacion':
       lista.sort((a, b) => b.calificacion - a.calificacion);
@@ -338,11 +379,19 @@ export async function listarProductos(query: QueryProductos, sesionVisitaId: str
   });
   const porId = new Map(productos.map((p) => [p.id, p]));
 
-  const claves: ClaveOrden[] = productos.map((producto) => {
-    const precios = producto.variantes.map((v) => v.precioActual);
+  // Las promociones hacen falta antes de ordenar y filtrar: el precio que
+  // ordena y filtra es el de la tarjeta, con la promoción aplicada.
+  const [promociones, tasaUsd] = await Promise.all([
+    listarPromocionesVigentes(),
+    obtenerTasaUsdVigente(),
+  ]);
+
+  const claves: ClaveOrden[] = productos.flatMap((producto) => {
+    const { precio } = varianteMostradaDe(producto, promociones);
+    if (!precioMostradoEnRango(precio, query)) return [];
     return {
       id: producto.id,
-      precioMinimo: precios.length > 0 ? Math.min(...precios) : 0,
+      precio,
       calificacion: producto.resumen ? Number(producto.resumen.calificacionPromedio) : 0,
       creadoEn: producto.creadoEn,
       coincideNombre: query.busqueda
@@ -361,12 +410,6 @@ export async function listarProductos(query: QueryProductos, sesionVisitaId: str
     .map((clave) => porId.get(clave.id))
     .filter((p): p is ProductoConDetalle => Boolean(p));
 
-  // Una sola consulta de promociones para toda la página (no una por
-  // producto): mismo criterio que ya se usó para el resto del catálogo.
-  const [promociones, tasaUsd] = await Promise.all([
-    listarPromocionesVigentes(),
-    obtenerTasaUsdVigente(),
-  ]);
   const datos = paginaDeProductos.map((producto) => mapearProducto(producto, promociones, tasaUsd));
 
   if (query.busqueda) {
@@ -385,7 +428,33 @@ export async function listarProductos(query: QueryProductos, sesionVisitaId: str
 // faceted search: "si agrego este filtro, cuántos resultados quedan").
 // ---------------------------------------------------------------------------
 
+// Con filtro de precio, las facetas cuentan solo los productos cuyo precio
+// mostrado cae en el rango: el mismo criterio que el listado. null si no
+// hay filtro de precio.
+async function idsConPrecioMostradoEnRango(filtros: FiltrosProducto): Promise<string[] | null> {
+  if (filtros.precioMin === undefined && filtros.precioMax === undefined) return null;
+  const [productos, promociones] = await Promise.all([
+    prisma.producto.findMany({
+      where: { estado: 'publicado' },
+      select: {
+        id: true,
+        categoriaId: true,
+        variantePrincipalId: true,
+        variantes: {
+          where: { activa: true },
+          select: { id: true, precioActual: true, stockActual: true, stockReservado: true },
+        },
+      },
+    }),
+    listarPromocionesVigentes(),
+  ]);
+  return productos
+    .filter((p) => precioMostradoEnRango(varianteMostradaDe(p, promociones).precio, filtros))
+    .map((p) => p.id);
+}
+
 export async function listarFacetas(filtros: FiltrosProducto) {
+  const idsEnRango = await idsConPrecioMostradoEnRango(filtros);
   const atributos = await prisma.atributo.findMany({
     where: { slug: { in: Object.values(SLUGS_ATRIBUTO) } },
     select: {
@@ -409,6 +478,7 @@ export async function listarFacetas(filtros: FiltrosProducto) {
     if (!atributo) continue;
 
     const whereProducto = construirWhereProducto(filtros, clave);
+    if (idsEnRango) whereProducto.id = { in: idsEnRango };
     const condiciones = condicionesVariante(filtros, clave);
 
     const candidatos = await prisma.producto.findMany({

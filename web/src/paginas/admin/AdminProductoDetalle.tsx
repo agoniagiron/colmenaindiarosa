@@ -664,6 +664,23 @@ function PestanaVariantes({
   const [varianteparaPrecio, setVarianteParaPrecio] = useState<VarianteDetalle | null>(null);
   const [asistenteAbierto, setAsistenteAbierto] = useState(false);
   const [resultadoLote, setResultadoLote] = useState<string | null>(null);
+  const [cambiandoPrincipal, setCambiandoPrincipal] = useState(false);
+  const [errorPrincipal, setErrorPrincipal] = useState<string | null>(null);
+
+  async function marcarPrincipal(varianteId: string) {
+    setCambiandoPrincipal(true);
+    setErrorPrincipal(null);
+    try {
+      await api.cambiarVariantePrincipal(accessToken, producto.id, varianteId);
+      onCambiado();
+    } catch (e) {
+      setErrorPrincipal(
+        e instanceof api.ErrorProductosAdmin ? e.message : 'No se pudo cambiar la principal',
+      );
+    } finally {
+      setCambiandoPrincipal(false);
+    }
+  }
 
   if (asistenteAbierto) {
     return (
@@ -711,6 +728,9 @@ function PestanaVariantes({
         ) : null}
       </div>
 
+      <AvisosPrincipal producto={producto} />
+      {errorPrincipal ? <p className="text-sm text-rosa">{errorPrincipal}</p> : null}
+
       <Seccion>
         {producto.variantes.length === 0 ? (
           <p className="text-sm text-texto-secundario">Este producto todavía no tiene variantes.</p>
@@ -719,6 +739,9 @@ function PestanaVariantes({
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-[11px] tracking-wide text-texto-secundario uppercase">
+                  <th className="py-2 pr-3" title="La que muestra la tienda">
+                    Principal
+                  </th>
                   <th className="py-2 pr-3">SKU</th>
                   <th className="py-2 pr-3">Atributos</th>
                   <th className="py-2 pr-3 text-right">Precio</th>
@@ -734,6 +757,9 @@ function PestanaVariantes({
                   <FilaVariante
                     key={variante.id}
                     variante={variante}
+                    esPrincipal={variante.id === producto.variantePrincipalId}
+                    cambiandoPrincipal={cambiandoPrincipal}
+                    onMarcarPrincipal={() => void marcarPrincipal(variante.id)}
                     atributos={atributos}
                     accessToken={accessToken}
                     puedeEditar={puedeEditar}
@@ -775,8 +801,54 @@ function PestanaVariantes({
   );
 }
 
+// Lo que el panel tiene que dejar claro sobre la principal: si falta, si
+// quedó inactiva, si está agotada (la tienda muestra otra), o si no es la
+// más barata (solo información: puede ser a propósito).
+function AvisosPrincipal({ producto }: { producto: ProductoDetalle }) {
+  if (producto.variantes.length === 0) return null;
+  const { principal } = producto;
+
+  if (principal.estado === 'sin_definir') {
+    return (
+      <p className="rounded-lg bg-ambar-luz px-3.5 py-2.5 text-sm text-ambar">
+        Este producto no tiene variante principal. Mientras tanto la tienda muestra la más barata
+        con stock. Elegí una en la columna Principal.
+      </p>
+    );
+  }
+  if (principal.estado === 'inactiva') {
+    return (
+      <p className="rounded-lg bg-ambar-luz px-3.5 py-2.5 text-sm text-ambar">
+        La variante principal ({principal.sku}) está inactiva, así que la tienda no la muestra.
+        Elegí otra en la columna Principal.
+      </p>
+    );
+  }
+  return (
+    <>
+      {principal.sinStock ? (
+        <p className="rounded-lg bg-ambar-luz px-3.5 py-2.5 text-sm text-ambar">
+          La principal ({principal.sku}) no tiene stock: mientras tanto la tienda muestra y abre
+          la más barata que sí tenga.
+        </p>
+      ) : null}
+      {principal.noEsLaMasBarata ? (
+        <p className="rounded-lg bg-azul-luz px-3.5 py-2.5 text-sm text-azul">
+          En el catálogo este producto se va a ver a{' '}
+          {formatearPesos(principal.noEsLaMasBarata.precioPrincipal)}, aunque tenés una variante
+          de {formatearPesos(principal.noEsLaMasBarata.precioMinimo)}. Si es a propósito, está
+          bien así.
+        </p>
+      ) : null}
+    </>
+  );
+}
+
 function FilaVariante({
   variante,
+  esPrincipal,
+  cambiandoPrincipal,
+  onMarcarPrincipal,
   atributos,
   accessToken,
   puedeEditar,
@@ -785,6 +857,9 @@ function FilaVariante({
   onCambiarPrecio,
 }: {
   variante: VarianteDetalle;
+  esPrincipal: boolean;
+  cambiandoPrincipal: boolean;
+  onMarcarPrincipal: () => void;
   atributos: AtributoConValores[];
   accessToken: string;
   puedeEditar: boolean;
@@ -826,6 +901,19 @@ function FilaVariante({
 
   return (
     <tr className="border-t border-linea align-top">
+      <td className="py-2 pr-3">
+        {/* Radio, no casilla: hay una sola principal por producto. Una
+            inactiva no se puede elegir (la tienda no la muestra). */}
+        <input
+          type="radio"
+          name="variante-principal"
+          aria-label={`Marcar ${variante.sku} como principal`}
+          checked={esPrincipal}
+          disabled={!puedeEditar || !variante.activa || cambiandoPrincipal}
+          onChange={onMarcarPrincipal}
+          className="mt-2 h-4 w-4 accent-rosa"
+        />
+      </td>
       <td className="py-2 pr-3">
         <input
           value={sku}

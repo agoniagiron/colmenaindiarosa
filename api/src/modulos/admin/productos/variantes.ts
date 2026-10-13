@@ -174,6 +174,12 @@ export async function insertarVariantes(
     throw conflictoSkus(existentes.map((e) => e.sku));
   }
 
+  // Se mira antes de insertar: si el producto no tenía ninguna variante, la
+  // primera que se crea queda como principal (más abajo). A un producto que
+  // ya tenía variantes sin principal no se le asigna una sola: la elige la
+  // persona desde el panel.
+  const variantesPrevias = await tx.varianteProducto.count({ where: { productoId } });
+
   let creadas: { id: string; sku: string }[];
   try {
     creadas = await tx.varianteProducto.createManyAndReturn({
@@ -228,6 +234,13 @@ export async function insertarVariantes(
       motivo: 'Stock inicial',
     })),
   });
+
+  if (variantesPrevias === 0) {
+    await tx.producto.updateMany({
+      where: { id: productoId, variantePrincipalId: null },
+      data: { variantePrincipalId: ids[0]! },
+    });
+  }
 
   return ids;
 }

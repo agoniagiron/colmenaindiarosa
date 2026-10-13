@@ -13,35 +13,20 @@ import { useConfiguracion } from '../contexto/ContextoConfiguracion.tsx';
 import { repositorio } from '../datos/index.ts';
 import type { Producto, VarianteProducto } from '../tipos/index.ts';
 import { useAccionAsincrona } from '../utilidades/useAccionAsincrona.ts';
+import {
+  disponibleDe,
+  elegirAlCambiar,
+  estadoOpcion,
+  GRUPOS_ATRIBUTO,
+  valorAtributo,
+} from './selectorVariantes.ts';
+import type { AjusteAutomatico, ClaveAtributo, EstadoOpcion } from './selectorVariantes.ts';
 
 const PARAMETRO_VARIANTE = 'variante';
 
 // --- Atributos de variante ---------------------------------------------------
-
-type ClaveAtributo = 'tipoBase' | 'longitud' | 'color' | 'talla' | 'densidad';
-
-const GRUPOS_ATRIBUTO: { clave: ClaveAtributo; etiqueta: string }[] = [
-  { clave: 'tipoBase', etiqueta: 'Tipo de base' },
-  { clave: 'longitud', etiqueta: 'Longitud' },
-  { clave: 'color', etiqueta: 'Color' },
-  { clave: 'talla', etiqueta: 'Talla' },
-  { clave: 'densidad', etiqueta: 'Densidad' },
-];
-
-function valorAtributo(variante: VarianteProducto, clave: ClaveAtributo): string | undefined {
-  switch (clave) {
-    case 'color':
-      return variante.color?.nombre;
-    case 'tipoBase':
-      return variante.tipoBase;
-    case 'longitud':
-      return variante.longitud;
-    case 'talla':
-      return variante.talla;
-    case 'densidad':
-      return variante.densidad;
-  }
-}
+// La lógica del selector (qué opción está disponible, cuál elegir al cambiar)
+// vive en selectorVariantes.ts, con sus pruebas.
 
 function valoresDisponibles(variantes: VarianteProducto[], clave: ClaveAtributo): string[] {
   const vistos = new Set<string>();
@@ -56,39 +41,19 @@ function valoresDisponibles(variantes: VarianteProducto[], clave: ClaveAtributo)
   return resultado;
 }
 
-// Dado un cambio en un solo atributo, busca la variante que coincide
-// exactamente con el resto de la selección actual. Como las variantes no
-// forman un producto cartesiano completo (ver datos/muestra.ts), si esa
-// combinación exacta no existe se cae a la primera variante que tenga el
-// valor pedido, actualizando de paso los demás atributos visibles.
-function encontrarVariante(
-  variantes: VarianteProducto[],
-  clave: ClaveAtributo,
-  valor: string,
-  actual: VarianteProducto,
-): VarianteProducto {
-  const exacta = variantes.find(
-    (variante) =>
-      valorAtributo(variante, clave) === valor &&
-      GRUPOS_ATRIBUTO.every(
-        (grupo) =>
-          grupo.clave === clave ||
-          valorAtributo(variante, grupo.clave) === valorAtributo(actual, grupo.clave),
-      ),
-  );
-  return exacta ?? variantes.find((variante) => valorAtributo(variante, clave) === valor) ?? actual;
-}
-
-function disponibleDe(variante: VarianteProducto): number {
-  return variante.stockActual - variante.stockReservado;
-}
-
+// Un enlace con ?variante=SKU manda (la clienta ya eligió, o lo compartió
+// así). Si no, la ficha abre en la misma variante que muestra la tarjeta:
+// la decide el backend (varianteMostradaId), así el precio no "sube" al
+// entrar.
 function elegirVarianteInicial(
   variantes: VarianteProducto[],
   skuUrl: string | null,
+  varianteMostradaId: string | null,
 ): VarianteProducto {
   const porSku = skuUrl ? variantes.find((variante) => variante.sku === skuUrl) : undefined;
   if (porSku) return porSku;
+  const mostrada = variantes.find((variante) => variante.id === varianteMostradaId);
+  if (mostrada) return mostrada;
   return variantes.find((variante) => disponibleDe(variante) > 0) ?? variantes[0];
 }
 
@@ -105,6 +70,10 @@ export function ProductoDetalle() {
   const [cargandoRelacionados, setCargandoRelacionados] = useState(true);
 
   const [cantidad, setCantidad] = useState(1);
+  // Grupos que se acomodaron solos en la última elección (con el valor que
+  // lo provocó), para avisarlo debajo de cada uno.
+  const [ajustes, setAjustes] = useState<(AjusteAutomatico & { motivo: string })[]>([]);
+  useEffect(() => setAjustes([]), [slug]);
   const { cargando: agregando, ejecutar: ejecutarAgregar } = useAccionAsincrona(agregar, {
     mensajeExito: 'Agregado al carrito',
   });
@@ -152,7 +121,11 @@ export function ProductoDetalle() {
   }, [slug]);
 
   const varianteActual = producto
-    ? elegirVarianteInicial(producto.variantes, searchParams.get(PARAMETRO_VARIANTE))
+    ? elegirVarianteInicial(
+        producto.variantes,
+        searchParams.get(PARAMETRO_VARIANTE),
+        producto.varianteMostradaId,
+      )
     : null;
 
   // La variante elegida siempre queda reflejada en la URL, aunque haya
@@ -169,7 +142,15 @@ export function ProductoDetalle() {
 
   function seleccionarAtributo(clave: ClaveAtributo, valor: string) {
     if (!producto || !varianteActual) return;
-    const nueva = encontrarVariante(producto.variantes, clave, valor, varianteActual);
+    const { variante: nueva, ajustes } = elegirAlCambiar(
+      producto.variantes,
+      clave,
+      valor,
+      varianteActual,
+    );
+    // Si al elegir algo arriba cambió un grupo de abajo, se dice cuál y por
+    // qué: nada se acomoda en silencio.
+    setAjustes(ajustes.map((ajuste) => ({ ...ajuste, motivo: valor })));
     if (nueva.id === varianteActual.id) return;
 
     const params = new URLSearchParams(searchParams);
@@ -251,11 +232,10 @@ export function ProductoDetalle() {
                     valores={valores}
                     valorActual={valorAtributo(varianteActual, grupo.clave)}
                     esColor={grupo.clave === 'color'}
-                    esDisponible={(valor) =>
-                      disponibleDe(
-                        encontrarVariante(producto.variantes, grupo.clave, valor, varianteActual),
-                      ) > 0
+                    estadoDe={(valor) =>
+                      estadoOpcion(producto.variantes, grupo.clave, valor, varianteActual)
                     }
+                    aviso={avisoDeAjuste(ajustes.find((a) => a.clave === grupo.clave))}
                     hexDe={(valor) =>
                       producto.variantes.find((variante) => variante.color?.nombre === valor)?.color
                         ?.hex
@@ -322,7 +302,7 @@ function GaleriaProducto({
     <div className="flex flex-col gap-4 sm:flex-row">
       {imagenes && imagenes.length > 1 ? (
         <div className="order-2 flex gap-2 overflow-x-auto sm:order-1 sm:w-20 sm:flex-col sm:overflow-visible">
-          {imagenes.map( (imagen: any, indice: number) => (
+          {imagenes.map((imagen: any, indice: number) => (
             <button
               key={imagen.id}
               type="button"
@@ -397,12 +377,23 @@ function BloquePrecio({ variante }: { variante: VarianteProducto }) {
 
 // --- Selectores de variante -------------------------------------------------
 
+function avisoDeAjuste(ajuste: (AjusteAutomatico & { motivo: string }) | undefined): string | null {
+  if (!ajuste) return null;
+  return `${ajuste.antes} no viene en ${ajuste.motivo}: te mostramos ${ajuste.despues}.`;
+}
+
+const TEXTO_ESTADO: Record<Exclude<EstadoOpcion, 'disponible'>, string> = {
+  no_existe: 'no viene en esta combinación',
+  agotada: 'agotado',
+};
+
 function GrupoSelectorAtributo({
   etiqueta,
   valores,
   valorActual,
   esColor,
-  esDisponible,
+  estadoDe,
+  aviso,
   hexDe,
   onSeleccionar,
 }: {
@@ -410,7 +401,8 @@ function GrupoSelectorAtributo({
   valores: string[];
   valorActual: string | undefined;
   esColor: boolean;
-  esDisponible: (valor: string) => boolean;
+  estadoDe: (valor: string) => EstadoOpcion;
+  aviso: string | null;
   hexDe: (valor: string) => string | undefined;
   onSeleccionar: (valor: string) => void;
 }) {
@@ -425,7 +417,12 @@ function GrupoSelectorAtributo({
       <div className="mt-2 flex flex-wrap gap-2">
         {valores.map((valor) => {
           const activo = valor === valorActual;
-          const disponible = esDisponible(valor);
+          const estado = estadoDe(valor);
+          const disponible = estado === 'disponible';
+          // Agotada: tachada. No existe en esta combinación: solo atenuada.
+          const tachada = estado === 'agotada';
+          const etiquetaAccesible =
+            estado === 'disponible' ? valor : `${valor}, ${TEXTO_ESTADO[estado]}`;
 
           if (esColor) {
             return (
@@ -434,20 +431,25 @@ function GrupoSelectorAtributo({
                 type="button"
                 disabled={!disponible}
                 aria-pressed={activo}
-                aria-label={disponible ? valor : `${valor}, agotado`}
-                title={valor}
+                aria-label={etiquetaAccesible}
+                title={etiquetaAccesible}
                 onClick={() => onSeleccionar(valor)}
-                className={`relative h-9 w-9 shrink-0 rounded-full border-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa focus-visible:ring-offset-2 disabled:cursor-not-allowed ${
+                className={`relative h-9 w-9 shrink-0 overflow-hidden rounded-full border-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa focus-visible:ring-offset-2 disabled:cursor-not-allowed ${
                   activo ? 'border-rosa' : 'border-linea'
-                } ${disponible ? '' : 'opacity-40'}`}
+                }`}
                 style={{ backgroundColor: hexDe(valor) }}
               >
+                {/* Sin opacidad: atenuar un color de cabello lo convierte en
+                    otro (un negro al 40% parece gris). Deshabilitado, sea
+                    agotado o inexistente, se marca con una diagonal clara con
+                    borde, visible sobre cualquier tono; el motivo va en el
+                    texto accesible y el tooltip. */}
                 {!disponible ? (
                   <span
                     aria-hidden="true"
                     className="absolute inset-0 flex items-center justify-center"
                   >
-                    <span className="h-px w-full rotate-45 bg-tinta" />
+                    <span className="h-0.5 w-[140%] rotate-45 bg-hueso shadow-[0_0_0_1px_rgba(26,21,19,0.55)]" />
                   </span>
                 ) : null}
               </button>
@@ -460,9 +462,11 @@ function GrupoSelectorAtributo({
               type="button"
               disabled={!disponible}
               aria-pressed={activo}
+              aria-label={etiquetaAccesible}
+              title={estado === 'disponible' ? undefined : etiquetaAccesible}
               onClick={() => onSeleccionar(valor)}
               className={`rounded-full border px-4 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa disabled:cursor-not-allowed disabled:opacity-40 ${
-                disponible ? '' : 'line-through'
+                tachada ? 'line-through' : ''
               } ${activo ? 'border-rosa bg-rosa-palo text-tinta' : 'border-linea text-tinta hover:bg-arena'}`}
             >
               {valor}
@@ -470,6 +474,11 @@ function GrupoSelectorAtributo({
           );
         })}
       </div>
+      {aviso ? (
+        <p role="status" className="mt-2 text-[13px] text-texto-secundario">
+          {aviso}
+        </p>
+      ) : null}
     </fieldset>
   );
 }

@@ -14,6 +14,7 @@ import type {
   BodyPreciosProducto,
   BodyPrecioVariante,
   BodyPrevisualizarLote,
+  BodyVariantePrincipal,
   QueryListadoProductos,
 } from './esquemas.js';
 
@@ -56,6 +57,12 @@ export async function crearVariante(req: Request, res: Response): Promise<void> 
   const datos = req.body as BodyCrearVariante;
   const variante = await servicio.crearVariante(productoId, datos, req.usuarioAdmin!.id);
   res.status(201).json(variante);
+}
+
+export async function cambiarVariantePrincipal(req: Request, res: Response): Promise<void> {
+  const productoId = req.params.id as string;
+  const datos = req.body as BodyVariantePrincipal;
+  res.json(await servicio.cambiarVariantePrincipal(productoId, datos.varianteId));
 }
 
 export async function previsualizarLoteVariantes(req: Request, res: Response): Promise<void> {

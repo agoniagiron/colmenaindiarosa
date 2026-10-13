@@ -55,6 +55,10 @@ const esquemaValorAtributoId = z.string().uuid();
 
 // Sin sku: lo genera el sistema (sku.ts) a partir del código de producto y
 // de los códigos de largo y color.
+export const esquemaBodyVariantePrincipal = z.object({
+  varianteId: esquemaValorAtributoId,
+});
+
 export const esquemaBodyCrearVariante = z.object({
   precio: z.coerce.number().int().positive(),
   precioUsd: z.coerce.number().int().nonnegative().optional(),
@@ -146,6 +150,7 @@ export const esquemaBodyCrearLote = esquemaBodyPrevisualizarLote.extend({
 export type QueryListadoProductos = z.infer<typeof esquemaQueryListado>;
 export type BodyPrevisualizarLote = z.infer<typeof esquemaBodyPrevisualizarLote>;
 export type BodyCrearLote = z.infer<typeof esquemaBodyCrearLote>;
+export type BodyVariantePrincipal = z.infer<typeof esquemaBodyVariantePrincipal>;
 export type BodyCrearProducto = z.infer<typeof esquemaBodyCrearProducto>;
 export type BodyEditarProducto = z.infer<typeof esquemaBodyEditarProducto>;
 export type BodyEstadoProducto = z.infer<typeof esquemaBodyEstadoProducto>;

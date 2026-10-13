@@ -79,9 +79,24 @@ function variante(
   };
 }
 
-function precioBaseDesde(variantes: VarianteProducto[]): PrecioDual {
-  const minimo = Math.min(...variantes.map((v) => v.precioConDescuento.cop));
-  return pd(minimo);
+// Datos de muestra sin variante principal: se comportan como un producto
+// anterior a la columna (la más barata con stock). Solo para las pruebas que
+// usan el repositorio en memoria; en la tienda real lo decide el backend.
+function mostradaDe(variantes: VarianteProducto[]): {
+  precioBase: PrecioDual;
+  desde: boolean;
+  varianteMostradaId: string | null;
+} {
+  const conStock = variantes.filter((v) => v.stockActual - v.stockReservado > 0);
+  const comprables = conStock.length > 0 ? conStock : variantes;
+  const mostrada = comprables.reduce((a, b) =>
+    b.precioConDescuento.cop < a.precioConDescuento.cop ? b : a,
+  );
+  return {
+    precioBase: pd(mostrada.precioConDescuento.cop),
+    desde: new Set(comprables.map((v) => v.precioConDescuento.cop)).size > 1,
+    varianteMostradaId: mostrada.id,
+  };
 }
 
 const VARIANTES_VALENTINA: VarianteProducto[] = [
@@ -408,7 +423,7 @@ export const PRODUCTOS: Producto[] = [
     descripcion:
       'Peluca de lace front con encaje transparente en la línea frontal, cabello 100% humano remy.',
     categoriaId: 'cat-pelucas',
-    precioBase: precioBaseDesde(VARIANTES_VALENTINA),
+    ...mostradaDe(VARIANTES_VALENTINA),
     calificacion: 4.7,
     cantidadResenas: 128,
     destacado: true,
@@ -422,7 +437,7 @@ export const PRODUCTOS: Producto[] = [
     descripcion:
       'Peluca full lace con encaje en toda la base, permite peinados hacia atrás y raya en cualquier dirección.',
     categoriaId: 'cat-pelucas',
-    precioBase: precioBaseDesde(VARIANTES_CAMILA),
+    ...mostradaDe(VARIANTES_CAMILA),
     calificacion: 4.8,
     cantidadResenas: 76,
     destacado: true,
@@ -436,7 +451,7 @@ export const PRODUCTOS: Producto[] = [
     descripcion:
       'Peluca corte bob a la altura de la mandíbula, base de monofilamento para un nacimiento natural.',
     categoriaId: 'cat-pelucas',
-    precioBase: precioBaseDesde(VARIANTES_BOB_CLEO),
+    ...mostradaDe(VARIANTES_BOB_CLEO),
     calificacion: 4.5,
     cantidadResenas: 54,
     destacado: false,
@@ -449,7 +464,7 @@ export const PRODUCTOS: Producto[] = [
     slug: 'peluca-ondulada-renata',
     descripcion: 'Peluca de ondas suaves, base tradicional cosida, ideal para uso diario.',
     categoriaId: 'cat-pelucas',
-    precioBase: precioBaseDesde(VARIANTES_RENATA),
+    ...mostradaDe(VARIANTES_RENATA),
     calificacion: 4.3,
     cantidadResenas: 41,
     destacado: false,
@@ -463,7 +478,7 @@ export const PRODUCTOS: Producto[] = [
     descripcion:
       'Peluca de rizos definidos, densidad alta y encaje lace front para un look voluminoso.',
     categoriaId: 'cat-pelucas',
-    precioBase: precioBaseDesde(VARIANTES_SOLANGE),
+    ...mostradaDe(VARIANTES_SOLANGE),
     calificacion: 4.9,
     cantidadResenas: 93,
     destacado: true,
@@ -479,7 +494,7 @@ export const PRODUCTOS: Producto[] = [
     descripcion:
       'Shampoo sin sulfatos con keratina hidrolizada para cabello natural y pelucas de fibra.',
     categoriaId: 'cat-cuidado',
-    precioBase: precioBaseDesde(VARIANTES_SHAMPOO),
+    ...mostradaDe(VARIANTES_SHAMPOO),
     calificacion: 4.6,
     cantidadResenas: 65,
     destacado: false,
@@ -492,7 +507,7 @@ export const PRODUCTOS: Producto[] = [
     slug: 'acondicionador-hidratante-argan',
     descripcion: 'Acondicionador con aceite de argán para sellar la cutícula y dar brillo.',
     categoriaId: 'cat-cuidado',
-    precioBase: precioBaseDesde(VARIANTES_ACONDICIONADOR),
+    ...mostradaDe(VARIANTES_ACONDICIONADOR),
     calificacion: 4.5,
     cantidadResenas: 48,
     destacado: false,
@@ -508,7 +523,7 @@ export const PRODUCTOS: Producto[] = [
     slug: 'aceite-capilar-nutritivo',
     descripcion: 'Aceite nutritivo multiusos para puntas abiertas y control del frizz.',
     categoriaId: 'cat-cuidado',
-    precioBase: precioBaseDesde(VARIANTES_ACEITE),
+    ...mostradaDe(VARIANTES_ACEITE),
     calificacion: 4.4,
     cantidadResenas: 30,
     destacado: false,
@@ -524,7 +539,7 @@ export const PRODUCTOS: Producto[] = [
     descripcion:
       'Set de extensiones clip-in de cabello 100% humano, fácil colocación sin necesidad de calor.',
     categoriaId: 'cat-extensiones',
-    precioBase: precioBaseDesde(VARIANTES_EXTENSIONES_SEDA),
+    ...mostradaDe(VARIANTES_EXTENSIONES_SEDA),
     calificacion: 4.6,
     cantidadResenas: 37,
     destacado: true,
@@ -538,7 +553,7 @@ export const PRODUCTOS: Producto[] = [
     descripcion:
       'Extensiones tipo cortina de trama invisible, distribución uniforme en una sola pieza.',
     categoriaId: 'cat-extensiones',
-    precioBase: precioBaseDesde(VARIANTES_EXTENSIONES_CORTINA),
+    ...mostradaDe(VARIANTES_EXTENSIONES_CORTINA),
     calificacion: 4.5,
     cantidadResenas: 22,
     destacado: false,
@@ -553,7 +568,7 @@ export const PRODUCTOS: Producto[] = [
     slug: 'gorro-de-malla-para-peluca',
     descripcion: 'Gorro de malla transpirable para usar como base antes de colocar la peluca.',
     categoriaId: 'cat-accesorios',
-    precioBase: precioBaseDesde(VARIANTES_GORRO),
+    ...mostradaDe(VARIANTES_GORRO),
     calificacion: 4.2,
     cantidadResenas: 19,
     destacado: false,
@@ -567,7 +582,7 @@ export const PRODUCTOS: Producto[] = [
     descripcion:
       'Peine de cerdas anchas y espaciadas, diseñado para desenredar pelucas y extensiones sin dañarlas.',
     categoriaId: 'cat-accesorios',
-    precioBase: precioBaseDesde(VARIANTES_PEINE),
+    ...mostradaDe(VARIANTES_PEINE),
     calificacion: 4.3,
     cantidadResenas: 15,
     destacado: false,

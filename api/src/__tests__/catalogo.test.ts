@@ -60,8 +60,9 @@ describe('catálogo: filtros y paginación', () => {
     const condicionesVariante = wherePrimeraLlamada.variantes.some.AND;
 
     // Cada atributo distinto aporta su propia condición (AND entre ellas),
-    // todas dentro del mismo `variantes.some`: deben cumplirse en la misma variante.
-    expect(condicionesVariante).toHaveLength(3);
+    // todas dentro del mismo `variantes.some`: deben cumplirse en la misma
+    // variante. El precio no va acá: se filtra por el precio mostrado.
+    expect(condicionesVariante).toHaveLength(2);
 
     const condicionColor = condicionesVariante.find(
       (c: { valoresAtributo?: { some: { valorAtributo: { atributo: { slug: string } } } } }) =>
@@ -77,10 +78,9 @@ describe('catálogo: filtros y paginación', () => {
     );
     expect(condicionTalla.valoresAtributo.some.valorAtributo.valor).toEqual({ in: ['M'] });
 
-    const condicionPrecio = condicionesVariante.find(
-      (c: { precioActual?: unknown }) => c.precioActual,
-    );
-    expect(condicionPrecio.precioActual).toEqual({ gte: 50000 });
+    expect(
+      condicionesVariante.some((c: { precioActual?: unknown }) => c.precioActual !== undefined),
+    ).toBe(false);
 
     expect(wherePrimeraLlamada.variantes.some.activa).toBe(true);
     expect(wherePrimeraLlamada.estado).toBe('publicado');
@@ -147,5 +147,76 @@ describe('catálogo: filtros y paginación', () => {
     const llamada = findManyMock.mock.calls[0]![0];
     expect(llamada.where.destacados.some.seccion).toBe('inicio');
     expect(llamada.select.destacados.where.seccion).toBe('inicio');
+  });
+
+  describe('precio de la tarjeta, orden y filtro: la variante principal manda', () => {
+    function variante(id: string, precioActual: number, stock = 5) {
+      return {
+        id,
+        sku: `SKU-${id}`,
+        precioActual,
+        precioAntes: null,
+        precioUsd: null,
+        stockActual: stock,
+        stockReservado: 0,
+        imagenes: [],
+        valoresAtributo: [],
+      };
+    }
+
+    // La peluca del reporte: 26" a 990.000 y 28" a 1.050.000.
+    function peluca(id: string, principal: string | null, extra: Record<string, unknown> = {}) {
+      return productoDetalleVacio(id, {
+        creadoEn: new Date(2024, 0, 1),
+        variantePrincipalId: principal,
+        variantes: [variante(`${id}-28`, 1050000), variante(`${id}-26`, 990000)],
+        ...extra,
+      });
+    }
+
+    it('la tarjeta muestra la principal y abre en ella; "desde" solo si es la más barata', async () => {
+      findManyMock.mockResolvedValueOnce([peluca('barata', 'barata-26'), peluca('cara', 'cara-28')]);
+
+      const { datos } = await listarProductos(esquemaQueryProductos.parse({}), undefined);
+      const porId = new Map(datos.map((p) => [p.id, p]));
+
+      expect(porId.get('barata')).toMatchObject({
+        precioBase: { cop: 990000 },
+        desde: true,
+        varianteMostradaId: 'barata-26',
+      });
+      expect(porId.get('cara')).toMatchObject({
+        precioBase: { cop: 1050000 },
+        desde: false,
+        varianteMostradaId: 'cara-28',
+      });
+    });
+
+    it('si la principal está agotada, la tarjeta usa la más barata con stock', async () => {
+      const producto = peluca('p', 'p-26');
+      producto.variantes = [variante('p-26', 990000, 0), variante('p-28', 1050000)];
+      findManyMock.mockResolvedValueOnce([producto]);
+
+      const { datos } = await listarProductos(esquemaQueryProductos.parse({}), undefined);
+      expect(datos[0]).toMatchObject({ precioBase: { cop: 1050000 }, varianteMostradaId: 'p-28' });
+    });
+
+    it('el orden y el filtro por precio usan el precio de la tarjeta, no el mínimo de cualquier variante', async () => {
+      // "cara" tiene una variante de 990.000, pero su tarjeta muestra 1.050.000.
+      findManyMock.mockResolvedValue([peluca('barata', 'barata-26'), peluca('cara', 'cara-28')]);
+
+      const ordenado = await listarProductos(
+        esquemaQueryProductos.parse({ orden: 'precio_desc' }),
+        undefined,
+      );
+      expect(ordenado.datos.map((p) => p.id)).toEqual(['cara', 'barata']);
+
+      const filtrado = await listarProductos(
+        esquemaQueryProductos.parse({ precioMax: '1000000' }),
+        undefined,
+      );
+      expect(filtrado.datos.map((p) => p.id)).toEqual(['barata']);
+      expect(filtrado.paginacion.total).toBe(1);
+    });
   });
 });

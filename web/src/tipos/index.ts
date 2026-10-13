@@ -48,9 +48,17 @@ export interface Producto {
   slug: string;
   descripcion: string;
   categoriaId: string;
-  // "Desde $X" del listado: el menor precio ya con descuento entre las
-  // variantes (ver VarianteProducto.precioConDescuento).
+  // Precio de la tarjeta: el de la variante que muestra la tienda (la
+  // principal, o la más barata con stock si la principal está agotada o
+  // no hay), con la promoción ya aplicada. Lo decide el backend
+  // (catalogo/variantePrincipal.ts); acá nunca se recalcula.
   precioBase: PrecioDual;
+  // true si hay más de un precio y precioBase es el mínimo: la tarjeta
+  // antepone "desde". Si la principal es más cara, el número va solo.
+  desde: boolean;
+  // La variante de precioBase. La ficha abre en esta y el botón de la
+  // tarjeta agrega esta. null si el producto no tiene variantes activas.
+  varianteMostradaId: string | null;
   calificacion: number;
   cantidadResenas: number;
   destacado: boolean;

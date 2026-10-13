@@ -16,7 +16,8 @@ if (DATABASE_URL_TEST) {
 const describeConDbReal = DATABASE_URL_TEST ? describe : describe.skip;
 
 const { prisma } = await import('../../lib/prisma.js');
-const { crearVariante } = await import('../../modulos/admin/productos/servicio.js');
+const { cambiarVariantePrincipal, crearVariante, editarVariante, obtenerDetalleProducto } =
+  await import('../../modulos/admin/productos/servicio.js');
 const { crearLote, previsualizarLote } = await import('../../modulos/admin/productos/variantes.js');
 
 const SUFIJO = `lote-${Date.now()}`;
@@ -335,5 +336,108 @@ describeConDbReal('Admin/Productos: variantes en lote contra PostgreSQL real', (
         usuarioAdminId,
       ),
     ).rejects.toMatchObject({ estadoHttp: 400 });
+  });
+
+  describe('variante principal', () => {
+    const principalDe = async (productoId: string) =>
+      (await prisma.producto.findUniqueOrThrow({ where: { id: productoId } })).variantePrincipalId;
+
+    it('la primera variante de un producto nuevo queda como principal (lote y suelta)', async () => {
+      const conLote = await productoNuevo(`PL${C}`);
+      await crearLote(
+        conLote,
+        {
+          longitudes: [
+            { valorId: largo24, precio: 990000 },
+            { valorId: largo30, precio: 1050000 },
+          ],
+          colores: [negro],
+          fijos: [],
+          combinaciones: [
+            { longitudId: largo24, colorId: negro, stock: 1 },
+            { longitudId: largo30, colorId: negro, stock: 1 },
+          ],
+        },
+        usuarioAdminId,
+      );
+      const primera = await prisma.varianteProducto.findUniqueOrThrow({
+        where: { sku: `${codigoProducto(`PL${C}`)}-24${C}-NEG${C}` },
+      });
+      expect(await principalDe(conLote)).toBe(primera.id);
+
+      const suelta = await productoNuevo(`PS${C}`);
+      const unica = await crearVariante(
+        suelta,
+        { precio: 1, stockInicial: 0, puntoReorden: 0, valoresAtributo: [largo24] },
+        usuarioAdminId,
+      );
+      expect(await principalDe(suelta)).toBe(unica.id);
+    });
+
+    it('a un producto que ya tenía variantes sin principal no se le asigna una sola', async () => {
+      const productoId = await productoNuevo(`PV${C}`);
+      await prisma.varianteProducto.create({
+        data: { productoId, sku: `VIEJA-${C}`, precioActual: 1 },
+      });
+      await crearVariante(
+        productoId,
+        { precio: 1, stockInicial: 0, puntoReorden: 0, valoresAtributo: [largo30] },
+        usuarioAdminId,
+      );
+      expect(await principalDe(productoId)).toBeNull();
+      expect((await obtenerDetalleProducto(productoId)).principal.estado).toBe('sin_definir');
+    });
+
+    it('se cambia desde el panel, avisa si no es la más barata y si queda inactiva', async () => {
+      const productoId = await productoNuevo(`PC${C}`);
+      const barata = await crearVariante(
+        productoId,
+        { precio: 990000, stockInicial: 2, puntoReorden: 0, valoresAtributo: [largo24] },
+        usuarioAdminId,
+      );
+      const cara = await crearVariante(
+        productoId,
+        { precio: 1050000, stockInicial: 2, puntoReorden: 0, valoresAtributo: [largo30] },
+        usuarioAdminId,
+      );
+      expect(await principalDe(productoId)).toBe(barata.id);
+
+      const detalle = await cambiarVariantePrincipal(productoId, cara.id);
+      expect(detalle.variantePrincipalId).toBe(cara.id);
+      expect(detalle.principal).toMatchObject({
+        estado: 'definida',
+        noEsLaMasBarata: { precioPrincipal: 1050000, precioMinimo: 990000 },
+      });
+
+      // Agotada y más cara: el aviso de "se va a ver a $X" sería falso (la
+      // tienda muestra la más barata con stock), así que solo avisa el stock.
+      const agotada = await crearVariante(
+        productoId,
+        { precio: 1100000, stockInicial: 0, puntoReorden: 0, valoresAtributo: [largo24, negro] },
+        usuarioAdminId,
+      );
+      const conAgotada = await cambiarVariantePrincipal(productoId, agotada.id);
+      expect(conAgotada.principal).toMatchObject({ sinStock: true, noEsLaMasBarata: null });
+      await cambiarVariantePrincipal(productoId, cara.id);
+
+      await editarVariante(cara.id, { activa: false });
+      expect((await obtenerDetalleProducto(productoId)).principal.estado).toBe('inactiva');
+      await expect(cambiarVariantePrincipal(productoId, cara.id)).rejects.toMatchObject({
+        estadoHttp: 409,
+      });
+    });
+
+    it('no acepta una variante de otro producto', async () => {
+      const uno = await productoNuevo(`PO${C}`);
+      const otro = await productoNuevo(`PP${C}`);
+      const ajena = await crearVariante(
+        otro,
+        { precio: 1, stockInicial: 0, puntoReorden: 0, valoresAtributo: [] },
+        usuarioAdminId,
+      );
+      await expect(cambiarVariantePrincipal(uno, ajena.id)).rejects.toMatchObject({
+        estadoHttp: 400,
+      });
+    });
   });
 });

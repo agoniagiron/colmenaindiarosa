@@ -226,6 +226,11 @@ export function AdminProductos() {
                         Publicado y agotado en todas sus variantes
                       </p>
                     ) : null}
+                    {producto.sinPrincipal ? (
+                      <p className="mt-0.5 text-[11px] text-ambar">
+                        Sin variante principal: elegila en Variantes
+                      </p>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3 text-texto-secundario">{producto.categoria.nombre}</td>
                   <td className="px-4 py-3 text-right">{producto.cantidadVariantes}</td>

@@ -10,6 +10,7 @@ import {
   esquemaBodyCrearProducto,
   esquemaBodyCrearVariante,
   esquemaBodyPrevisualizarLote,
+  esquemaBodyVariantePrincipal,
   esquemaBodyEditarProducto,
   esquemaBodyEstadoProducto,
   esquemaBodyPortadaProducto,
@@ -80,6 +81,15 @@ rutasAdminProductos.post(
   requierePermiso('productos.crear'),
   validar({ body: esquemaBodyCrearVariante }),
   controlador.crearVariante,
+);
+
+// Cuál variante muestra la tienda para el producto (tarjeta, ficha, orden y
+// filtro por precio): es una decisión de presentación, no de alta.
+rutasAdminProductos.patch(
+  '/:id/variante-principal',
+  requierePermiso('productos.editar'),
+  validar({ body: esquemaBodyVariantePrincipal }),
+  controlador.cambiarVariantePrincipal,
 );
 
 // Asistente de variantes en lote. Mismo patrón que kits: previsualizar no

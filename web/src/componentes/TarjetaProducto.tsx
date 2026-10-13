@@ -15,17 +15,17 @@ export function TarjetaProducto({ producto }: TarjetaProductoProps) {
   const { formatearDual } = useConfiguracion();
   const { agregar } = useCarrito();
 
-  // El "desde" con descuento ya lo trae el backend (producto.precioBase);
-  // el "antes" tachado se arma acá comparando contra la variante más
-  // barata, la misma que decide precioBase.
-  const varianteMasBarata = producto.variantes.reduce<Producto['variantes'][number] | null>(
-    (mejor, variante) =>
-      !mejor || variante.precioConDescuento.cop < mejor.precioConDescuento.cop ? variante : mejor,
-    null,
-  );
+  // Qué variante mostrar lo decide el backend (varianteMostradaId: la
+  // principal, o la más barata con stock si la principal está agotada).
+  // Acá solo se lee: el precio, el tachado y el botón salen de la misma.
+  const varianteMostrada =
+    producto.variantes.find((variante) => variante.id === producto.varianteMostradaId) ?? null;
   const hayDescuento =
-    varianteMasBarata &&
-    varianteMasBarata.precioOriginal.cop > varianteMasBarata.precioConDescuento.cop;
+    varianteMostrada &&
+    varianteMostrada.precioOriginal.cop > varianteMostrada.precioConDescuento.cop;
+  const mostradaConStock =
+    varianteMostrada !== null &&
+    varianteMostrada.stockActual - varianteMostrada.stockReservado > 0;
   const agotado = producto.variantes.every(
     (variante) => variante.stockActual - variante.stockReservado <= 0,
   );
@@ -34,14 +34,12 @@ export function TarjetaProducto({ producto }: TarjetaProductoProps) {
   // orden asc — ver catalogo/servicio.ts).
   const imagenPrincipal = producto.imagenes[0];
 
-  // El botón "Agregar al carrito" agrega la variante más barata (la misma
-  // que decide el precio mostrado), sin pasar por la ficha de producto —
-  // para eso está el botón, para no obligar a entrar a elegir variante
-  // cuando el producto solo tiene una o la clienta no necesita elegir.
+  // El botón agrega la variante mostrada, la misma del precio. Si no tiene
+  // stock no se ofrece: antes agregaba sin mirar y fallaba con una agotada.
   const { cargando: agregando, ejecutar: ejecutarAgregar } = useAccionAsincrona(
     async () => {
-      if (!varianteMasBarata) return;
-      await agregar(varianteMasBarata.id, 1);
+      if (!varianteMostrada || !mostradaConStock) return;
+      await agregar(varianteMostrada.id, 1);
     },
     { mensajeExito: 'Agregado al carrito' },
   );
@@ -90,11 +88,14 @@ export function TarjetaProducto({ producto }: TarjetaProductoProps) {
           </div>
           <div className="mt-auto flex items-baseline gap-2 pt-2">
             <span className="text-lg font-semibold text-tinta">
+              {producto.desde ? (
+                <span className="mr-1 text-sm font-normal text-texto-secundario">desde</span>
+              ) : null}
               {formatearDual(producto.precioBase)}
             </span>
-            {hayDescuento && varianteMasBarata ? (
+            {hayDescuento && varianteMostrada ? (
               <span className="text-sm text-texto-secundario line-through">
-                {formatearDual(varianteMasBarata.precioOriginal)}
+                {formatearDual(varianteMostrada.precioOriginal)}
               </span>
             ) : null}
           </div>
@@ -105,7 +106,7 @@ export function TarjetaProducto({ producto }: TarjetaProductoProps) {
         <Boton
           type="button"
           variante="rosa"
-          disabled={agotado || !varianteMasBarata}
+          disabled={agotado || !mostradaConStock}
           cargando={agregando}
           onClick={() => void alAgregar()}
           className="h-12 w-full"

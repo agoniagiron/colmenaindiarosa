@@ -90,6 +90,9 @@ export interface FilaProductoAdmin {
   stockTotal: number;
   calificacionPromedio: number | null;
   agotado: boolean;
+  // Sin variante principal utilizable (nunca definida, borrada o
+  // inactiva): la tienda muestra la más barata con stock hasta elegir una.
+  sinPrincipal: boolean;
 }
 
 export interface Paginacion {
@@ -198,6 +201,9 @@ export interface ProductoDetalle {
   // mientras falte el código de modelo.
   codigoModelo: string | null;
   codigoProducto: string | null;
+  // La variante que muestra la tienda (tarjeta, ficha, orden y filtro).
+  variantePrincipalId: string | null;
+  principal: ResumenPrincipal;
   creadoEn: string;
   actualizadoEn: string;
   categoria: { id: string; nombre: string; slug: string; codigo: string | null };
@@ -207,6 +213,29 @@ export interface ProductoDetalle {
   // categoría Pelucas — ver PestanaGeneral en AdminProductoDetalle.tsx.
   destacadoPortada: boolean;
   ordenPortada: number | null;
+}
+
+export interface ResumenPrincipal {
+  estado: 'definida' | 'sin_definir' | 'inactiva';
+  sku: string | null;
+  // Definida pero sin stock: la tienda muestra la más barata con stock.
+  sinStock: boolean;
+  // Aviso, no bloqueo: la principal es más cara que la más barata (precios
+  // de lista, sin promociones).
+  noEsLaMasBarata: { precioPrincipal: number; precioMinimo: number } | null;
+}
+
+export function cambiarVariantePrincipal(
+  accessToken: string,
+  productoId: string,
+  varianteId: string,
+): Promise<ProductoDetalle> {
+  return solicitar(
+    BASE_PRODUCTOS,
+    `/${encodeURIComponent(productoId)}/variante-principal`,
+    accessToken,
+    { method: 'PATCH', body: JSON.stringify({ varianteId }) },
+  );
 }
 
 export function obtenerDetalleProducto(accessToken: string, id: string): Promise<ProductoDetalle> {

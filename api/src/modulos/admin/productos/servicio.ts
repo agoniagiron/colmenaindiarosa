@@ -47,7 +47,8 @@ const SELECT_LISTADO = {
   creadoEn: true,
   categoria: { select: { id: true, nombre: true } },
   resumen: { select: { calificacionPromedio: true, cantidadResenas: true } },
-  variantes: { select: { activa: true, precioActual: true, stockActual: true } },
+  variantePrincipalId: true,
+  variantes: { select: { id: true, activa: true, precioActual: true, stockActual: true } },
 } satisfies Prisma.ProductoSelect;
 
 export async function listarProductos(query: QueryListadoProductos) {
@@ -91,6 +92,11 @@ export async function listarProductos(query: QueryListadoProductos) {
       stockTotal: producto.variantes.reduce((suma, v) => suma + v.stockActual, 0),
       calificacionPromedio: producto.resumen ? Number(producto.resumen.calificacionPromedio) : null,
       agotado,
+      // Sin principal utilizable (nunca definida, borrada o inactiva): la
+      // tienda muestra la más barata con stock hasta que se elija una.
+      sinPrincipal:
+        producto.variantes.length > 0 &&
+        !producto.variantes.some((v) => v.id === producto.variantePrincipalId && v.activa),
     };
   });
 
@@ -164,6 +170,7 @@ const SELECT_DETALLE = {
   seoTitulo: true,
   seoDescripcion: true,
   codigoModelo: true,
+  variantePrincipalId: true,
   creadoEn: true,
   actualizadoEn: true,
   categoria: { select: { id: true, nombre: true, slug: true, codigo: true } },
@@ -191,15 +198,53 @@ const SELECT_DETALLE = {
 
 type ProductoDetalleCrudo = Prisma.ProductoGetPayload<{ select: typeof SELECT_DETALLE }>;
 
+// Estado de la variante principal para el panel. Los precios son los de
+// lista (sin promociones): es el aviso de que la principal no es la más
+// barata, no el precio exacto de la vitrina.
+function resumenPrincipal(producto: ProductoDetalleCrudo) {
+  const activas = producto.variantes.filter((v) => v.activa);
+  const principal = producto.variantes.find((v) => v.id === producto.variantePrincipalId);
+
+  const estado: 'definida' | 'sin_definir' | 'inactiva' = !principal
+    ? 'sin_definir'
+    : principal.activa
+      ? 'definida'
+      : 'inactiva';
+
+  const sinStock =
+    estado === 'definida' && !!principal && principal.stockActual - principal.stockReservado <= 0;
+
+  // Solo si la tienda de verdad muestra la principal: agotada, muestra la
+  // más barata con stock, y decir "se va a ver a $X" sería falso.
+  const minimo = activas.length > 0 ? Math.min(...activas.map((v) => v.precioActual)) : null;
+  const noEsLaMasBarata =
+    estado === 'definida' &&
+    !sinStock &&
+    principal &&
+    minimo !== null &&
+    principal.precioActual > minimo
+      ? { precioPrincipal: principal.precioActual, precioMinimo: minimo }
+      : null;
+
+  return {
+    estado,
+    sku: principal?.sku ?? null,
+    sinStock,
+    noEsLaMasBarata,
+  };
+}
+
 // El panel solo necesita saber si está marcado para portada y con qué
 // orden, no la fila de producto_destacado en sí (desde/hasta no aplican a
 // esta sección, se ignoran a propósito — ver el plan).
+
 function mapearDetalle(producto: ProductoDetalleCrudo) {
   const { destacados, ...resto } = producto;
   return {
     ...resto,
     // IR-PEL-VAL: el mismo armado que usan los SKU (sku.ts). null mientras
     // falte el código de modelo o el de la categoría.
+    principal: resumenPrincipal(producto),
     codigoProducto:
       producto.codigoModelo && producto.categoria.codigo
         ? armarCodigoProducto(producto.categoria.codigo, producto.codigoModelo)
@@ -548,6 +593,27 @@ export async function crearVariante(
       select: SELECT_VARIANTE_DETALLE,
     });
   });
+}
+
+export async function cambiarVariantePrincipal(productoId: string, varianteId: string) {
+  const variante = await prisma.varianteProducto.findUnique({
+    where: { id: varianteId },
+    select: { productoId: true, activa: true, sku: true },
+  });
+  if (!variante || variante.productoId !== productoId) {
+    throw ErrorApi.peticionInvalida('Esa variante no es de este producto');
+  }
+  if (!variante.activa) {
+    throw ErrorApi.conflicto(
+      `La variante ${variante.sku} está inactiva: activala antes de marcarla como principal`,
+    );
+  }
+  const actualizado = await prisma.producto.update({
+    where: { id: productoId },
+    data: { variantePrincipalId: varianteId, actualizadoEn: new Date() },
+    select: SELECT_DETALLE,
+  });
+  return mapearDetalle(actualizado);
 }
 
 export async function editarVariante(id: string, datos: BodyEditarVariante) {
