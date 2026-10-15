@@ -112,10 +112,18 @@ export const esquemaBodyCrearValorAtributo = z.object({
   // Obligatorio para longitud y color (va en el SKU); lo valida el servicio.
   codigo: z.string().trim().min(1).optional(),
   // En qué categorías se habilita, en el mismo paso que se crea: un valor
-  // creado sin categoría no aparecería en ningún lado.
-  categoriaIds: z
-    .array(z.string().uuid())
-    .min(1, 'Elegí al menos una categoría donde habilitarlo'),
+  // creado sin categoría no aparecería en ningún lado. Para un atributo
+  // universal (color) se ignora: va a todas las que lo usan. Para los demás
+  // el servicio exige al menos una.
+  categoriaIds: z.array(z.string().uuid()).optional(),
+});
+
+export const esquemaBodyActivoValor = z.object({
+  activo: z.boolean(),
+});
+
+export const esquemaParamsValor = z.object({
+  valorId: z.string().uuid(),
 });
 
 // Configuración completa de una categoría. El orden de la lista es el orden
@@ -185,5 +193,6 @@ export type BodyEditarVariante = z.infer<typeof esquemaBodyEditarVariante>;
 export type BodyPrecioVariante = z.infer<typeof esquemaBodyPrecioVariante>;
 export type BodyPreciosProducto = z.infer<typeof esquemaBodyPreciosProducto>;
 export type BodyCrearValorAtributo = z.infer<typeof esquemaBodyCrearValorAtributo>;
+export type BodyActivoValor = z.infer<typeof esquemaBodyActivoValor>;
 export type QueryAtributos = z.infer<typeof esquemaQueryAtributos>;
 export type BodyConfiguracionCategoria = z.infer<typeof esquemaBodyConfiguracionCategoria>;

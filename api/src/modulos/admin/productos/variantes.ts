@@ -39,6 +39,7 @@ interface ValorResuelto {
   codigo: string | null;
   hex: string | null;
   orden: number;
+  activo: boolean;
   atributoId: string;
   atributoSlug: string;
   atributoNombre: string;
@@ -76,6 +77,7 @@ async function resolverValores(
       codigo: true,
       hex: true,
       orden: true,
+      activo: true,
       atributo: { select: { id: true, slug: true, nombre: true } },
     },
   });
@@ -91,6 +93,7 @@ async function resolverValores(
         codigo: fila.codigo,
         hex: fila.hex,
         orden: fila.orden,
+        activo: fila.activo,
         atributoId: fila.atributo.id,
         atributoSlug: fila.atributo.slug,
         atributoNombre: fila.atributo.nombre,
@@ -144,7 +147,10 @@ function conflictoSkus(skus: string[]): ErrorApi {
 
 // Atributos que la categoría del producto usa y valores que permite. Las
 // variantes nuevas se validan contra esto (ver lib/atributosCategoria.ts).
-async function atributosDelProducto(tx: Cliente, productoId: string): Promise<AtributoDeCategoria[]> {
+async function atributosDelProducto(
+  tx: Cliente,
+  productoId: string,
+): Promise<AtributoDeCategoria[]> {
   const producto = await tx.producto.findUniqueOrThrow({
     where: { id: productoId },
     select: { categoriaId: true },
@@ -168,7 +174,7 @@ export async function insertarVariantes(
   );
   const atributos = await atributosDelProducto(tx, productoId);
   for (const variante of variantes) {
-    validarValoresParaCategoria(atributos, variante.valorIds, (id) => valores.get(id)!.valor);
+    validarValoresParaCategoria(atributos, variante.valorIds, (id) => valores.get(id)!);
   }
 
   const preparadas = variantes.map((variante) => ({
@@ -363,7 +369,7 @@ async function armarCombinaciones(
       validarValoresParaCategoria(
         atributosCategoria,
         valoresCombinacion.map((v) => v.id),
-        (id) => valor(id).valor,
+        valor,
       );
       combinaciones.push({
         longitud: { id: longitud.valor.id, valor: longitud.valor.valor },

@@ -37,6 +37,10 @@ describeConDbReal('POST /api/admin/productos/:id/variantes con el payload del fo
   let token: string;
   let usuarioAdminId: string;
   let rolId: string;
+  // Segundo admin con productos.editar (el primero solo tiene crear).
+  let tokenEditor: string;
+  let editorId: string;
+  let rolEditorId: string;
   let categoriaId: string;
   let productoId: string;
   const idsValor: string[] = [];
@@ -69,6 +73,36 @@ describeConDbReal('POST /api/admin/productos/:id/variantes con el payload del fo
     ).id;
     await prisma.usuarioAdminRol.create({ data: { usuarioAdminId, rolId } });
     token = firmarAccessTokenAdmin(usuarioAdminId);
+
+    const permisosEditor = await Promise.all(
+      ['productos.ver', 'productos.editar'].map((clave) =>
+        prisma.permiso.upsert({
+          where: { clave },
+          update: {},
+          create: { clave, modulo: 'productos', descripcion: clave },
+        }),
+      ),
+    );
+    rolEditorId = (
+      await prisma.rol.create({
+        data: {
+          nombre: `Rol editor ${SUFIJO}`,
+          slug: `rol-editor-${SUFIJO}`,
+          permisos: { create: permisosEditor.map((p) => ({ permisoId: p.id })) },
+        },
+      })
+    ).id;
+    editorId = (
+      await prisma.usuarioAdmin.create({
+        data: {
+          nombre: 'Editor HTTP',
+          correo: `editor-${SUFIJO}@example.com`,
+          claveHash: 'no-usado',
+        },
+      })
+    ).id;
+    await prisma.usuarioAdminRol.create({ data: { usuarioAdminId: editorId, rolId: rolEditorId } });
+    tokenEditor = firmarAccessTokenAdmin(editorId);
 
     categoriaId = (
       await prisma.categoria.create({
@@ -129,9 +163,11 @@ describeConDbReal('POST /api/admin/productos/:id/variantes con el payload del fo
     await prisma.producto.deleteMany({ where: { id: productoId } });
     await prisma.valorAtributo.deleteMany({ where: { id: { in: idsValor } } });
     await prisma.categoria.deleteMany({ where: { id: categoriaId } });
-    await prisma.usuarioAdminRol.deleteMany({ where: { usuarioAdminId } });
-    await prisma.usuarioAdmin.deleteMany({ where: { id: usuarioAdminId } });
-    await prisma.rol.deleteMany({ where: { id: rolId } });
+    await prisma.usuarioAdminRol.deleteMany({
+      where: { usuarioAdminId: { in: [usuarioAdminId, editorId] } },
+    });
+    await prisma.usuarioAdmin.deleteMany({ where: { id: { in: [usuarioAdminId, editorId] } } });
+    await prisma.rol.deleteMany({ where: { id: { in: [rolId, rolEditorId] } } });
     await prisma.$disconnect();
   });
 
@@ -154,6 +190,50 @@ describeConDbReal('POST /api/admin/productos/:id/variantes con el payload del fo
     expect(respuesta.body.precioActual).toBe(990000);
     expect(respuesta.body.costoActual).toBe(350000);
     expect(respuesta.body.stockActual).toBe(3);
+  });
+
+  it('un color desactivado se rechaza al crear; la variante que ya lo usa sigue igual', async () => {
+    const colorId = idsValor[2]!;
+    await prisma.valorAtributo.update({ where: { id: colorId }, data: { activo: false } });
+    try {
+      const respuesta = await request(app)
+        .post(`/api/admin/productos/${productoId}/variantes`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ ...contrato.payload, valoresAtributo: idsValor });
+
+      expect(respuesta.status).toBe(400);
+      expect(respuesta.body.error.mensaje).toMatch(/está desactivado/);
+      // La variante creada antes con ese color no se toca.
+      const existente = await prisma.varianteProducto.findFirst({
+        where: { productoId, valoresAtributo: { some: { valorId: colorId } } },
+        select: { activa: true },
+      });
+      expect(existente).toEqual({ activa: true });
+    } finally {
+      await prisma.valorAtributo.update({ where: { id: colorId }, data: { activo: true } });
+    }
+  });
+
+  it('PATCH de activo: 403 con solo productos.crear, 200 con productos.editar', async () => {
+    const colorId = idsValor[2]!;
+    const sinEditar = await request(app)
+      .patch(`/api/admin/atributos/valores/${colorId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ activo: false });
+    expect(sinEditar.status).toBe(403);
+
+    const conEditar = await request(app)
+      .patch(`/api/admin/atributos/valores/${colorId}`)
+      .set('Authorization', `Bearer ${tokenEditor}`)
+      .send({ activo: false });
+    expect(conEditar.status).toBe(200);
+    expect(conEditar.body).toMatchObject({ id: colorId, activo: false });
+
+    const reactivado = await request(app)
+      .patch(`/api/admin/atributos/valores/${colorId}`)
+      .set('Authorization', `Bearer ${tokenEditor}`)
+      .send({ activo: true });
+    expect(reactivado.body.activo).toBe(true);
   });
 
   it('un 400 de validación dice qué campos fallaron, sin los issues crudos de Zod', async () => {

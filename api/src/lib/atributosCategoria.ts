@@ -10,6 +10,10 @@ import { ErrorApi } from './errorApi.js';
 // "Longitud" es UN atributo con todos sus valores; cada categoría declara
 // cuáles ofrece. Así el filtro del catálogo por 24" encuentra pelucas,
 // frontales y extensiones a la vez.
+//
+// Una sola regla de lectura para todos los atributos, color incluido: lo
+// permitido es lo que está en categoria_valor_atributo Y activo. Que color
+// sea universal se resuelve al escribir (servicioAtributos.ts), no acá.
 
 export interface ValorPermitido {
   id: string;
@@ -42,6 +46,9 @@ export async function atributosDeCategoria(
       obligatorio: true,
       atributo: { select: { id: true, slug: true, nombre: true } },
       valoresPermitidos: {
+        // Un valor desactivado no se ofrece ni se acepta en variantes
+        // nuevas; las que ya lo usan no pasan por acá y siguen igual.
+        where: { valorAtributo: { activo: true } },
         select: {
           valorAtributo: {
             select: { id: true, valor: true, hex: true, codigo: true, orden: true },
@@ -56,9 +63,7 @@ export async function atributosDeCategoria(
     nombre: fila.atributo.nombre,
     orden: fila.orden,
     obligatorio: fila.obligatorio,
-    valores: fila.valoresPermitidos
-      .map((p) => p.valorAtributo)
-      .sort((a, b) => a.orden - b.orden),
+    valores: fila.valoresPermitidos.map((p) => p.valorAtributo).sort((a, b) => a.orden - b.orden),
   }));
 }
 
@@ -69,7 +74,7 @@ export async function atributosDeCategoria(
 export function validarValoresParaCategoria(
   atributos: AtributoDeCategoria[],
   valorIds: string[],
-  nombreDeValor: (id: string) => string,
+  describirValor: (id: string) => { valor: string; activo: boolean },
 ): void {
   const atributoPorValor = new Map<string, AtributoDeCategoria>();
   for (const atributo of atributos) {
@@ -77,9 +82,18 @@ export function validarValoresParaCategoria(
   }
 
   const noPermitidos = valorIds.filter((id) => !atributoPorValor.has(id));
+  const desactivados = noPermitidos.filter((id) => !describirValor(id).activo);
+  if (desactivados.length > 0) {
+    const nombres = desactivados.map((id) => describirValor(id).valor).join(', ');
+    throw ErrorApi.peticionInvalida(
+      desactivados.length === 1
+        ? `${nombres} está desactivado: no se pueden crear variantes nuevas con ese valor`
+        : `Están desactivados: ${nombres}. No se pueden crear variantes nuevas con esos valores`,
+    );
+  }
   if (noPermitidos.length > 0) {
     throw ErrorApi.peticionInvalida(
-      `La categoría de este producto no permite: ${noPermitidos.map(nombreDeValor).join(', ')}`,
+      `La categoría de este producto no permite: ${noPermitidos.map((id) => describirValor(id).valor).join(', ')}`,
     );
   }
 

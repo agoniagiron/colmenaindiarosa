@@ -4,6 +4,7 @@ import * as servicio from './servicio.js';
 import * as servicioAtributos from './servicioAtributos.js';
 import * as variantes from './variantes.js';
 import type {
+  BodyActivoValor,
   BodyConfiguracionCategoria,
   BodyCrearLote,
   BodyCrearProducto,
@@ -118,6 +119,12 @@ export async function listarAtributos(req: Request, res: Response): Promise<void
 export async function crearValorAtributo(req: Request, res: Response): Promise<void> {
   const datos = req.body as BodyCrearValorAtributo;
   res.status(201).json(await servicioAtributos.crearValorAtributo(datos));
+}
+
+export async function cambiarActivoValor(req: Request, res: Response): Promise<void> {
+  const valorId = req.params.valorId as string;
+  const { activo } = req.body as BodyActivoValor;
+  res.json(await servicioAtributos.cambiarActivoValor(valorId, activo));
 }
 
 export async function obtenerConfiguracionAtributos(_req: Request, res: Response): Promise<void> {

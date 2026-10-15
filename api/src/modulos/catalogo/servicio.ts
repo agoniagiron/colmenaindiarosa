@@ -212,7 +212,10 @@ function precioConPromocion(
     productoId: contexto.productoId,
     categoriaId: contexto.categoriaId,
   });
-  return { promo, cop: promo ? aplicarPromocionAPrecio(variante.precioActual, promo) : variante.precioActual };
+  return {
+    promo,
+    cop: promo ? aplicarPromocionAPrecio(variante.precioActual, promo) : variante.precioActual,
+  };
 }
 
 interface ProductoParaMostrar {
@@ -327,8 +330,7 @@ function mapearProducto(
     slug: producto.slug,
     descripcion: producto.descripcion,
     categoriaId: producto.categoriaId,
-    precioBase:
-      varianteMostrada?.precioConDescuento ?? calcularPrecioDualConTasa(0, null, tasaUsd),
+    precioBase: varianteMostrada?.precioConDescuento ?? calcularPrecioDualConTasa(0, null, tasaUsd),
     // true solo si hay más de un precio y el mostrado es el mínimo: la
     // tarjeta antepone "desde". Si la principal es más cara, número solo.
     desde: mostrada.desde,
@@ -537,11 +539,18 @@ export async function listarFacetas(filtros: FiltrosProducto) {
       }
     }
 
-    resultado[clave] = atributo.valoresAtributo.map((valor) => ({
-      valor: valor.valor,
-      ...(valor.hex ? { hex: valor.hex } : {}),
-      conteo: conteoPorValor.get(valor.id) ?? 0,
-    }));
+    // Solo los valores que tienen variantes de verdad con estos filtros: un
+    // color recién creado (o uno sin productos) no aparece como opción que
+    // al hacer clic no devuelve nada. Los que la persona ya eligió se
+    // muestran igual, aunque den 0, para que pueda sacarlos.
+    const elegidos = new Set(filtros[clave] ?? []);
+    resultado[clave] = atributo.valoresAtributo
+      .filter((valor) => conteoPorValor.has(valor.id) || elegidos.has(valor.valor))
+      .map((valor) => ({
+        valor: valor.valor,
+        ...(valor.hex ? { hex: valor.hex } : {}),
+        conteo: conteoPorValor.get(valor.id) ?? 0,
+      }));
   }
 
   return resultado;

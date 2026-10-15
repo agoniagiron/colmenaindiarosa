@@ -28,6 +28,9 @@ la tienda confirma disponibilidad y forma de pago por chat.
 - Los totales los calcula únicamente el backend. El frontend muestra lo que
   devuelve la API, nunca recalcula ni envía precios.
 - El stock se reserva al crear el pedido, no al confirmarlo por WhatsApp.
+- Desactivar un valor de atributo impide crear variantes nuevas con él,
+  pero no toca las que ya existen, que siguen visibles y vendibles. Es
+  deliberado.
 - El número de WhatsApp de la tienda vive en la variable de entorno
   NUMERO_WHATSAPP. Nunca escrito en el código.
 
