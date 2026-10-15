@@ -1,8 +1,10 @@
 import type { Request, Response } from 'express';
 import { obtenerIpHash } from '../../../lib/ip.js';
 import * as servicio from './servicio.js';
+import * as servicioAtributos from './servicioAtributos.js';
 import * as variantes from './variantes.js';
 import type {
+  BodyConfiguracionCategoria,
   BodyCrearLote,
   BodyCrearProducto,
   BodyCrearValorAtributo,
@@ -15,6 +17,7 @@ import type {
   BodyPrecioVariante,
   BodyPrevisualizarLote,
   BodyVariantePrincipal,
+  QueryAtributos,
   QueryListadoProductos,
 } from './esquemas.js';
 
@@ -107,12 +110,22 @@ export async function cambiarPrecioVariante(req: Request, res: Response): Promis
   res.json(variante);
 }
 
-export async function listarAtributos(_req: Request, res: Response): Promise<void> {
-  res.json(await servicio.listarAtributos());
+export async function listarAtributos(req: Request, res: Response): Promise<void> {
+  const query = req.queryValidada as QueryAtributos;
+  res.json(await servicio.listarAtributos(query.categoriaId));
 }
 
 export async function crearValorAtributo(req: Request, res: Response): Promise<void> {
   const datos = req.body as BodyCrearValorAtributo;
-  const valor = await servicio.crearValorAtributo(datos);
-  res.status(201).json(valor);
+  res.status(201).json(await servicioAtributos.crearValorAtributo(datos));
+}
+
+export async function obtenerConfiguracionAtributos(_req: Request, res: Response): Promise<void> {
+  res.json(await servicioAtributos.obtenerConfiguracionAtributos());
+}
+
+export async function guardarConfiguracionCategoria(req: Request, res: Response): Promise<void> {
+  const categoriaId = req.params.categoriaId as string;
+  const datos = req.body as BodyConfiguracionCategoria;
+  res.json(await servicioAtributos.guardarConfiguracionCategoria(categoriaId, datos));
 }

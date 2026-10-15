@@ -1,4 +1,9 @@
 import { Prisma } from '@prisma/client';
+import {
+  atributosDeCategoria,
+  validarValoresParaCategoria,
+} from '../../../lib/atributosCategoria.js';
+import type { AtributoDeCategoria } from '../../../lib/atributosCategoria.js';
 import { ErrorApi } from '../../../lib/errorApi.js';
 import { prisma } from '../../../lib/prisma.js';
 import type { BodyCrearLote, BodyPrevisualizarLote } from './esquemas.js';
@@ -137,6 +142,16 @@ function conflictoSkus(skus: string[]): ErrorApi {
   );
 }
 
+// Atributos que la categoría del producto usa y valores que permite. Las
+// variantes nuevas se validan contra esto (ver lib/atributosCategoria.ts).
+async function atributosDelProducto(tx: Cliente, productoId: string): Promise<AtributoDeCategoria[]> {
+  const producto = await tx.producto.findUniqueOrThrow({
+    where: { id: productoId },
+    select: { categoriaId: true },
+  });
+  return atributosDeCategoria(tx, producto.categoriaId);
+}
+
 // Núcleo compartido. Corre dentro de la transacción de quien llama: si algo
 // falla, no queda ninguna variante a medias. Devuelve los ids en el mismo
 // orden que `variantes`.
@@ -151,6 +166,10 @@ export async function insertarVariantes(
     tx,
     variantes.flatMap((v) => v.valorIds),
   );
+  const atributos = await atributosDelProducto(tx, productoId);
+  for (const variante of variantes) {
+    validarValoresParaCategoria(atributos, variante.valorIds, (id) => valores.get(id)!.valor);
+  }
 
   const preparadas = variantes.map((variante) => ({
     ...variante,
@@ -300,7 +319,11 @@ async function armarCombinaciones(
     }
   }
   // Un valor por atributo entre los fijos: lo valida skuDeValores más
-  // abajo, que recibe largo + color + fijos de cada combinación.
+  // abajo, que recibe largo + color + fijos de cada combinación. Que cada
+  // valor esté permitido en la categoría y que estén todos los obligatorios,
+  // lo valida validarValoresParaCategoria: el mismo control que al crear,
+  // así la vista previa avisa antes y no recién al confirmar.
+  const atributosCategoria = await atributosDelProducto(tx, productoId);
 
   // Una variante existente "es" esta combinación si tiene el mismo largo y
   // el mismo color (o ninguno, cuando el lote no varía por color): es la
@@ -337,6 +360,11 @@ async function armarCombinaciones(
   for (const longitud of longitudes) {
     for (const color of colores) {
       const valoresCombinacion = [longitud.valor, ...(color ? [color] : []), ...fijos];
+      validarValoresParaCategoria(
+        atributosCategoria,
+        valoresCombinacion.map((v) => v.id),
+        (id) => valor(id).valor,
+      );
       combinaciones.push({
         longitud: { id: longitud.valor.id, valor: longitud.valor.valor },
         color: color ? { id: color.id, valor: color.valor, hex: color.hex } : null,

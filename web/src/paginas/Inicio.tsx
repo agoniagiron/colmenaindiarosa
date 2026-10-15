@@ -100,7 +100,8 @@ function SeccionHeroe() {
             <br />y brilla al instante
           </h1>
           <p className="mt-5 line-clamp-3 max-w-[38ch] text-[15.5px] text-texto-secundario">
-            Cabello 100% humano Remy, indetectable y listo para usar (Glueless). Selecciona tu color ideal y nosotras hacemos el resto.
+            Cabello 100% humano Remy, indetectable y listo para usar (Glueless). Selecciona tu color
+            ideal y nosotras hacemos el resto.
           </p>
 
           {cargando || !tono ? (
@@ -151,7 +152,11 @@ function SeccionHeroe() {
                 })}
               </div>
 
-              <div role="group" aria-label="Elegir tono de cabello" className="mt-8 hidden flex-col gap-1 lg:flex">
+              <div
+                role="group"
+                aria-label="Elegir tono de cabello"
+                className="mt-8 hidden flex-col gap-1 lg:flex"
+              >
                 {tonos!.map((item) => {
                   const activo = item.nombre === tono.nombre;
                   return (
@@ -280,8 +285,9 @@ function BarraEntrega() {
     <section className="border-y border-linea py-5">
       <Contenedor className="flex flex-wrap items-center gap-3.5 text-[14.5px]">
         <span>
-          Envío seguro de <strong className="font-medium text-rosa">{formatearMonto(envioCosto)}</strong> a
-          toda Colombia.
+          Envío seguro de{' '}
+          <strong className="font-medium text-rosa">{formatearMonto(envioCosto)}</strong> a toda
+          Colombia.
         </span>
 
         <label className="flex items-center gap-2">
@@ -312,7 +318,10 @@ function BarraEntrega() {
               Compras sobre{' '}
               <strong className="font-medium text-rosa">{formatearMonto(descuentoUmbral)}</strong>{' '}
               tienen un{' '}
-              <strong className="font-medium text-rosa">{descuentoPorcentaje}% de descuento automático</strong>.
+              <strong className="font-medium text-rosa">
+                {descuentoPorcentaje}% de descuento automático
+              </strong>
+              .
             </span>
           </>
         ) : null}
@@ -358,9 +367,12 @@ function SeccionLimitadas() {
     <section className="border-t border-linea bg-arena py-16 sm:py-20">
       <Contenedor>
         <div className="max-w-[46ch]">
-          <h2 className="font-serif text-3xl text-tinta sm:text-4xl">Piezas Exclusivas (Stock Limitado)</h2>
+          <h2 className="font-serif text-3xl text-tinta sm:text-4xl">
+            Piezas Exclusivas (Stock Limitado)
+          </h2>
           <p className="mt-2 text-sm text-texto-secundario">
-            Lotes premium irrepetibles. Si te enamoras de una, asegúrala antes de que desaparezca del catálogo para siempre.
+            Lotes premium irrepetibles. Si te enamoras de una, asegúrala antes de que desaparezca
+            del catálogo para siempre.
           </p>
         </div>
 
@@ -418,6 +430,9 @@ function TarjetaLimitada({
           </div>
         ) : null}
         <span className="mt-auto pt-1 text-lg font-medium text-tinta">
+          {edicion.precioDesde ? (
+            <span className="mr-1 text-sm font-normal text-texto-secundario">desde</span>
+          ) : null}
           {formatearDual(edicion.precio)}
         </span>
       </div>
@@ -463,9 +478,12 @@ function SeccionKits() {
     <section className="py-16 sm:py-20">
       <Contenedor>
         <div className="max-w-[46ch]">
-          <h2 className="font-serif text-3xl text-tinta sm:text-4xl">Nuestros Favoritos (Ahorra más)</h2>
+          <h2 className="font-serif text-3xl text-tinta sm:text-4xl">
+            Nuestros Favoritos (Ahorra más)
+          </h2>
           <p className="mt-2 text-sm text-texto-secundario">
-            El estilo que buscas con todo lo que necesitas para un acabado de salón, a un precio irresistible.
+            El estilo que buscas con todo lo que necesitas para un acabado de salón, a un precio
+            irresistible.
           </p>
         </div>
 
@@ -626,28 +644,35 @@ function SeccionMarca() {
         <div>
           <h2 className="font-serif text-3xl text-tinta sm:text-4xl">La experiencia India Rosa</h2>
           <p className="mt-4 max-w-[52ch] text-[15px] text-texto-secundario">
-            Nacimos en Cali vendiendo por WhatsApp gracias a las recomendaciones de nuestras clientas. 
-            Mantenemos esa misma cercanía: revisamos meticulosamente cada peluca antes del envío y te 
-            asesoramos personalmente en talla, densidad y tono.
+            Nacimos en Cali vendiendo por WhatsApp gracias a las recomendaciones de nuestras
+            clientas. Mantenemos esa misma cercanía: revisamos meticulosamente cada peluca antes del
+            envío y te asesoramos personalmente en talla, densidad y tono.
           </p>
           <p className="mt-3 max-w-[52ch] text-[15px] text-texto-secundario">
-            Trabajamos exclusivamente con cabello humano Remy de la más alta calidad: puedes plancharlo, 
-            ondularlo y teñirlo sin miedo. No vendemos absolutamente nada que no usaríamos nosotras mismas.
+            Trabajamos exclusivamente con cabello humano Remy de la más alta calidad: puedes
+            plancharlo, ondularlo y teñirlo sin miedo. No vendemos absolutamente nada que no
+            usaríamos nosotras mismas.
           </p>
 
           <div className="mt-8 flex flex-wrap gap-11">
             <div>
               <p className="font-serif text-3xl text-rosa">+1.400</p>
-              <span className="text-[13px] font-medium text-texto-secundario">clientas enamoradas</span>
+              <span className="text-[13px] font-medium text-texto-secundario">
+                clientas enamoradas
+              </span>
             </div>
             <div>
               <p className="font-serif text-3xl text-rosa">4,8</p>
-              <span className="text-[13px] font-medium text-texto-secundario">estrellas de satisfacción</span>
+              <span className="text-[13px] font-medium text-texto-secundario">
+                estrellas de satisfacción
+              </span>
             </div>
             {rangoEntrega ? (
               <div>
                 <p className="font-serif text-3xl text-rosa">{rangoEntrega}</p>
-                <span className="text-[13px] font-medium text-texto-secundario">días hábiles de entrega</span>
+                <span className="text-[13px] font-medium text-texto-secundario">
+                  días hábiles de entrega
+                </span>
               </div>
             ) : null}
           </div>

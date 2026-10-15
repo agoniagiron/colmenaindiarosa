@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Boton } from './Boton.tsx';
+import { clasesBoton } from './clasesBoton.ts';
 import { Estrellas } from './Estrellas.tsx';
 import { ImagenProducto } from './ImagenProducto.tsx';
 import { useCarrito } from '../contexto/ContextoCarrito.tsx';
@@ -24,8 +25,7 @@ export function TarjetaProducto({ producto }: TarjetaProductoProps) {
     varianteMostrada &&
     varianteMostrada.precioOriginal.cop > varianteMostrada.precioConDescuento.cop;
   const mostradaConStock =
-    varianteMostrada !== null &&
-    varianteMostrada.stockActual - varianteMostrada.stockReservado > 0;
+    varianteMostrada !== null && varianteMostrada.stockActual - varianteMostrada.stockReservado > 0;
   const agotado = producto.variantes.every(
     (variante) => variante.stockActual - variante.stockReservado <= 0,
   );
@@ -34,8 +34,10 @@ export function TarjetaProducto({ producto }: TarjetaProductoProps) {
   // orden asc — ver catalogo/servicio.ts).
   const imagenPrincipal = producto.imagenes[0];
 
-  // El botón agrega la variante mostrada, la misma del precio. Si no tiene
-  // stock no se ofrece: antes agregaba sin mirar y fallaba con una agotada.
+  // Con más de una variante, el botón lleva a la ficha: la clienta todavía
+  // no eligió largo ni color, y agregarle una variante sería adivinar por
+  // ella. Con una sola, agrega directo, y solo si tiene stock.
+  const variasVariantes = producto.variantes.length > 1;
   const { cargando: agregando, ejecutar: ejecutarAgregar } = useAccionAsincrona(
     async () => {
       if (!varianteMostrada || !mostradaConStock) return;
@@ -103,23 +105,33 @@ export function TarjetaProducto({ producto }: TarjetaProductoProps) {
       </Link>
 
       <div className="px-3 pb-3">
-        <Boton
-          type="button"
-          variante="rosa"
-          disabled={agotado || !mostradaConStock}
-          cargando={agregando}
-          onClick={() => void alAgregar()}
-          className="h-12 w-full"
-        >
-          {agotado ? (
-            'Agotado'
-          ) : (
-            <>
-              <span className="sm:hidden">Agregar</span>
-              <span className="hidden sm:inline">Agregar al carrito</span>
-            </>
-          )}
-        </Boton>
+        {variasVariantes ? (
+          <Link
+            to={`/producto/${producto.slug}`}
+            aria-label={`Ver opciones de ${producto.nombre}`}
+            className={clasesBoton('rosa', 'h-12 w-full')}
+          >
+            Ver opciones
+          </Link>
+        ) : (
+          <Boton
+            type="button"
+            variante="rosa"
+            disabled={agotado || !mostradaConStock}
+            cargando={agregando}
+            onClick={() => void alAgregar()}
+            className="h-12 w-full"
+          >
+            {agotado || !mostradaConStock ? (
+              'Agotado'
+            ) : (
+              <>
+                <span className="sm:hidden">Agregar</span>
+                <span className="hidden sm:inline">Agregar al carrito</span>
+              </>
+            )}
+          </Boton>
+        )}
       </div>
     </article>
   );

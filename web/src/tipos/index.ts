@@ -59,6 +59,10 @@ export interface Producto {
   // La variante de precioBase. La ficha abre en esta y el botón de la
   // tarjeta agrega esta. null si el producto no tiene variantes activas.
   varianteMostradaId: string | null;
+  // Solo en el detalle: slugs de los atributos de la categoría, en el orden
+  // configurado en el panel. Es el orden y la jerarquía del selector de la
+  // ficha.
+  ordenAtributos?: string[];
   calificacion: number;
   cantidadResenas: number;
   destacado: boolean;
@@ -173,7 +177,12 @@ export interface EdicionLimitada {
     // indicador "1/N" en táctil sin traer la galería completa.
     cantidadImagenes: number;
   };
+  // El precio del producto, con la misma regla que la tarjeta del catálogo
+  // (variante principal y su promoción). La limitada no tiene precio propio.
   precio: PrecioDual;
+  // true si hay más de un precio y este es el mínimo: se antepone "desde".
+  // No confundir con `desde`, la fecha de inicio del lote.
+  precioDesde: boolean;
 }
 
 export interface ItemCombo {

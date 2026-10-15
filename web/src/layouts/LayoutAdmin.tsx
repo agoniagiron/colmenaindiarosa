@@ -50,6 +50,13 @@ const GRUPOS_ADMIN: GrupoAdmin[] = [
         construido: true,
       },
       {
+        etiqueta: 'Atributos',
+        to: '/admin/atributos',
+        fin: false,
+        permiso: 'productos.ver',
+        construido: true,
+      },
+      {
         etiqueta: 'Promociones',
         to: '/admin/promociones',
         fin: false,

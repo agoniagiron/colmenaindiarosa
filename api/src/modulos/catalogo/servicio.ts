@@ -1,4 +1,5 @@
 import { Prisma } from '@prisma/client';
+import { atributosDeCategoria } from '../../lib/atributosCategoria.js';
 import { extraerAtributosVariante } from '../../lib/atributosVariante.js';
 import { calcularPrecioDualConTasa, obtenerTasaUsdVigente } from '../../lib/moneda.js';
 import { prisma } from '../../lib/prisma.js';
@@ -237,6 +238,33 @@ function varianteMostradaDe(
     })),
     producto.variantePrincipalId,
   );
+}
+
+// Precio de tarjeta completo (COP y USD) para quien muestra un producto
+// fuera del catálogo, como las ediciones limitadas: la misma variante y el
+// mismo número que la tarjeta del catálogo y la ficha. Mismo armado del USD
+// que mapearVariante: con promoción, el USD sale de la tasa vigente.
+export function precioDeTarjeta(
+  producto: Omit<ProductoParaMostrar, 'variantes'> & {
+    variantes: (ProductoParaMostrar['variantes'][number] & { precioUsd: number | null })[];
+  },
+  promociones: PromocionVigente[],
+  tasaUsd: number,
+) {
+  const mostrada = varianteMostradaDe(producto, promociones);
+  const variante = producto.variantes.find((v) => v.id === mostrada.varianteId);
+  const { promo } = variante
+    ? precioConPromocion(variante, { ...producto, productoId: producto.id, promociones })
+    : { promo: null };
+  return {
+    precio: calcularPrecioDualConTasa(
+      mostrada.precio,
+      promo ? null : (variante?.precioUsd ?? null),
+      tasaUsd,
+    ),
+    desde: mostrada.desde,
+    varianteId: mostrada.varianteId,
+  };
 }
 
 function precioMostradoEnRango(precio: number, filtros: FiltrosProducto): boolean {
@@ -530,11 +558,17 @@ export async function obtenerProductoPorSlug(slug: string) {
   });
   if (!producto) return null;
 
-  const [promociones, tasaUsd] = await Promise.all([
+  const [promociones, tasaUsd, atributos] = await Promise.all([
     listarPromocionesVigentes(),
     obtenerTasaUsdVigente(),
+    atributosDeCategoria(prisma, producto.categoriaId),
   ]);
-  return mapearProducto(producto, promociones, tasaUsd);
+  return {
+    ...mapearProducto(producto, promociones, tasaUsd),
+    // Slugs de los atributos de la categoría, en el orden configurado en el
+    // panel: es el orden (y la jerarquía) del selector de la ficha.
+    ordenAtributos: atributos.map((a) => a.slug),
+  };
 }
 
 export async function listarRelacionados(slug: string) {

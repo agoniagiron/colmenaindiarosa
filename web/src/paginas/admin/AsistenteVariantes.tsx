@@ -250,7 +250,8 @@ export function AsistenteVariantes({
     return (
       <section className="rounded-lg border border-linea bg-arena p-5">
         <p className="text-sm text-tinta">
-          No existe el atributo de longitud: sin él el asistente no puede armar combinaciones.
+          La categoría de este producto no usa longitud, y el asistente arma las variantes por
+          longitud (el precio se define por largo). Usá &quot;Agregar una variante&quot;.
         </p>
         <div className="mt-4">
           <Boton type="button" variante="fantasma" onClick={onCancelar}>
@@ -260,6 +261,19 @@ export function AsistenteVariantes({
       </section>
     );
   }
+
+  // El orden de la categoría decide si el color va arriba del largo.
+  const colorPrimero = !!atributoColor && atributoColor.orden < atributoLongitud.orden;
+
+  // Lo que falta para pasar al paso 2, con el nombre de cada cosa: los
+  // obligatorios de la categoría (el backend lo valida igual al crear).
+  const faltaEnPaso1 = [
+    ...(longitudes.length === 0 ? ['al menos una longitud'] : []),
+    ...(atributoColor?.obligatorio && colores.length === 0 ? ['al menos un color'] : []),
+    ...otrosAtributos
+      .filter((a) => a.obligatorio && !fijos[a.id])
+      .map((a) => a.nombre.toLowerCase()),
+  ];
 
   const pasos: { numero: Paso; titulo: string }[] = [
     { numero: 1, titulo: 'Largos y colores' },
@@ -293,51 +307,57 @@ export function AsistenteVariantes({
 
       {paso === 1 ? (
         <div className="flex flex-col gap-5">
-          <fieldset>
-            <legend className="mb-2 text-sm font-medium text-tinta">
-              Longitudes que maneja este modelo
-            </legend>
-            <div className="flex flex-wrap gap-2">
-              {atributoLongitud.valoresAtributo.map((v) => (
-                <Chip
-                  key={v.id}
-                  activo={longitudes.includes(v.id)}
-                  onClick={() => setLongitudes((l) => alternar(l, v.id))}
-                >
-                  {v.valor}
-                </Chip>
-              ))}
-            </div>
-          </fieldset>
-
-          {atributoColor ? (
+          {/* Longitud y color en el orden que configura la categoría (en
+              extensiones, primero el color). */}
+          <div className={`flex gap-5 ${colorPrimero ? 'flex-col-reverse' : 'flex-col'}`}>
             <fieldset>
               <legend className="mb-2 text-sm font-medium text-tinta">
-                Colores{' '}
-                <span className="font-normal text-texto-secundario">
-                  (si no elegís ninguno, una variante por longitud)
-                </span>
+                Longitudes que maneja este modelo
               </legend>
               <div className="flex flex-wrap gap-2">
-                {atributoColor.valoresAtributo.map((v) => (
+                {atributoLongitud.valoresAtributo.map((v) => (
                   <Chip
                     key={v.id}
-                    activo={colores.includes(v.id)}
-                    onClick={() => setColores((c) => alternar(c, v.id))}
+                    activo={longitudes.includes(v.id)}
+                    onClick={() => setLongitudes((l) => alternar(l, v.id))}
                   >
-                    {v.hex ? (
-                      <span
-                        aria-hidden="true"
-                        className="h-3.5 w-3.5 rounded-full border border-linea"
-                        style={{ backgroundColor: v.hex }}
-                      />
-                    ) : null}
                     {v.valor}
                   </Chip>
                 ))}
               </div>
             </fieldset>
-          ) : null}
+
+            {atributoColor ? (
+              <fieldset>
+                <legend className="mb-2 text-sm font-medium text-tinta">
+                  Colores{' '}
+                  <span className="font-normal text-texto-secundario">
+                    {atributoColor.obligatorio
+                      ? '(elegí al menos uno)'
+                      : '(si no elegís ninguno, una variante por longitud)'}
+                  </span>
+                </legend>
+                <div className="flex flex-wrap gap-2">
+                  {atributoColor.valoresAtributo.map((v) => (
+                    <Chip
+                      key={v.id}
+                      activo={colores.includes(v.id)}
+                      onClick={() => setColores((c) => alternar(c, v.id))}
+                    >
+                      {v.hex ? (
+                        <span
+                          aria-hidden="true"
+                          className="h-3.5 w-3.5 rounded-full border border-linea"
+                          style={{ backgroundColor: v.hex }}
+                        />
+                      ) : null}
+                      {v.valor}
+                    </Chip>
+                  ))}
+                </div>
+              </fieldset>
+            ) : null}
+          </div>
 
           {otrosAtributos.length > 0 ? (
             <fieldset>
@@ -354,9 +374,11 @@ export function AsistenteVariantes({
                     <select
                       value={fijos[atrib.id] ?? ''}
                       onChange={(e) => setFijos({ ...fijos, [atrib.id]: e.target.value })}
+                      required={atrib.obligatorio}
+                      aria-invalid={(atrib.obligatorio && !fijos[atrib.id]) || undefined}
                       className="rounded-lg border border-linea bg-hueso px-3 py-2 text-sm"
                     >
-                      <option value="">Sin valor</option>
+                      <option value="">{atrib.obligatorio ? 'Elegir…' : 'Sin valor'}</option>
                       {atrib.valoresAtributo.map((v) => (
                         <option key={v.id} value={v.id}>
                           {v.valor}
@@ -380,11 +402,17 @@ export function AsistenteVariantes({
               : 'combinaciones'}
           </p>
 
+          {faltaEnPaso1.length > 0 ? (
+            <p className="text-[13px] text-texto-secundario">
+              Para seguir falta elegir: {faltaEnPaso1.join(', ')}.
+            </p>
+          ) : null}
+
           <div className="flex justify-between gap-2">
             <Boton type="button" variante="fantasma" onClick={onCancelar}>
               Cancelar
             </Boton>
-            <Boton type="button" disabled={longitudes.length === 0} onClick={() => setPaso(2)}>
+            <Boton type="button" disabled={faltaEnPaso1.length > 0} onClick={() => setPaso(2)}>
               Siguiente
             </Boton>
           </div>

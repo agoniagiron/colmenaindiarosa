@@ -689,6 +689,7 @@ export const LIMITADAS: EdicionLimitada[] = [
       cantidadImagenes: 1,
     },
     precio: pd(610000),
+    precioDesde: false,
   },
   {
     id: 'lim-360-ondas',
@@ -709,6 +710,7 @@ export const LIMITADAS: EdicionLimitada[] = [
       cantidadImagenes: 1,
     },
     precio: pd(520000),
+    precioDesde: false,
   },
 ];
 

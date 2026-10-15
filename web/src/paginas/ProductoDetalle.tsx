@@ -18,6 +18,7 @@ import {
   elegirAlCambiar,
   estadoOpcion,
   GRUPOS_ATRIBUTO,
+  ordenDeGrupos,
   valorAtributo,
 } from './selectorVariantes.ts';
 import type { AjusteAutomatico, ClaveAtributo, EstadoOpcion } from './selectorVariantes.ts';
@@ -147,6 +148,7 @@ export function ProductoDetalle() {
       clave,
       valor,
       varianteActual,
+      ordenDeGrupos(producto.ordenAtributos),
     );
     // Si al elegir algo arriba cambió un grupo de abajo, se dice cuál y por
     // qué: nada se acomoda en silencio.
@@ -192,7 +194,11 @@ export function ProductoDetalle() {
     );
   }
 
-  const hayAtributos = GRUPOS_ATRIBUTO.some(
+  // El orden (y la jerarquía) del selector es el que configura la categoría
+  // en el panel; ver selectorVariantes.ts.
+  const orden = ordenDeGrupos(producto.ordenAtributos);
+  const grupos = orden.map((clave) => GRUPOS_ATRIBUTO.find((g) => g.clave === clave)!);
+  const hayAtributos = grupos.some(
     (grupo) => valoresDisponibles(producto.variantes, grupo.clave).length > 0,
   );
   const disponible = disponibleDe(varianteActual);
@@ -221,7 +227,7 @@ export function ProductoDetalle() {
 
           {hayAtributos ? (
             <div className="flex flex-col gap-5">
-              {GRUPOS_ATRIBUTO.map((grupo) => {
+              {grupos.map((grupo) => {
                 const valores = valoresDisponibles(producto.variantes, grupo.clave);
                 if (valores.length === 0) return null;
 
@@ -233,7 +239,7 @@ export function ProductoDetalle() {
                     valorActual={valorAtributo(varianteActual, grupo.clave)}
                     esColor={grupo.clave === 'color'}
                     estadoDe={(valor) =>
-                      estadoOpcion(producto.variantes, grupo.clave, valor, varianteActual)
+                      estadoOpcion(producto.variantes, grupo.clave, valor, varianteActual, orden)
                     }
                     aviso={avisoDeAjuste(ajustes.find((a) => a.clave === grupo.clave))}
                     hexDe={(valor) =>

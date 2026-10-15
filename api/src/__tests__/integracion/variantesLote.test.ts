@@ -16,8 +16,13 @@ if (DATABASE_URL_TEST) {
 const describeConDbReal = DATABASE_URL_TEST ? describe : describe.skip;
 
 const { prisma } = await import('../../lib/prisma.js');
-const { cambiarVariantePrincipal, crearVariante, editarVariante, obtenerDetalleProducto } =
-  await import('../../modulos/admin/productos/servicio.js');
+const {
+  cambiarVariantePrincipal,
+  crearVariante,
+  editarVariante,
+  listarAtributos,
+  obtenerDetalleProducto,
+} = await import('../../modulos/admin/productos/servicio.js');
 const { crearLote, previsualizarLote } = await import('../../modulos/admin/productos/variantes.js');
 
 const SUFIJO = `lote-${Date.now()}`;
@@ -36,7 +41,30 @@ describeConDbReal('Admin/Productos: variantes en lote contra PostgreSQL real', (
   const idsProducto: string[] = [];
   const idsValor: string[] = [];
 
+  let idsAtributo: { longitud: string; color: string; densidad: string };
+
   const codigoProducto = (modelo: string) => `IR-K${C}-${modelo}`;
+
+  // [atributoId, obligatorio, valores permitidos], en el orden en que se
+  // muestran.
+  async function configurarCategoria(
+    id: string,
+    atributos: [string, boolean, string[]][],
+  ): Promise<void> {
+    await prisma.categoriaAtributo.createMany({
+      data: atributos.map(([atributoId, obligatorio], i) => ({
+        categoriaId: id,
+        atributoId,
+        orden: i + 1,
+        obligatorio,
+      })),
+    });
+    await prisma.categoriaValorAtributo.createMany({
+      data: atributos.flatMap(([atributoId, , valores]) =>
+        valores.map((valorId) => ({ categoriaId: id, atributoId, valorId })),
+      ),
+    });
+  }
 
   async function productoNuevo(modelo: string | null) {
     const producto = await prisma.producto.create({
@@ -91,6 +119,17 @@ describeConDbReal('Admin/Productos: variantes en lote contra PostgreSQL real', (
     negro = await valor(color.id, 'Negro', `NEG${C}`, 1);
     miel = await valor(color.id, 'Miel', `MIE${C}`, 2);
     densidad = await valor(atributoDensidad.id, '180', null, 1);
+
+    // La categoría de prueba usa longitud, color y densidad, sin
+    // obligatorios (las pruebas de abajo crean variantes con distintos
+    // subconjuntos) y con todos los valores de esta corrida permitidos. Los
+    // obligatorios y los no permitidos se prueban aparte, con otra categoría.
+    await configurarCategoria(categoriaId, [
+      [longitud.id, false, [largo24, largo30, largoSinCodigo]],
+      [color.id, false, [negro, miel]],
+      [atributoDensidad.id, false, [densidad]],
+    ]);
+    idsAtributo = { longitud: longitud.id, color: color.id, densidad: atributoDensidad.id };
   });
 
   afterAll(async () => {
@@ -438,6 +477,91 @@ describeConDbReal('Admin/Productos: variantes en lote contra PostgreSQL real', (
       await expect(cambiarVariantePrincipal(uno, ajena.id)).rejects.toMatchObject({
         estadoHttp: 400,
       });
+    });
+  });
+
+  describe('atributos y valores por categoría', () => {
+    let otraCategoriaId: string;
+
+    beforeAll(async () => {
+      // Otra categoría: color primero y después longitud (como extensiones),
+      // los dos obligatorios, y solo el largo 24 permitido.
+      otraCategoriaId = (
+        await prisma.categoria.create({
+          data: { nombre: `Cat2 ${SUFIJO}`, slug: `cat2-${SUFIJO}`, codigo: `Q${C}` },
+        })
+      ).id;
+      await configurarCategoria(otraCategoriaId, [
+        [idsAtributo.color, true, [negro, miel]],
+        [idsAtributo.longitud, true, [largo24]],
+      ]);
+    });
+
+    afterAll(async () => {
+      await prisma.producto.deleteMany({ where: { categoriaId: otraCategoriaId } });
+      await prisma.categoria.deleteMany({ where: { id: otraCategoriaId } });
+    });
+
+    async function productoEnOtraCategoria(modelo: string) {
+      const producto = await prisma.producto.create({
+        data: {
+          nombre: `Extension ${SUFIJO} ${modelo}`,
+          slug: `extension-${SUFIJO}-${modelo.toLowerCase()}`,
+          categoriaId: otraCategoriaId,
+          codigoModelo: modelo,
+        },
+      });
+      return producto.id;
+    }
+
+    it('la lista de atributos de la categoría sale en su orden, con sus valores y si son obligatorios', async () => {
+      const atributos = await listarAtributos(otraCategoriaId);
+      expect(
+        atributos.map((a) => [a.slug, a.obligatorio, a.valoresAtributo.map((v) => v.id)]),
+      ).toEqual([
+        ['color', true, [negro, miel]],
+        ['longitud', true, [largo24]],
+      ]);
+    });
+
+    it('un valor que la categoría no permite se rechaza al crear, suelta o en lote', async () => {
+      const productoId = await productoEnOtraCategoria(`NP${C}`);
+      await expect(
+        crearVariante(
+          productoId,
+          { precio: 1, stockInicial: 0, puntoReorden: 0, valoresAtributo: [negro, largo30] },
+          usuarioAdminId,
+        ),
+      ).rejects.toMatchObject({ estadoHttp: 400, message: expect.stringMatching(/no permite/) });
+
+      await expect(
+        previsualizarLote(productoId, {
+          longitudes: [{ valorId: largo30, precio: 1 }],
+          colores: [negro],
+          fijos: [],
+        }),
+      ).rejects.toMatchObject({ estadoHttp: 400 });
+    });
+
+    it('falta un atributo obligatorio: 400 que dice cuál', async () => {
+      const productoId = await productoEnOtraCategoria(`OB${C}`);
+      await expect(
+        crearVariante(
+          productoId,
+          { precio: 1, stockInicial: 0, puntoReorden: 0, valoresAtributo: [largo24] },
+          usuarioAdminId,
+        ),
+      ).rejects.toMatchObject({ estadoHttp: 400, message: 'Falta elegir: color' });
+    });
+
+    it('con los valores permitidos y los obligatorios completos, se crea', async () => {
+      const productoId = await productoEnOtraCategoria(`OK${C}`);
+      const variante = await crearVariante(
+        productoId,
+        { precio: 1, stockInicial: 0, puntoReorden: 0, valoresAtributo: [miel, largo24] },
+        usuarioAdminId,
+      );
+      expect(variante.sku).toBe(`IR-Q${C}-OK${C}-24${C}-MIE${C}`);
     });
   });
 });

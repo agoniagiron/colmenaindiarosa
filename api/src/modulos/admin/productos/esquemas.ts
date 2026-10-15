@@ -101,10 +101,35 @@ export const esquemaBodyPreciosProducto = z.discriminatedUnion('modo', [
   }),
 ]);
 
+export const esquemaQueryAtributos = z.object({
+  categoriaId: z.string().uuid().optional(),
+});
+
 export const esquemaBodyCrearValorAtributo = z.object({
   atributoId: z.string().uuid(),
   valor: z.string().trim().min(1),
   hex: z.string().trim().min(1).nullable().optional(),
+  // Obligatorio para longitud y color (va en el SKU); lo valida el servicio.
+  codigo: z.string().trim().min(1).optional(),
+  // En qué categorías se habilita, en el mismo paso que se crea: un valor
+  // creado sin categoría no aparecería en ningún lado.
+  categoriaIds: z
+    .array(z.string().uuid())
+    .min(1, 'Elegí al menos una categoría donde habilitarlo'),
+});
+
+// Configuración completa de una categoría. El orden de la lista es el orden
+// en que se muestran los atributos (en el panel y en la ficha).
+export const esquemaBodyConfiguracionCategoria = z.object({
+  atributos: z
+    .array(
+      z.object({
+        atributoId: z.string().uuid(),
+        obligatorio: z.boolean(),
+        valorIds: z.array(z.string().uuid()),
+      }),
+    )
+    .max(20),
 });
 
 // --- Variantes en lote (asistente) ------------------------------------------
@@ -160,3 +185,5 @@ export type BodyEditarVariante = z.infer<typeof esquemaBodyEditarVariante>;
 export type BodyPrecioVariante = z.infer<typeof esquemaBodyPrecioVariante>;
 export type BodyPreciosProducto = z.infer<typeof esquemaBodyPreciosProducto>;
 export type BodyCrearValorAtributo = z.infer<typeof esquemaBodyCrearValorAtributo>;
+export type QueryAtributos = z.infer<typeof esquemaQueryAtributos>;
+export type BodyConfiguracionCategoria = z.infer<typeof esquemaBodyConfiguracionCategoria>;

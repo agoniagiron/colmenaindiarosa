@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes } from 'react';
+import { clasesBoton } from './clasesBoton.ts';
+import type { VarianteBoton } from './clasesBoton.ts';
 import { IndicadorCarga } from './IndicadorCarga.tsx';
-
-type VarianteBoton = 'rosa' | 'tinta' | 'fantasma' | 'whatsapp';
 
 interface BotonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variante?: VarianteBoton;
@@ -10,16 +10,6 @@ interface BotonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   // contenido sigue ocupando su lugar, solo se vuelve invisible).
   cargando?: boolean;
 }
-
-const CLASES_BASE =
-  'relative inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa focus-visible:ring-offset-2 focus-visible:ring-offset-hueso';
-
-const CLASES_VARIANTE: Record<VarianteBoton, string> = {
-  rosa: 'bg-rosa text-hueso hover:bg-rosa/90',
-  tinta: 'bg-negro text-hueso hover:bg-rosa',
-  fantasma: 'border border-linea bg-transparent text-tinta hover:bg-arena',
-  whatsapp: 'bg-whatsapp text-hueso hover:bg-whatsapp/90',
-};
 
 export function Boton({
   variante = 'rosa',
@@ -30,7 +20,7 @@ export function Boton({
   children,
   ...props
 }: BotonProps) {
-  const clases = `${CLASES_BASE} ${CLASES_VARIANTE[variante]} ${className}`.trim();
+  const clases = clasesBoton(variante, className);
 
   return (
     <button

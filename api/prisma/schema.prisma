@@ -10,11 +10,12 @@ datasource db {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model Atributo {
-  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nombre          String          @unique
-  slug            String          @unique
-  orden           Int             @default(0)
-  valoresAtributo ValorAtributo[]
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre              String              @unique
+  slug                String              @unique
+  orden               Int                 @default(0)
+  categoriasQueLoUsan CategoriaAtributo[]
+  valoresAtributo     ValorAtributo[]
 
   @@map("atributo")
 }
@@ -81,6 +82,7 @@ model Categoria {
   creadoEn            DateTime            @default(now()) @map("creado_en") @db.Timestamptz(6)
   actualizadoEn       DateTime            @default(now()) @map("actualizado_en") @db.Timestamptz(6)
   codigo              String?
+  atributos           CategoriaAtributo[]
   eventosAnalitica    EventoAnalitica[]
   productos           Producto[]
   promocionesObjetivo PromocionObjetivo[]
@@ -745,16 +747,18 @@ model Usuario {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model ValorAtributo {
-  id         String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  atributoId String                  @map("atributo_id") @db.Uuid
-  valor      String
-  hex        String?
-  orden      Int                     @default(0)
-  codigo     String?
-  atributo   Atributo                @relation(fields: [atributoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  variantes  VarianteValorAtributo[]
+  id                      String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  atributoId              String                   @map("atributo_id") @db.Uuid
+  valor                   String
+  hex                     String?
+  orden                   Int                      @default(0)
+  codigo                  String?
+  categoriasQueLoPermiten CategoriaValorAtributo[]
+  atributo                Atributo                 @relation(fields: [atributoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  variantes               VarianteValorAtributo[]
 
   @@unique([atributoId, valor])
+  @@unique([id, atributoId], map: "valor_atributo_id_atributo_key")
   @@map("valor_atributo")
 }
 
@@ -1080,6 +1084,34 @@ model ImagenCombo {
 
   @@index([comboId, orden], map: "idx_imagen_combo")
   @@map("imagen_combo")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CategoriaAtributo {
+  categoriaId       String                   @map("categoria_id") @db.Uuid
+  atributoId        String                   @map("atributo_id") @db.Uuid
+  orden             Int                      @default(0)
+  obligatorio       Boolean                  @default(true)
+  atributo          Atributo                 @relation(fields: [atributoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  categoria         Categoria                @relation(fields: [categoriaId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  valoresPermitidos CategoriaValorAtributo[]
+
+  @@id([categoriaId, atributoId])
+  @@map("categoria_atributo")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model CategoriaValorAtributo {
+  categoriaId       String            @map("categoria_id") @db.Uuid
+  atributoId        String            @map("atributo_id") @db.Uuid
+  valorId           String            @map("valor_id") @db.Uuid
+  categoriaAtributo CategoriaAtributo @relation(fields: [categoriaId, atributoId], references: [categoriaId, atributoId], onDelete: Cascade, onUpdate: NoAction)
+  valorAtributo     ValorAtributo     @relation(fields: [valorId, atributoId], references: [id, atributoId], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([categoriaId, valorId])
+  @@index([valorId], map: "idx_categoria_valor_atributo_valor")
+  @@map("categoria_valor_atributo")
 }
 
 enum AlcancePromocion {

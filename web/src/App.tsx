@@ -18,6 +18,7 @@ import { AdminPedidos } from './paginas/admin/AdminPedidos.tsx';
 import { AdminProductoDetalle } from './paginas/admin/AdminProductoDetalle.tsx';
 import { AdminProductos } from './paginas/admin/AdminProductos.tsx';
 import { AdminPromociones } from './paginas/admin/AdminPromociones.tsx';
+import { AdminAtributos } from './paginas/admin/AdminAtributos.tsx';
 import { AdminProveedores } from './paginas/admin/AdminProveedores.tsx';
 import { AdminAcceso } from './paginas/AdminAcceso.tsx';
 import { CarritoPagina } from './paginas/CarritoPagina.tsx';
@@ -77,6 +78,7 @@ export function ArbolRutas() {
                   <Route path="inventario" element={<AdminInventario />} />
                   <Route path="abastecimiento" element={<AdminAbastecimiento />} />
                   <Route path="proveedores" element={<AdminProveedores />} />
+                  <Route path="atributos" element={<AdminAtributos />} />
                   <Route path="pedidos" element={<AdminPedidos />} />
                   <Route path="pedidos/:numero" element={<AdminPedidoDetalle />} />
                   <Route path="productos" element={<AdminProductos />} />

@@ -478,22 +478,99 @@ export interface AtributoConValores {
   nombre: string;
   slug: string;
   orden: number;
+  // Solo viene al pedir los de una categoría: si cada variante nueva tiene
+  // que tener un valor de este atributo.
+  obligatorio?: boolean;
   valoresAtributo: ValorAtributoOpcion[];
 }
 
-export function listarAtributos(accessToken: string): Promise<AtributoConValores[]> {
-  return solicitar(BASE_ATRIBUTOS, '', accessToken);
+// Sin categoría: todos los atributos con todos sus valores (para editar una
+// variante existente, que puede usar un valor que su categoría ya no
+// permite). Con categoría: solo los que esa categoría usa, en su orden, con
+// sus valores permitidos (para crear variantes nuevas).
+export function listarAtributos(
+  accessToken: string,
+  categoriaId?: string,
+): Promise<AtributoConValores[]> {
+  return solicitar(
+    BASE_ATRIBUTOS,
+    categoriaId ? `?categoriaId=${encodeURIComponent(categoriaId)}` : '',
+    accessToken,
+  );
+}
+
+// --- Pantalla de atributos -----------------------------------------------------
+
+export interface ValorDeAtributo {
+  id: string;
+  valor: string;
+  hex: string | null;
+  codigo: string | null;
+  orden: number;
+}
+
+export interface AtributoConfigurable {
+  id: string;
+  slug: string;
+  nombre: string;
+  valores: ValorDeAtributo[];
+}
+
+// Un atributo dentro de una categoría. El orden es la posición en la lista.
+export interface AtributoEnCategoria {
+  atributoId: string;
+  obligatorio: boolean;
+  valorIds: string[];
+}
+
+export interface CategoriaConfigurada {
+  id: string;
+  slug: string;
+  nombre: string;
+  atributos: AtributoEnCategoria[];
+}
+
+export interface ConfiguracionAtributos {
+  atributos: AtributoConfigurable[];
+  categorias: CategoriaConfigurada[];
+}
+
+export function obtenerConfiguracionAtributos(
+  accessToken: string,
+): Promise<ConfiguracionAtributos> {
+  return solicitar(BASE_ATRIBUTOS, '/configuracion', accessToken);
+}
+
+// Reemplaza la configuración completa de la categoría.
+export function guardarConfiguracionCategoria(
+  accessToken: string,
+  categoriaId: string,
+  atributos: AtributoEnCategoria[],
+): Promise<ConfiguracionAtributos> {
+  return solicitar(
+    BASE_ATRIBUTOS,
+    `/categorias/${encodeURIComponent(categoriaId)}`,
+    accessToken,
+    { method: 'PUT', body: JSON.stringify({ atributos }) },
+  );
+}
+
+export interface DatosNuevoValor {
+  atributoId: string;
+  valor: string;
+  hex?: string;
+  codigo?: string;
+  // En qué categorías se habilita, en el mismo paso.
+  categoriaIds: string[];
 }
 
 export function crearValorAtributo(
   accessToken: string,
-  atributoId: string,
-  valor: string,
-  hex?: string | null,
-): Promise<ValorAtributoOpcion> {
+  datos: DatosNuevoValor,
+): Promise<ValorDeAtributo> {
   return solicitar(BASE_ATRIBUTOS, '', accessToken, {
     method: 'POST',
-    body: JSON.stringify({ atributoId, valor, hex: hex ?? undefined }),
+    body: JSON.stringify(datos),
   });
 }
 

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ArbolRutas } from '../App.tsx';
@@ -53,5 +53,22 @@ describe('Catálogo - filtros sincronizados con la URL', () => {
       expect(screen.getByTestId('ubicacion')).toHaveTextContent('/catalogo');
     });
     expect(screen.getByTestId('ubicacion')).not.toHaveTextContent('categoria');
+  });
+});
+
+describe('Catálogo - botón de la tarjeta', () => {
+  it('con varias variantes lleva a la ficha ("Ver opciones"); con una sola agrega directo', async () => {
+    renderizarCatalogo('/catalogo');
+
+    const verOpciones = await screen.findByRole('link', {
+      name: 'Ver opciones de Peluca Lace Front Valentina',
+    });
+    expect(verOpciones).toHaveAttribute('href', '/producto/peluca-lace-front-valentina');
+
+    const tarjetaShampoo = (await screen.findByText('Shampoo Reparador Keratina')).closest(
+      'article',
+    )!;
+    expect(within(tarjetaShampoo).getByRole('button', { name: /agregar/i })).toBeEnabled();
+    expect(within(tarjetaShampoo).queryByRole('link', { name: /ver opciones/i })).toBeNull();
   });
 });

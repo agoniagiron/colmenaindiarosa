@@ -1,9 +1,9 @@
 import { Prisma } from '@prisma/client';
+import { atributosDeCategoria } from '../../../lib/atributosCategoria.js';
 import { ErrorApi } from '../../../lib/errorApi.js';
 import { prisma } from '../../../lib/prisma.js';
 import type {
   BodyCrearProducto,
-  BodyCrearValorAtributo,
   BodyCrearVariante,
   BodyEditarProducto,
   BodyEditarVariante,
@@ -819,7 +819,27 @@ export async function cambiarPreciosProducto(
 // Atributos
 // ---------------------------------------------------------------------------
 
-export async function listarAtributos() {
+// Sin categoría: todos los atributos con todos sus valores (para editar una
+// variante existente, que puede usar un valor que su categoría ya no
+// permite). Con categoría: solo los que esa categoría usa, en su orden, con
+// sus valores permitidos y si son obligatorios (para crear variantes nuevas).
+export async function listarAtributos(categoriaId?: string) {
+  if (categoriaId) {
+    const atributos = await atributosDeCategoria(prisma, categoriaId);
+    return atributos.map((a) => ({
+      id: a.id,
+      nombre: a.nombre,
+      slug: a.slug,
+      orden: a.orden,
+      obligatorio: a.obligatorio,
+      valoresAtributo: a.valores.map((v) => ({
+        id: v.id,
+        valor: v.valor,
+        hex: v.hex,
+        codigo: v.codigo,
+      })),
+    }));
+  }
   return prisma.atributo.findMany({
     orderBy: { orden: 'asc' },
     select: {
@@ -835,24 +855,3 @@ export async function listarAtributos() {
   });
 }
 
-export async function crearValorAtributo(datos: BodyCrearValorAtributo) {
-  const atributo = await prisma.atributo.findUnique({
-    where: { id: datos.atributoId },
-    select: { id: true },
-  });
-  if (!atributo) {
-    throw ErrorApi.noEncontrado('El atributo no existe');
-  }
-
-  try {
-    return await prisma.valorAtributo.create({
-      data: { atributoId: datos.atributoId, valor: datos.valor, hex: datos.hex ?? null },
-      select: { id: true, valor: true, hex: true, atributoId: true },
-    });
-  } catch (error) {
-    if (esColisionUnica(error, 'valor')) {
-      throw ErrorApi.conflicto(`Ya existe el valor "${datos.valor}" para este atributo`);
-    }
-    throw error;
-  }
-}

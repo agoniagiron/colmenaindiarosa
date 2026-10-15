@@ -56,6 +56,7 @@ export function AdminProductoDetalle() {
 
   const [producto, setProducto] = useState<ProductoDetalle | null>(null);
   const [atributos, setAtributos] = useState<AtributoConValores[]>([]);
+  const [atributosCategoria, setAtributosCategoria] = useState<AtributoConValores[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pestana, setPestana] = useState<Pestana>('general');
@@ -87,6 +88,17 @@ export function AdminProductoDetalle() {
       .then(setAtributos)
       .catch(() => setAtributos([]));
   }, [accessToken]);
+
+  // Los de la categoría del producto, para crear variantes nuevas (modal y
+  // asistente). Se vuelve a pedir si el producto cambia de categoría.
+  const categoriaIdProducto = producto?.categoriaId;
+  useEffect(() => {
+    if (!accessToken || !categoriaIdProducto) return;
+    api
+      .listarAtributos(accessToken, categoriaIdProducto)
+      .then(setAtributosCategoria)
+      .catch(() => setAtributosCategoria([]));
+  }, [accessToken, categoriaIdProducto]);
 
   useEffect(() => {
     repositorio
@@ -176,6 +188,7 @@ export function AdminProductoDetalle() {
         <PestanaVariantes
           producto={producto}
           atributos={atributos}
+          atributosCategoria={atributosCategoria}
           accessToken={accessToken}
           puedeCrear={permisos.crear}
           puedeEditar={permisos.editar}
@@ -646,6 +659,7 @@ function resumenAtributos(variante: VarianteDetalle): string {
 function PestanaVariantes({
   producto,
   atributos,
+  atributosCategoria,
   accessToken,
   puedeCrear,
   puedeEditar,
@@ -653,7 +667,12 @@ function PestanaVariantes({
   onCambiado,
 }: {
   producto: ProductoDetalle;
+  // Todos los atributos: para editar variantes existentes sin perder un
+  // valor que su categoría ya no permite.
   atributos: AtributoConValores[];
+  // Los de la categoría, en su orden y con sus valores permitidos: para
+  // crear variantes nuevas.
+  atributosCategoria: AtributoConValores[];
   accessToken: string;
   puedeCrear: boolean;
   puedeEditar: boolean;
@@ -686,7 +705,7 @@ function PestanaVariantes({
     return (
       <AsistenteVariantes
         producto={producto}
-        atributos={atributos}
+        atributos={atributosCategoria}
         accessToken={accessToken}
         onCancelar={() => setAsistenteAbierto(false)}
         onCreado={(resultado) => {
@@ -778,7 +797,7 @@ function PestanaVariantes({
         abierto={modalNuevaAbierto}
         onCerrar={() => setModalNuevaAbierto(false)}
         productoId={producto.id}
-        atributos={atributos}
+        atributos={atributosCategoria}
         accessToken={accessToken}
         onCreada={() => {
           setModalNuevaAbierto(false);
@@ -828,16 +847,16 @@ function AvisosPrincipal({ producto }: { producto: ProductoDetalle }) {
     <>
       {principal.sinStock ? (
         <p className="rounded-lg bg-ambar-luz px-3.5 py-2.5 text-sm text-ambar">
-          La principal ({principal.sku}) no tiene stock: mientras tanto la tienda muestra y abre
-          la más barata que sí tenga.
+          La principal ({principal.sku}) no tiene stock: mientras tanto la tienda muestra y abre la
+          más barata que sí tenga.
         </p>
       ) : null}
       {principal.noEsLaMasBarata ? (
         <p className="rounded-lg bg-azul-luz px-3.5 py-2.5 text-sm text-azul">
           En el catálogo este producto se va a ver a{' '}
-          {formatearPesos(principal.noEsLaMasBarata.precioPrincipal)}, aunque tenés una variante
-          de {formatearPesos(principal.noEsLaMasBarata.precioMinimo)}. Si es a propósito, está
-          bien así.
+          {formatearPesos(principal.noEsLaMasBarata.precioPrincipal)}, aunque tenés una variante de{' '}
+          {formatearPesos(principal.noEsLaMasBarata.precioMinimo)}. Si es a propósito, está bien
+          así.
         </p>
       ) : null}
     </>
@@ -1094,15 +1113,23 @@ function ModalNuevaVariante({
             onChange={(e) => setPuntoReorden(e.target.value)}
           />
         </div>
+        {atributos.length === 0 ? (
+          <p className="text-[13px] text-texto-secundario">
+            La categoría de este producto no usa atributos: la variante va sin largo, color ni
+            medidas.
+          </p>
+        ) : null}
         {atributos.map((atrib) => (
           <label key={atrib.id} className="flex flex-col gap-1 text-sm text-tinta">
             {atrib.nombre}
+            {atrib.obligatorio ? <span className="sr-only"> (obligatorio)</span> : null}
             <select
               value={seleccion[atrib.id] ?? ''}
               onChange={(e) => setSeleccion({ ...seleccion, [atrib.id]: e.target.value })}
+              required={atrib.obligatorio}
               className="rounded-lg border border-linea bg-hueso px-3 py-2 text-sm"
             >
-              <option value="">Sin valor</option>
+              <option value="">{atrib.obligatorio ? 'Elegir…' : 'Sin valor'}</option>
               {atrib.valoresAtributo.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.valor}

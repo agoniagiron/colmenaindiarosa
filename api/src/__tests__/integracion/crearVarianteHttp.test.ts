@@ -104,6 +104,15 @@ describeConDbReal('POST /api/admin/productos/:id/variantes con el payload del fo
         data: { atributoId: atributo.id, valor: `${slug} ${SUFIJO}`, codigo },
       });
       idsValor.push(valor.id);
+
+      // La categoría usa los cinco atributos, obligatorios, con este valor
+      // permitido: como pelucas en producción.
+      await prisma.categoriaAtributo.create({
+        data: { categoriaId, atributoId: atributo.id, orden: idsValor.length, obligatorio: true },
+      });
+      await prisma.categoriaValorAtributo.create({
+        data: { categoriaId, atributoId: atributo.id, valorId: valor.id },
+      });
     }
   });
 

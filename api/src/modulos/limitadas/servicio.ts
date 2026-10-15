@@ -1,6 +1,8 @@
 import type { EstadoPedido } from '@prisma/client';
-import { calcularPrecioDualConTasa, obtenerTasaUsdVigente } from '../../lib/moneda.js';
+import { obtenerTasaUsdVigente } from '../../lib/moneda.js';
 import { prisma } from '../../lib/prisma.js';
+import { listarPromocionesVigentes } from '../../lib/promociones.js';
+import { precioDeTarjeta } from '../catalogo/servicio.js';
 
 // "pagado o posterior" en el ciclo de vida normal del pedido (no incluye
 // cancelado ni reembolsado: esas unidades volvieron a estar disponibles,
@@ -55,6 +57,8 @@ export async function listarEdicionesLimitadasVigentes() {
           id: true,
           nombre: true,
           slug: true,
+          categoriaId: true,
+          variantePrincipalId: true,
           imagenes: {
             where: { varianteId: null },
             orderBy: { orden: 'asc' },
@@ -66,7 +70,13 @@ export async function listarEdicionesLimitadasVigentes() {
           _count: { select: { imagenes: { where: { varianteId: null } } } },
           variantes: {
             where: { activa: true },
-            select: { id: true, precioActual: true, precioUsd: true },
+            select: {
+              id: true,
+              precioActual: true,
+              precioUsd: true,
+              stockActual: true,
+              stockReservado: true,
+            },
           },
         },
       },
@@ -75,14 +85,20 @@ export async function listarEdicionesLimitadasVigentes() {
 
   if (ediciones.length === 0) return [];
 
-  const tasaUsd = await obtenerTasaUsdVigente();
+  const [tasaUsd, promociones] = await Promise.all([
+    obtenerTasaUsdVigente(),
+    listarPromocionesVigentes(),
+  ]);
 
   const mapeadas = await Promise.all(
     ediciones.map(async (edicion) => {
       const varianteIds = edicion.producto.variantes.map((v) => v.id);
-      const precios = edicion.producto.variantes.map((v) => v.precioActual);
-      const precioMinimo = precios.length > 0 ? Math.min(...precios) : 0;
-      const varianteBase = edicion.producto.variantes.find((v) => v.precioActual === precioMinimo);
+      // La limitada no tiene precio propio (edicion_limitada no guarda
+      // precio): muestra el del producto, con la misma función que la
+      // tarjeta del catálogo y la ficha. La variante principal manda, con
+      // su promoción; así la misma peluca no muestra un número distinto
+      // según desde dónde se la mire.
+      const tarjeta = precioDeTarjeta(edicion.producto, promociones, tasaUsd);
 
       // Restantes se cuenta por VENTAS desde que arrancó el lote, no por
       // stock actual: el lote anunciado es una promesa ("van 6 piezas de
@@ -116,7 +132,10 @@ export async function listarEdicionesLimitadasVigentes() {
           imagen: edicion.producto.imagenes[0] ?? null,
           cantidadImagenes: edicion.producto._count.imagenes,
         },
-        precio: calcularPrecioDualConTasa(precioMinimo, varianteBase?.precioUsd, tasaUsd),
+        precio: tarjeta.precio,
+        // "desde" del precio (hay más de un precio y este es el mínimo); no
+        // confundir con `desde`, la fecha de inicio del lote.
+        precioDesde: tarjeta.desde,
         desde: edicion.desde,
         hasta: edicion.hasta,
       };
@@ -137,6 +156,7 @@ export async function listarEdicionesLimitadasVigentes() {
       unidadesRestantes: edicion.unidadesRestantes,
       producto: edicion.producto,
       precio: edicion.precio,
+      precioDesde: edicion.precioDesde,
       desde: edicion.desde,
       hasta: edicion.hasta,
     }));

@@ -1,5 +1,8 @@
 // Selector de variantes de la ficha, jerárquico en el orden en que se muestran
-// los grupos (tipo de base → longitud → color → talla → densidad).
+// los grupos. Ese orden lo configura cada categoría en el panel
+// (categoria_atributo): en pelucas, tipo de base → longitud → color → talla →
+// densidad; en extensiones, color → longitud. El orden define también la
+// jerarquía de qué se deshabilita.
 //
 // Por qué jerárquico: las variantes no forman una grilla completa (el
 // asistente deja desmarcar combinaciones, y hay atributos que van atados,
@@ -14,6 +17,9 @@ import type { VarianteProducto } from '../tipos/index.ts';
 
 export type ClaveAtributo = 'tipoBase' | 'longitud' | 'color' | 'talla' | 'densidad';
 
+// Orden por defecto: el de pelucas. Se usa si la API no manda el orden de la
+// categoría, y para ubicar al final los atributos que una variante vieja usa
+// aunque su categoría ya no los tenga.
 export const GRUPOS_ATRIBUTO: { clave: ClaveAtributo; etiqueta: string }[] = [
   { clave: 'tipoBase', etiqueta: 'Tipo de base' },
   { clave: 'longitud', etiqueta: 'Longitud' },
@@ -21,6 +27,26 @@ export const GRUPOS_ATRIBUTO: { clave: ClaveAtributo; etiqueta: string }[] = [
   { clave: 'talla', etiqueta: 'Talla' },
   { clave: 'densidad', etiqueta: 'Densidad' },
 ];
+
+const CLAVE_POR_SLUG: Record<string, ClaveAtributo> = {
+  tipo_base: 'tipoBase',
+  longitud: 'longitud',
+  color: 'color',
+  talla: 'talla',
+  densidad: 'densidad',
+};
+
+// Orden de los grupos para un producto: los slugs de su categoría en el
+// orden configurado, y al final cualquier otro atributo (en el orden por
+// defecto), para que una variante vieja con un atributo que la categoría ya
+// no usa siga siendo elegible.
+export function ordenDeGrupos(slugsCategoria: string[] | undefined): ClaveAtributo[] {
+  const deCategoria = (slugsCategoria ?? [])
+    .map((slug) => CLAVE_POR_SLUG[slug])
+    .filter((clave): clave is ClaveAtributo => Boolean(clave));
+  const resto = GRUPOS_ATRIBUTO.map((g) => g.clave).filter((c) => !deCategoria.includes(c));
+  return [...deCategoria, ...resto];
+}
 
 export function valorAtributo(
   variante: VarianteProducto,
@@ -46,23 +72,20 @@ export function disponibleDe(variante: VarianteProducto): number {
 
 export type EstadoOpcion = 'disponible' | 'agotada' | 'no_existe';
 
-function indiceDe(clave: ClaveAtributo): number {
-  return GRUPOS_ATRIBUTO.findIndex((g) => g.clave === clave);
-}
-
 // Variantes que coinciden con la selección actual en todos los grupos de
-// arriba de `clave`, y que tienen `valor` en `clave`.
+// arriba de `clave` (según `orden`), y que tienen `valor` en `clave`.
 function candidatas(
   variantes: VarianteProducto[],
   clave: ClaveAtributo,
   valor: string,
   actual: VarianteProducto,
+  orden: ClaveAtributo[],
 ): VarianteProducto[] {
-  const anteriores = GRUPOS_ATRIBUTO.slice(0, indiceDe(clave));
+  const anteriores = orden.slice(0, orden.indexOf(clave));
   return variantes.filter(
     (v) =>
       valorAtributo(v, clave) === valor &&
-      anteriores.every((g) => valorAtributo(v, g.clave) === valorAtributo(actual, g.clave)),
+      anteriores.every((c) => valorAtributo(v, c) === valorAtributo(actual, c)),
   );
 }
 
@@ -71,8 +94,9 @@ export function estadoOpcion(
   clave: ClaveAtributo,
   valor: string,
   actual: VarianteProducto,
+  orden: ClaveAtributo[],
 ): EstadoOpcion {
-  const posibles = candidatas(variantes, clave, valor, actual);
+  const posibles = candidatas(variantes, clave, valor, actual, orden);
   if (posibles.length === 0) return 'no_existe';
   return posibles.some((v) => disponibleDe(v) > 0) ? 'disponible' : 'agotada';
 }
@@ -92,18 +116,19 @@ export function elegirAlCambiar(
   clave: ClaveAtributo,
   valor: string,
   actual: VarianteProducto,
+  orden: ClaveAtributo[],
 ): { variante: VarianteProducto; ajustes: AjusteAutomatico[] } {
-  const posibles = candidatas(variantes, clave, valor, actual);
+  const posibles = candidatas(variantes, clave, valor, actual, orden);
   if (posibles.length === 0) return { variante: actual, ajustes: [] };
 
   const conStock = posibles.filter((v) => disponibleDe(v) > 0);
   const pool = conStock.length > 0 ? conStock : posibles;
-  const siguientes = GRUPOS_ATRIBUTO.slice(indiceDe(clave) + 1);
+  const siguientes = orden.slice(orden.indexOf(clave) + 1);
 
   // Comparación lexicográfica: primero conservar el grupo de abajo más
   // cercano, después el siguiente, etc.
   const puntaje = (v: VarianteProducto) =>
-    siguientes.map((g) => (valorAtributo(v, g.clave) === valorAtributo(actual, g.clave) ? 1 : 0));
+    siguientes.map((c) => (valorAtributo(v, c) === valorAtributo(actual, c) ? 1 : 0));
   const mejor = pool.reduce((a, b) => {
     const pa = puntaje(a);
     const pb = puntaje(b);
@@ -114,11 +139,11 @@ export function elegirAlCambiar(
   });
 
   const ajustes: AjusteAutomatico[] = [];
-  for (const g of siguientes) {
-    const antes = valorAtributo(actual, g.clave);
-    const despues = valorAtributo(mejor, g.clave);
+  for (const c of siguientes) {
+    const antes = valorAtributo(actual, c);
+    const despues = valorAtributo(mejor, c);
     if (antes && despues && antes !== despues) {
-      ajustes.push({ clave: g.clave, antes, despues });
+      ajustes.push({ clave: c, antes, despues });
     }
   }
   return { variante: mejor, ajustes };
