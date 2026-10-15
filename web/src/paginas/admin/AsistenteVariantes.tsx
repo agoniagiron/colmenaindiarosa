@@ -16,6 +16,7 @@ import type {
   VistaPreviaLote,
 } from '../../contexto/apiProductosAdmin.ts';
 import { formatearPesos } from '../../utilidades/formatearPesos.ts';
+import { CrearValorEnLinea } from './CrearValorEnLinea.tsx';
 
 const SLUG_LONGITUD = 'longitud';
 const SLUG_COLOR = 'color';
@@ -90,12 +91,21 @@ export function AsistenteVariantes({
   producto,
   atributos,
   accessToken,
+  puedeCrearValores,
+  puedeEditar,
+  onAtributosCambiados,
   onCancelar,
   onCreado,
 }: {
   producto: ProductoDetalle;
   atributos: AtributoConValores[];
   accessToken: string;
+  // Crear un color en línea pide productos.crear; reactivarlo, editar.
+  puedeCrearValores: boolean;
+  puedeEditar: boolean;
+  // Recarga la lista de la categoría. No remonta el asistente: lo elegido
+  // y lo escrito siguen como estaban.
+  onAtributosCambiados: () => Promise<void>;
   onCancelar: () => void;
   onCreado: (resultado: ResultadoLote) => void;
 }) {
@@ -355,6 +365,22 @@ export function AsistenteVariantes({
                     </Chip>
                   ))}
                 </div>
+                {puedeCrearValores ? (
+                  <div className="mt-3 flex flex-col">
+                    <CrearValorEnLinea
+                      atributo={atributoColor}
+                      prefijoSku={
+                        producto.codigoProducto ? `${producto.codigoProducto}-{largo}` : null
+                      }
+                      accessToken={accessToken}
+                      puedeEditar={puedeEditar}
+                      onListo={async (valorId) => {
+                        await onAtributosCambiados();
+                        setColores((c) => (c.includes(valorId) ? c : [...c, valorId]));
+                      }}
+                    />
+                  </div>
+                ) : null}
               </fieldset>
             ) : null}
           </div>

@@ -1,8 +1,12 @@
 // Pantalla de atributos: qué atributos usa cada categoría (en qué orden y si
 // son obligatorios) y qué valores permite de cada uno. También crea valores
-// nuevos — por ejemplo un color — habilitándolos en las categorías en el
-// MISMO formulario: un valor creado sin categoría no aparecería en ningún
-// lado, y es fácil olvidarse de ir a habilitarlo después.
+// nuevos habilitándolos en las categorías en el MISMO formulario: un valor
+// creado sin categoría no aparecería en ningún lado.
+//
+// Color es universal: la lista es la misma en todas las categorías que lo
+// usan, así que acá no se eligen colores por categoría (el servidor mantiene
+// esas filas completas). Un color se esconde desactivándolo, en la sección
+// de colores, y se reactiva desde ahí mismo.
 //
 // Cambiar esto no toca variantes existentes: solo limita lo que se ofrece al
 // crear variantes nuevas. El orden de cada categoría es también el orden del
@@ -32,6 +36,16 @@ function Seccion({ titulo, children }: { titulo: string; children: ReactNode }) 
       {children}
     </section>
   );
+}
+
+// Los valores de un atributo universal no se eligen en el editor: se
+// comparan y se mandan vacíos (el servidor los ignora y completa los suyos).
+function normalizar(
+  elegidos: AtributoEnCategoria[],
+  atributos: AtributoConfigurable[],
+): AtributoEnCategoria[] {
+  const universales = new Set(atributos.filter((a) => a.universal).map((a) => a.id));
+  return elegidos.map((e) => (universales.has(e.atributoId) ? { ...e, valorIds: [] } : e));
 }
 
 function iguales(a: AtributoEnCategoria[], b: AtributoEnCategoria[]): boolean {
@@ -86,6 +100,7 @@ export function AdminAtributos() {
   }
 
   const categoria = config.categorias.find((c) => c.id === categoriaId) ?? null;
+  const atributosCategoria = categoria ? normalizar(categoria.atributos, config.atributos) : [];
 
   return (
     <div className="flex flex-col gap-6">
@@ -120,9 +135,11 @@ export function AdminAtributos() {
 
       {categoria ? (
         <EditorCategoria
-          // key: al cambiar de categoría, el borrador arranca de cero.
-          key={categoria.id + JSON.stringify(categoria.atributos)}
-          categoria={categoria}
+          // key: al cambiar de categoría, el borrador arranca de cero. Va sin
+          // los valores universales: crear o reactivar un color no borra lo
+          // que se está editando.
+          key={categoria.id + JSON.stringify(atributosCategoria)}
+          categoria={{ ...categoria, atributos: atributosCategoria }}
           atributos={config.atributos}
           accessToken={accessToken}
           puedeEditar={puedeEditar}
@@ -136,9 +153,25 @@ export function AdminAtributos() {
           config={config}
           accessToken={accessToken}
           bloqueado={cambiosPendientes}
+          puedeEditar={puedeEditar}
           onCreado={recargar}
         />
       ) : null}
+
+      {config.atributos
+        .filter((a) => a.universal)
+        .map((a) => (
+          <ListaValoresUniversales
+            key={a.id}
+            atributo={a}
+            categorias={config.categorias.filter((c) =>
+              c.atributos.some((x) => x.atributoId === a.id),
+            )}
+            accessToken={accessToken}
+            puedeEditar={puedeEditar}
+            onCambiado={recargar}
+          />
+        ))}
     </div>
   );
 }
@@ -255,26 +288,34 @@ function EditorCategoria({
                   />
                   Obligatorio
                 </label>
-                <span className="text-[12px] text-texto-secundario">
-                  {elegido.valorIds.length} de {atributo.valores.length} valores
-                </span>
+                {atributo.universal ? null : (
+                  <span className="text-[12px] text-texto-secundario">
+                    {elegido.valorIds.length} de {atributo.valores.length} valores
+                  </span>
+                )}
                 <div className="ml-auto flex gap-2">
-                  <Boton
-                    type="button"
-                    variante="fantasma"
-                    disabled={!puedeEditar}
-                    onClick={() => cambiar(indice, { valorIds: atributo.valores.map((v) => v.id) })}
-                  >
-                    Todos
-                  </Boton>
-                  <Boton
-                    type="button"
-                    variante="fantasma"
-                    disabled={!puedeEditar}
-                    onClick={() => cambiar(indice, { valorIds: [] })}
-                  >
-                    Ninguno
-                  </Boton>
+                  {atributo.universal ? null : (
+                    <>
+                      <Boton
+                        type="button"
+                        variante="fantasma"
+                        disabled={!puedeEditar}
+                        onClick={() =>
+                          cambiar(indice, { valorIds: atributo.valores.map((v) => v.id) })
+                        }
+                      >
+                        Todos
+                      </Boton>
+                      <Boton
+                        type="button"
+                        variante="fantasma"
+                        disabled={!puedeEditar}
+                        onClick={() => cambiar(indice, { valorIds: [] })}
+                      >
+                        Ninguno
+                      </Boton>
+                    </>
+                  )}
                   <Boton
                     type="button"
                     variante="fantasma"
@@ -285,34 +326,41 @@ function EditorCategoria({
                   </Boton>
                 </div>
               </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {atributo.valores.map((valor) => {
-                  const permitido = elegido.valorIds.includes(valor.id);
-                  return (
-                    <button
-                      key={valor.id}
-                      type="button"
-                      aria-pressed={permitido}
-                      disabled={!puedeEditar}
-                      onClick={() => alternarValor(indice, valor.id)}
-                      className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa ${
-                        permitido
-                          ? 'border-rosa bg-rosa-palo text-tinta'
-                          : 'border-linea bg-white text-texto-secundario line-through'
-                      }`}
-                    >
-                      {valor.hex ? (
-                        <span
-                          aria-hidden="true"
-                          className="h-3 w-3 rounded-full border border-linea"
-                          style={{ backgroundColor: valor.hex }}
-                        />
-                      ) : null}
-                      {valor.valor}
-                    </button>
-                  );
-                })}
-              </div>
+              {atributo.universal ? (
+                <p className="mt-3 text-[13px] text-texto-secundario">
+                  Usa todos los valores activos ({atributo.valores.filter((v) => v.activo).length}),
+                  los mismos en todas las categorías. Se crean y se desactivan más abajo.
+                </p>
+              ) : (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {atributo.valores.map((valor) => {
+                    const permitido = elegido.valorIds.includes(valor.id);
+                    return (
+                      <button
+                        key={valor.id}
+                        type="button"
+                        aria-pressed={permitido}
+                        disabled={!puedeEditar}
+                        onClick={() => alternarValor(indice, valor.id)}
+                        className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa ${
+                          permitido
+                            ? 'border-rosa bg-rosa-palo text-tinta'
+                            : 'border-linea bg-white text-texto-secundario line-through'
+                        }`}
+                      >
+                        {valor.hex ? (
+                          <span
+                            aria-hidden="true"
+                            className="h-3 w-3 rounded-full border border-linea"
+                            style={{ backgroundColor: valor.hex }}
+                          />
+                        ) : null}
+                        {valor.valor}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           );
         })}
@@ -342,13 +390,14 @@ function EditorCategoria({
                 const atributo = atributoPorId.get(agregarId);
                 if (!atributo) return;
                 // Entra al final, con todos sus valores y obligatorio: lo
-                // más común. Se ajusta antes de guardar.
+                // más común. Se ajusta antes de guardar. Uno universal va
+                // sin valores: los completa el servidor, todos.
                 setBorrador((actual) => [
                   ...actual,
                   {
                     atributoId: atributo.id,
                     obligatorio: true,
-                    valorIds: atributo.valores.map((v) => v.id),
+                    valorIds: atributo.universal ? [] : atributo.valores.map((v) => v.id),
                   },
                 ]);
                 setAgregarId('');
@@ -395,11 +444,13 @@ function FormularioNuevoValor({
   config,
   accessToken,
   bloqueado,
+  puedeEditar,
   onCreado,
 }: {
   config: ConfiguracionAtributos;
   accessToken: string;
   bloqueado: boolean;
+  puedeEditar: boolean;
   onCreado: () => void;
 }) {
   const [atributoId, setAtributoId] = useState('');
@@ -410,20 +461,24 @@ function FormularioNuevoValor({
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [existente, setExistente] = useState<api.ValorExistente | null>(null);
 
   const atributo = config.atributos.find((a) => a.id === atributoId);
   const esColor = atributo?.slug === 'color';
+  const universal = !!atributo?.universal;
   const pideCodigo = !!atributo && SLUGS_CON_CODIGO.includes(atributo.slug);
   // Solo las categorías que usan este atributo: en las demás no tendría
   // dónde aparecer.
   const categoriasQueLoUsan = config.categorias.filter((c) =>
     c.atributos.some((a) => a.atributoId === atributoId),
   );
+  // Crear uno no universal recarga la configuración y cambia lo que el
+  // editor de arriba tiene en borrador; uno universal no lo toca.
+  const bloqueadoAhora = bloqueado && !universal;
 
   function elegirAtributo(id: string) {
     setAtributoId(id);
-    // Arrancan todas marcadas (lo más común: un color nuevo va en todas);
-    // se desmarca la que no corresponda.
+    // Arrancan todas marcadas; se desmarca la que no corresponda.
     setCategoriaIds(
       config.categorias
         .filter((c) => c.atributos.some((a) => a.atributoId === id))
@@ -431,6 +486,7 @@ function FormularioNuevoValor({
     );
     setAviso(null);
     setError(null);
+    setExistente(null);
   }
 
   async function crear(evento: FormEvent) {
@@ -439,23 +495,30 @@ function FormularioNuevoValor({
     setEnviando(true);
     setError(null);
     setAviso(null);
+    setExistente(null);
     try {
       const creado = await api.crearValorAtributo(accessToken, {
         atributoId: atributo.id,
         valor: valor.trim(),
         ...(codigo.trim() ? { codigo: codigo.trim() } : {}),
         ...(esColor ? { hex } : {}),
-        categoriaIds,
+        // Universal: el servidor lo habilita en todas las que lo usan.
+        ...(universal ? {} : { categoriaIds }),
       });
-      const nombres = config.categorias
-        .filter((c) => categoriaIds.includes(c.id))
-        .map((c) => c.nombre)
-        .join(', ');
-      setAviso(`${creado.valor} quedó creado y habilitado en ${nombres}.`);
+      const habilitadas = universal
+        ? categoriasQueLoUsan
+        : config.categorias.filter((c) => categoriaIds.includes(c.id));
+      const nombres = habilitadas.map((c) => c.nombre).join(', ');
+      setAviso(
+        nombres
+          ? `${creado.valor} quedó creado y habilitado en ${nombres}.`
+          : `${creado.valor} quedó creado.`,
+      );
       setValor('');
       setCodigo('');
       onCreado();
     } catch (e) {
+      setExistente(api.valorExistenteDe(e));
       setError(
         api.describirError(
           e,
@@ -472,6 +535,25 @@ function FormularioNuevoValor({
       setEnviando(false);
     }
   }
+
+  async function reactivar(choque: api.ValorExistente) {
+    setEnviando(true);
+    try {
+      await api.cambiarActivoValor(accessToken, choque.valorId, true);
+      setError(null);
+      setExistente(null);
+      setAviso(`${choque.valor} está activo otra vez.`);
+      setValor('');
+      setCodigo('');
+      onCreado();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : `No se pudo reactivar ${choque.valor}`);
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  const nombreAtributo = atributo?.nombre.toLowerCase() ?? '';
 
   return (
     <Seccion titulo="Nuevo valor">
@@ -523,7 +605,17 @@ function FormularioNuevoValor({
           </label>
         ) : null}
 
-        {atributo ? (
+        {atributo && universal ? (
+          <p className="text-[13px] text-texto-secundario">
+            {categoriasQueLoUsan.length > 0
+              ? `Se habilita en todas las categorías que usan ${nombreAtributo}: ${categoriasQueLoUsan
+                  .map((c) => c.nombre)
+                  .join(', ')}.`
+              : `Ninguna categoría usa ${nombreAtributo} todavía: va a aparecer en la primera que lo agregue.`}
+          </p>
+        ) : null}
+
+        {atributo && !universal ? (
           <fieldset>
             <legend className="mb-2 text-sm font-medium text-tinta">
               Habilitar en{' '}
@@ -533,8 +625,8 @@ function FormularioNuevoValor({
             </legend>
             {categoriasQueLoUsan.length === 0 ? (
               <p className="text-[13px] text-ambar">
-                Ninguna categoría usa {atributo.nombre.toLowerCase()} todavía. Agregalo primero a
-                una categoría arriba.
+                Ninguna categoría usa {nombreAtributo} todavía. Agregalo primero a una categoría
+                arriba.
               </p>
             ) : (
               <div className="flex flex-wrap gap-4">
@@ -564,6 +656,24 @@ function FormularioNuevoValor({
         ) : null}
 
         {error ? <p className="text-sm text-rosa">{error}</p> : null}
+        {existente && !existente.activo ? (
+          puedeEditar ? (
+            <div>
+              <Boton
+                type="button"
+                variante="fantasma"
+                cargando={enviando}
+                onClick={() => void reactivar(existente)}
+              >
+                Reactivar {existente.valor}
+              </Boton>
+            </div>
+          ) : (
+            <p className="text-[13px] text-texto-secundario">
+              Pedile a alguien con permiso de edición que lo reactive en Atributos.
+            </p>
+          )
+        ) : null}
         {aviso ? (
           <p role="status" className="text-sm text-verde">
             {aviso}
@@ -571,7 +681,7 @@ function FormularioNuevoValor({
         ) : null}
 
         <div className="flex items-center justify-end gap-3">
-          {bloqueado ? (
+          {bloqueadoAhora ? (
             <span className="mr-auto text-[13px] text-ambar">
               Guardá o descartá los cambios de arriba antes de crear un valor.
             </span>
@@ -579,12 +689,106 @@ function FormularioNuevoValor({
           <Boton
             type="submit"
             cargando={enviando}
-            disabled={bloqueado || !atributo || !valor.trim() || categoriaIds.length === 0}
+            disabled={
+              bloqueadoAhora ||
+              !atributo ||
+              !valor.trim() ||
+              (!universal && categoriaIds.length === 0)
+            }
           >
-            Crear y habilitar
+            {universal ? 'Crear' : 'Crear y habilitar'}
           </Boton>
         </div>
       </form>
+    </Seccion>
+  );
+}
+
+// --- Valores de un atributo universal (colores) ---------------------------------
+// Todos los creados, activos y desactivados. Desactivar esconde el valor de
+// lo que se ofrece al crear variantes nuevas; las variantes que ya lo usan
+// siguen visibles y vendibles. Pide productos.editar.
+
+function ListaValoresUniversales({
+  atributo,
+  categorias,
+  accessToken,
+  puedeEditar,
+  onCambiado,
+}: {
+  atributo: AtributoConfigurable;
+  categorias: ConfiguracionAtributos['categorias'];
+  accessToken: string;
+  puedeEditar: boolean;
+  onCambiado: () => void;
+}) {
+  const [cambiandoId, setCambiandoId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function alternar(valorId: string, activo: boolean) {
+    setCambiandoId(valorId);
+    setError(null);
+    try {
+      await api.cambiarActivoValor(accessToken, valorId, activo);
+      onCambiado();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo cambiar el estado');
+    } finally {
+      setCambiandoId(null);
+    }
+  }
+
+  const activos = atributo.valores.filter((v) => v.activo).length;
+  const dondeSeUsa =
+    categorias.length > 0
+      ? categorias.map((c) => c.nombre).join(', ')
+      : 'todas las categorías que lo usen';
+
+  return (
+    <Seccion titulo={`Valores de ${atributo.nombre.toLowerCase()}`}>
+      <p className="mb-3 text-[13px] text-texto-secundario">
+        {activos} activos de {atributo.valores.length}. Son los mismos en {dondeSeUsa}. Un valor
+        desactivado no se ofrece al crear variantes nuevas; las que ya lo usan no cambian.
+      </p>
+      <ul className="flex flex-col divide-y divide-linea">
+        {atributo.valores.map((v) => (
+          <li key={v.id} className="flex flex-wrap items-center gap-3 py-2">
+            {v.hex ? (
+              <span
+                aria-hidden="true"
+                className="h-4 w-4 rounded-full border border-linea"
+                style={{ backgroundColor: v.hex }}
+              />
+            ) : null}
+            <span className={v.activo ? 'text-tinta' : 'text-texto-secundario line-through'}>
+              {v.valor}
+            </span>
+            {v.codigo ? (
+              <span className="font-mono text-[12px] text-texto-secundario">{v.codigo}</span>
+            ) : null}
+            {v.activo ? null : (
+              <span className="rounded-full bg-arena px-2 py-0.5 text-[12px] text-texto-secundario">
+                Desactivado
+              </span>
+            )}
+            {puedeEditar ? (
+              <div className="ml-auto">
+                <Boton
+                  type="button"
+                  variante="fantasma"
+                  cargando={cambiandoId === v.id}
+                  disabled={cambiandoId !== null}
+                  aria-label={`${v.activo ? 'Desactivar' : 'Reactivar'} ${v.valor}`}
+                  onClick={() => void alternar(v.id, !v.activo)}
+                >
+                  {v.activo ? 'Desactivar' : 'Reactivar'}
+                </Boton>
+              </div>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+      {error ? <p className="mt-2 text-sm text-rosa">{error}</p> : null}
     </Seccion>
   );
 }

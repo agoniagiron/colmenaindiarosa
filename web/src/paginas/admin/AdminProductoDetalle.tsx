@@ -21,6 +21,7 @@ import type { Categoria } from '../../tipos/index.ts';
 import { formatearFechaHora } from '../../utilidades/formatearFechaHora.ts';
 import { formatearPesos } from '../../utilidades/formatearPesos.ts';
 import { AsistenteVariantes } from './AsistenteVariantes.tsx';
+import { CrearValorEnLinea } from './CrearValorEnLinea.tsx';
 import { armarDatosNuevaVariante } from './datosNuevaVariante.ts';
 import { PestanaImagenes } from './PestanaImagenes.tsx';
 
@@ -99,6 +100,13 @@ export function AdminProductoDetalle() {
       .then(setAtributosCategoria)
       .catch(() => setAtributosCategoria([]));
   }, [accessToken, categoriaIdProducto]);
+
+  // Después de crear o reactivar un valor en línea (modal o asistente): la
+  // lista se actualiza sin remontar nada, así no se pierde lo cargado.
+  async function recargarAtributosCategoria(): Promise<void> {
+    if (!accessToken || !categoriaIdProducto) return;
+    setAtributosCategoria(await api.listarAtributos(accessToken, categoriaIdProducto));
+  }
 
   useEffect(() => {
     repositorio
@@ -194,6 +202,7 @@ export function AdminProductoDetalle() {
           puedeEditar={permisos.editar}
           puedePrecios={permisos.precios}
           onCambiado={recargar}
+          onAtributosCambiados={recargarAtributosCategoria}
         />
       ) : null}
 
@@ -665,6 +674,7 @@ function PestanaVariantes({
   puedeEditar,
   puedePrecios,
   onCambiado,
+  onAtributosCambiados,
 }: {
   producto: ProductoDetalle;
   // Todos los atributos: para editar variantes existentes sin perder un
@@ -678,6 +688,8 @@ function PestanaVariantes({
   puedeEditar: boolean;
   puedePrecios: boolean;
   onCambiado: () => void;
+  // Recarga los atributos de la categoría (tras crear un valor en línea).
+  onAtributosCambiados: () => Promise<void>;
 }) {
   const [modalNuevaAbierto, setModalNuevaAbierto] = useState(false);
   const [varianteparaPrecio, setVarianteParaPrecio] = useState<VarianteDetalle | null>(null);
@@ -707,6 +719,9 @@ function PestanaVariantes({
         producto={producto}
         atributos={atributosCategoria}
         accessToken={accessToken}
+        puedeCrearValores={puedeCrear}
+        puedeEditar={puedeEditar}
+        onAtributosCambiados={onAtributosCambiados}
         onCancelar={() => setAsistenteAbierto(false)}
         onCreado={(resultado) => {
           setAsistenteAbierto(false);
@@ -797,8 +812,12 @@ function PestanaVariantes({
         abierto={modalNuevaAbierto}
         onCerrar={() => setModalNuevaAbierto(false)}
         productoId={producto.id}
+        codigoProducto={producto.codigoProducto}
         atributos={atributosCategoria}
         accessToken={accessToken}
+        puedeCrearValores={puedeCrear}
+        puedeEditar={puedeEditar}
+        onAtributosCambiados={onAtributosCambiados}
         onCreada={() => {
           setModalNuevaAbierto(false);
           onCambiado();
@@ -1024,19 +1043,29 @@ const ETIQUETAS_NUEVA_VARIANTE: Record<string, string> = {
   valoresAtributo: 'Atributos',
 };
 
-function ModalNuevaVariante({
+export function ModalNuevaVariante({
   abierto,
   onCerrar,
   productoId,
+  codigoProducto,
   atributos,
   accessToken,
+  puedeCrearValores,
+  puedeEditar,
+  onAtributosCambiados,
   onCreada,
 }: {
   abierto: boolean;
   onCerrar: () => void;
   productoId: string;
+  // IR-FRO-M01: para la vista previa del SKU al crear un color en línea.
+  codigoProducto: string | null;
   atributos: AtributoConValores[];
   accessToken: string;
+  // Crear un color en línea pide productos.crear; reactivarlo, editar.
+  puedeCrearValores: boolean;
+  puedeEditar: boolean;
+  onAtributosCambiados: () => Promise<void>;
   onCreada: () => void;
 }) {
   const [precio, setPrecio] = useState('');
@@ -1046,6 +1075,17 @@ function ModalNuevaVariante({
   const [seleccion, setSeleccion] = useState<Record<string, string>>({});
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Lo que va antes del código del color en el SKU: producto y largo.
+  const atributoLargo = atributos.find((a) => a.slug === 'longitud');
+  const largoElegido = atributoLargo?.valoresAtributo.find(
+    (v) => v.id === seleccion[atributoLargo.id],
+  );
+  const prefijoSku = codigoProducto
+    ? atributoLargo
+      ? `${codigoProducto}-${largoElegido?.codigo ?? '{largo}'}`
+      : codigoProducto
+    : null;
 
   useEffect(() => {
     if (abierto) {
@@ -1120,23 +1160,39 @@ function ModalNuevaVariante({
           </p>
         ) : null}
         {atributos.map((atrib) => (
-          <label key={atrib.id} className="flex flex-col gap-1 text-sm text-tinta">
-            {atrib.nombre}
-            {atrib.obligatorio ? <span className="sr-only"> (obligatorio)</span> : null}
-            <select
-              value={seleccion[atrib.id] ?? ''}
-              onChange={(e) => setSeleccion({ ...seleccion, [atrib.id]: e.target.value })}
-              required={atrib.obligatorio}
-              className="rounded-lg border border-linea bg-hueso px-3 py-2 text-sm"
-            >
-              <option value="">{atrib.obligatorio ? 'Elegir…' : 'Sin valor'}</option>
-              {atrib.valoresAtributo.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.valor}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div key={atrib.id} className="flex flex-col gap-2">
+            <label className="flex flex-col gap-1 text-sm text-tinta">
+              {atrib.nombre}
+              {atrib.obligatorio ? <span className="sr-only"> (obligatorio)</span> : null}
+              <select
+                value={seleccion[atrib.id] ?? ''}
+                onChange={(e) => setSeleccion({ ...seleccion, [atrib.id]: e.target.value })}
+                required={atrib.obligatorio}
+                className="rounded-lg border border-linea bg-hueso px-3 py-2 text-sm"
+              >
+                <option value="">{atrib.obligatorio ? 'Elegir…' : 'Sin valor'}</option>
+                {atrib.valoresAtributo.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.valor}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {/* Al lado de la lista de colores: si falta uno, se crea acá
+                mismo y queda elegido, sin perder lo cargado. */}
+            {atrib.slug === 'color' && puedeCrearValores ? (
+              <CrearValorEnLinea
+                atributo={atrib}
+                prefijoSku={prefijoSku}
+                accessToken={accessToken}
+                puedeEditar={puedeEditar}
+                onListo={async (valorId) => {
+                  await onAtributosCambiados();
+                  setSeleccion((actual) => ({ ...actual, [atrib.id]: valorId }));
+                }}
+              />
+            ) : null}
+          </div>
         ))}
         {error ? <p className="text-sm text-rosa">{error}</p> : null}
         <div className="flex justify-end gap-2">

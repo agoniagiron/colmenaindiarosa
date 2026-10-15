@@ -507,12 +507,18 @@ export interface ValorDeAtributo {
   hex: string | null;
   codigo: string | null;
   orden: number;
+  // Desactivado: no se ofrece al crear variantes nuevas; las que ya lo usan
+  // siguen igual. Se reactiva desde la pantalla de atributos.
+  activo: boolean;
 }
 
 export interface AtributoConfigurable {
   id: string;
   slug: string;
   nombre: string;
+  // Universal (color): la lista de valores es la misma en todas las
+  // categorías que lo usan. El editor de categorías no ofrece elegirlos.
+  universal: boolean;
   valores: ValorDeAtributo[];
 }
 
@@ -547,12 +553,10 @@ export function guardarConfiguracionCategoria(
   categoriaId: string,
   atributos: AtributoEnCategoria[],
 ): Promise<ConfiguracionAtributos> {
-  return solicitar(
-    BASE_ATRIBUTOS,
-    `/categorias/${encodeURIComponent(categoriaId)}`,
-    accessToken,
-    { method: 'PUT', body: JSON.stringify({ atributos }) },
-  );
+  return solicitar(BASE_ATRIBUTOS, `/categorias/${encodeURIComponent(categoriaId)}`, accessToken, {
+    method: 'PUT',
+    body: JSON.stringify({ atributos }),
+  });
 }
 
 export interface DatosNuevoValor {
@@ -560,8 +564,9 @@ export interface DatosNuevoValor {
   valor: string;
   hex?: string;
   codigo?: string;
-  // En qué categorías se habilita, en el mismo paso.
-  categoriaIds: string[];
+  // En qué categorías se habilita, en el mismo paso. No va para un atributo
+  // universal: el servidor lo habilita en todas las que lo usan.
+  categoriaIds?: string[];
 }
 
 export function crearValorAtributo(
@@ -571,6 +576,34 @@ export function crearValorAtributo(
   return solicitar(BASE_ATRIBUTOS, '', accessToken, {
     method: 'POST',
     body: JSON.stringify(datos),
+  });
+}
+
+// Un 409 al crear un valor dice cuál es el que ya existe y si está
+// desactivado, para ofrecer reactivarlo en vez de dejar a la persona trabada.
+export interface ValorExistente {
+  valorId: string;
+  valor: string;
+  activo: boolean;
+  campo: 'valor' | 'codigo';
+}
+
+export function valorExistenteDe(error: unknown): ValorExistente | null {
+  if (!(error instanceof ErrorProductosAdmin) || error.estadoHttp !== 409) return null;
+  const detalles = error.detalles as Partial<ValorExistente> | undefined;
+  if (!detalles?.valorId || typeof detalles.activo !== 'boolean') return null;
+  return detalles as ValorExistente;
+}
+
+// Activar o desactivar un valor. Pide productos.editar.
+export function cambiarActivoValor(
+  accessToken: string,
+  valorId: string,
+  activo: boolean,
+): Promise<ValorDeAtributo> {
+  return solicitar(BASE_ATRIBUTOS, `/valores/${encodeURIComponent(valorId)}`, accessToken, {
+    method: 'PATCH',
+    body: JSON.stringify({ activo }),
   });
 }
 
