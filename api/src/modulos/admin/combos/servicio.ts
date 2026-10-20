@@ -52,7 +52,12 @@ const SELECT_ITEM = {
       valoresAtributo: {
         select: {
           valorAtributo: {
-            select: { valor: true, hex: true, atributo: { select: { slug: true } } },
+            select: {
+              valor: true,
+              hex: true,
+              hexSecundario: true,
+              atributo: { select: { slug: true } },
+            },
           },
         },
       },
@@ -62,12 +67,18 @@ const SELECT_ITEM = {
 
 type ItemConVariante = Prisma.ComboItemGetPayload<{ select: typeof SELECT_ITEM }>;
 
-function colorDeVariante(item: ItemConVariante): { nombre: string; hex: string | null } | null {
+function colorDeVariante(
+  item: ItemConVariante,
+): { nombre: string; hex: string | null; hexSecundario: string | null } | null {
   const relacion = item.varianteProducto.valoresAtributo.find(
     (v) => v.valorAtributo.atributo.slug === 'color',
   );
   return relacion
-    ? { nombre: relacion.valorAtributo.valor, hex: relacion.valorAtributo.hex }
+    ? {
+        nombre: relacion.valorAtributo.valor,
+        hex: relacion.valorAtributo.hex,
+        hexSecundario: relacion.valorAtributo.hexSecundario,
+      }
     : null;
 }
 
@@ -414,7 +425,12 @@ export async function buscarVariantes(query: QueryBuscarVariantes) {
       valoresAtributo: {
         select: {
           valorAtributo: {
-            select: { valor: true, hex: true, atributo: { select: { slug: true } } },
+            select: {
+              valor: true,
+              hex: true,
+              hexSecundario: true,
+              atributo: { select: { slug: true } },
+            },
           },
         },
       },
@@ -432,7 +448,11 @@ export async function buscarVariantes(query: QueryBuscarVariantes) {
       precioActual: variante.precioActual,
       costoActual: variante.costoActual,
       color: relacionColor
-        ? { nombre: relacionColor.valorAtributo.valor, hex: relacionColor.valorAtributo.hex }
+        ? {
+            nombre: relacionColor.valorAtributo.valor,
+            hex: relacionColor.valorAtributo.hex,
+            hexSecundario: relacionColor.valorAtributo.hexSecundario,
+          }
         : null,
     };
   });

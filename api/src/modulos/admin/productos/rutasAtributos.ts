@@ -6,6 +6,7 @@ import {
   esquemaBodyActivoValor,
   esquemaBodyConfiguracionCategoria,
   esquemaBodyCrearValorAtributo,
+  esquemaBodyEditarValorAtributo,
   esquemaParamsValor,
   esquemaQueryAtributos,
 } from './esquemas.js';
@@ -35,6 +36,15 @@ rutasAdminAtributos.patch(
   requierePermiso('productos.editar'),
   validar({ params: esquemaParamsValor, body: esquemaBodyActivoValor }),
   controlador.cambiarActivoValor,
+);
+
+// Editar nombre y tonos de un valor (y el código mientras ninguna variante
+// lo use). Mismo permiso que activarlo: es configuración del catálogo.
+rutasAdminAtributos.put(
+  '/valores/:valorId',
+  requierePermiso('productos.editar'),
+  validar({ params: esquemaParamsValor, body: esquemaBodyEditarValorAtributo }),
+  controlador.editarValorAtributo,
 );
 
 // Pantalla de atributos: todos los atributos con sus valores y la

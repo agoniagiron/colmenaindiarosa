@@ -1,7 +1,11 @@
 import { Prisma } from '@prisma/client';
 import { ErrorApi } from '../../../lib/errorApi.js';
 import { prisma } from '../../../lib/prisma.js';
-import type { BodyConfiguracionCategoria, BodyCrearValorAtributo } from './esquemas.js';
+import type {
+  BodyConfiguracionCategoria,
+  BodyCrearValorAtributo,
+  BodyEditarValorAtributo,
+} from './esquemas.js';
 
 // Pantalla de atributos del panel: administra categoria_atributo (qué
 // atributos usa cada categoría, en qué orden, si son obligatorios) y
@@ -27,6 +31,86 @@ export function esAtributoUniversal(slug: string): boolean {
   return SLUGS_UNIVERSALES.includes(slug);
 }
 
+// Lo que devuelven crear, activar y editar un valor.
+const SELECT_VALOR = {
+  id: true,
+  valor: true,
+  hex: true,
+  hexSecundario: true,
+  codigo: true,
+  orden: true,
+  activo: true,
+  atributoId: true,
+} satisfies Prisma.ValorAtributoSelect;
+
+// Un color combinado (dos tonos, esfera partida) sigue siendo UN color: un
+// nombre, un código, una opción. hex_secundario solo existe para color y
+// siempre con un primario. Igual al primario no es combinado: se guarda
+// sólido (null).
+function normalizarTonos(
+  slug: string,
+  hex: string | null,
+  hexSecundario: string | null,
+): { hex: string | null; hexSecundario: string | null } {
+  if (hexSecundario && slug !== 'color') {
+    throw ErrorApi.peticionInvalida('Solo un color puede tener un color secundario');
+  }
+  if (hexSecundario && !hex) {
+    throw ErrorApi.peticionInvalida('El color secundario necesita un color primario');
+  }
+  const mismoTono = hexSecundario && hex && hexSecundario.toLowerCase() === hex.toLowerCase();
+  return { hex, hexSecundario: mismoTono ? null : hexSecundario };
+}
+
+function normalizarCodigo(slug: string, nombreAtributo: string, codigo: string | null) {
+  if (!codigo && SLUGS_CON_CODIGO_OBLIGATORIO.includes(slug)) {
+    throw ErrorApi.peticionInvalida(
+      `Los valores de ${nombreAtributo} necesitan código: va en el SKU.`,
+    );
+  }
+  if (codigo && !/^[A-Z0-9]{1,10}$/.test(codigo)) {
+    throw ErrorApi.peticionInvalida(
+      'El código va solo con letras y números, sin guiones ni espacios (hasta 10).',
+    );
+  }
+  return codigo;
+}
+
+// Un valor del mismo atributo con ese nombre (sin distinguir mayúsculas) o
+// ese código. El 409 dice cuál es y si está desactivado, para que el panel
+// ofrezca reactivarlo o editarlo en vez de dejar a la persona trabada.
+async function rechazarSiYaExiste(
+  atributoId: string,
+  nombreAtributo: string,
+  valor: string,
+  codigo: string | null,
+  salvoValorId?: string,
+) {
+  const existente = await prisma.valorAtributo.findFirst({
+    where: {
+      atributoId,
+      ...(salvoValorId ? { id: { not: salvoValorId } } : {}),
+      OR: [{ valor: { equals: valor, mode: 'insensitive' } }, ...(codigo ? [{ codigo }] : [])],
+    },
+    select: { id: true, valor: true, codigo: true, activo: true },
+  });
+  if (!existente) return;
+  const mismoNombre = existente.valor.toLowerCase() === valor.toLowerCase();
+  throw ErrorApi.conflicto(
+    existente.activo
+      ? mismoNombre
+        ? `Ya existe ${existente.valor} en ${nombreAtributo}`
+        : `El código ${codigo} ya lo usa ${existente.valor}`
+      : `${existente.valor} ya existe pero está desactivado`,
+    {
+      valorId: existente.id,
+      valor: existente.valor,
+      activo: existente.activo,
+      campo: mismoNombre ? 'valor' : 'codigo',
+    },
+  );
+}
+
 export async function obtenerConfiguracionAtributos() {
   const [atributos, categorias] = await Promise.all([
     prisma.atributo.findMany({
@@ -37,7 +121,17 @@ export async function obtenerConfiguracionAtributos() {
         nombre: true,
         valoresAtributo: {
           orderBy: { orden: 'asc' },
-          select: { id: true, valor: true, hex: true, codigo: true, orden: true, activo: true },
+          select: {
+            id: true,
+            valor: true,
+            hex: true,
+            hexSecundario: true,
+            codigo: true,
+            orden: true,
+            activo: true,
+            // Con variantes, el código ya no se puede editar (va en el SKU).
+            _count: { select: { variantes: true } },
+          },
         },
       },
     }),
@@ -66,7 +160,10 @@ export async function obtenerConfiguracionAtributos() {
       nombre: a.nombre,
       // Universal: el editor de categorías no ofrece elegir sus valores.
       universal: esAtributoUniversal(a.slug),
-      valores: a.valoresAtributo,
+      valores: a.valoresAtributo.map(({ _count, ...valor }) => ({
+        ...valor,
+        variantesQueLoUsan: _count.variantes,
+      })),
     })),
     categorias: categorias.map((c) => ({
       id: c.id,
@@ -218,17 +315,12 @@ export async function crearValorAtributo(datos: BodyCrearValorAtributo) {
   if (!atributo) throw ErrorApi.noEncontrado('El atributo no existe');
   const nombreAtributo = atributo.nombre.toLowerCase();
 
-  const codigo = datos.codigo ? datos.codigo.trim().toUpperCase() : null;
-  if (!codigo && SLUGS_CON_CODIGO_OBLIGATORIO.includes(atributo.slug)) {
-    throw ErrorApi.peticionInvalida(
-      `Los valores de ${nombreAtributo} necesitan código: va en el SKU.`,
-    );
-  }
-  if (codigo && !/^[A-Z0-9]{1,10}$/.test(codigo)) {
-    throw ErrorApi.peticionInvalida(
-      'El código va solo con letras y números, sin guiones ni espacios (hasta 10).',
-    );
-  }
+  const codigo = normalizarCodigo(
+    atributo.slug,
+    nombreAtributo,
+    datos.codigo ? datos.codigo.trim().toUpperCase() : null,
+  );
+  const tonos = normalizarTonos(atributo.slug, datos.hex ?? null, datos.hexSecundario ?? null);
 
   const usan = atributo.categoriasQueLoUsan.map((c) => c.categoriaId);
   let categoriaIds: string[];
@@ -247,33 +339,8 @@ export async function crearValorAtributo(datos: BodyCrearValorAtributo) {
     }
   }
 
-  // Antes de crear, buscar si ya existe (nombre sin distinguir mayúsculas,
-  // o código). El 409 dice cuál es y si está desactivado, para que el panel
-  // ofrezca reactivarlo en vez de dejar a la persona trabada.
   const valor = datos.valor.trim();
-  const existente = await prisma.valorAtributo.findFirst({
-    where: {
-      atributoId: atributo.id,
-      OR: [{ valor: { equals: valor, mode: 'insensitive' } }, ...(codigo ? [{ codigo }] : [])],
-    },
-    select: { id: true, valor: true, codigo: true, activo: true },
-  });
-  if (existente) {
-    const mismoNombre = existente.valor.toLowerCase() === valor.toLowerCase();
-    throw ErrorApi.conflicto(
-      existente.activo
-        ? mismoNombre
-          ? `Ya existe ${existente.valor} en ${nombreAtributo}`
-          : `El código ${codigo} ya lo usa ${existente.valor}`
-        : `${existente.valor} ya existe pero está desactivado`,
-      {
-        valorId: existente.id,
-        valor: existente.valor,
-        activo: existente.activo,
-        campo: mismoNombre ? 'valor' : 'codigo',
-      },
-    );
-  }
+  await rechazarSiYaExiste(atributo.id, nombreAtributo, valor, codigo);
 
   try {
     return await prisma.$transaction(async (tx) => {
@@ -281,19 +348,11 @@ export async function crearValorAtributo(datos: BodyCrearValorAtributo) {
         data: {
           atributoId: atributo.id,
           valor,
-          hex: datos.hex ?? null,
+          ...tonos,
           codigo,
           orden: (atributo.valoresAtributo[0]?.orden ?? -1) + 1,
         },
-        select: {
-          id: true,
-          valor: true,
-          hex: true,
-          codigo: true,
-          orden: true,
-          activo: true,
-          atributoId: true,
-        },
+        select: SELECT_VALOR,
       });
       await tx.categoriaValorAtributo.createMany({
         data: categoriaIds.map((categoriaId) => ({
@@ -328,14 +387,69 @@ export async function cambiarActivoValor(valorId: string, activo: boolean) {
   return prisma.valorAtributo.update({
     where: { id: valorId },
     data: { activo },
+    select: SELECT_VALOR,
+  });
+}
+
+// Editar un valor ya creado: el nombre y los tonos, siempre. El código, solo
+// mientras ninguna variante lo use: el SKU se guarda en la variante
+// (variante_producto.sku) con el código adentro, así que cambiarlo después
+// dejaría los SKU existentes sin correspondencia con su color.
+//
+// Lo vendido no cambia: pedido_item congela nombre, color y tonos al comprar
+// (lib/lineaPedido.ts). Sí cambia lo vivo: catálogo, ficha y carrito.
+export async function editarValorAtributo(valorId: string, datos: BodyEditarValorAtributo) {
+  const actual = await prisma.valorAtributo.findUnique({
+    where: { id: valorId },
     select: {
       id: true,
       valor: true,
       hex: true,
+      hexSecundario: true,
       codigo: true,
-      orden: true,
-      activo: true,
-      atributoId: true,
+      atributo: { select: { id: true, slug: true, nombre: true } },
+      _count: { select: { variantes: true } },
     },
   });
+  if (!actual) throw ErrorApi.noEncontrado('El valor no existe');
+  const { atributo } = actual;
+  const nombreAtributo = atributo.nombre.toLowerCase();
+
+  const valor = datos.valor !== undefined ? datos.valor.trim() : actual.valor;
+
+  let codigo = actual.codigo;
+  if (datos.codigo !== undefined) {
+    const nuevo = datos.codigo.trim().toUpperCase();
+    if (nuevo !== actual.codigo) {
+      if (actual._count.variantes > 0) {
+        throw ErrorApi.conflicto(
+          `El código de ${actual.valor} no se puede cambiar: ya lo usan ${actual._count.variantes} variantes en su SKU.`,
+        );
+      }
+      codigo = normalizarCodigo(atributo.slug, nombreAtributo, nuevo);
+    }
+  }
+
+  const tonos = normalizarTonos(
+    atributo.slug,
+    datos.hex !== undefined ? datos.hex : actual.hex,
+    datos.hexSecundario !== undefined ? datos.hexSecundario : actual.hexSecundario,
+  );
+
+  await rechazarSiYaExiste(atributo.id, nombreAtributo, valor, codigo, actual.id);
+
+  try {
+    return await prisma.valorAtributo.update({
+      where: { id: valorId },
+      data: { valor, codigo, ...tonos },
+      select: SELECT_VALOR,
+    });
+  } catch (error) {
+    if (esColisionUnica(error)) {
+      throw ErrorApi.conflicto(
+        `Ya existe un valor de ${nombreAtributo} con ese nombre o ese código`,
+      );
+    }
+    throw error;
+  }
 }

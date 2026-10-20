@@ -38,6 +38,7 @@ interface ValorResuelto {
   valor: string;
   codigo: string | null;
   hex: string | null;
+  hexSecundario: string | null;
   orden: number;
   activo: boolean;
   atributoId: string;
@@ -76,6 +77,7 @@ async function resolverValores(
       valor: true,
       codigo: true,
       hex: true,
+      hexSecundario: true,
       orden: true,
       activo: true,
       atributo: { select: { id: true, slug: true, nombre: true } },
@@ -92,6 +94,7 @@ async function resolverValores(
         valor: fila.valor,
         codigo: fila.codigo,
         hex: fila.hex,
+        hexSecundario: fila.hexSecundario,
         orden: fila.orden,
         activo: fila.activo,
         atributoId: fila.atributo.id,
@@ -276,7 +279,7 @@ export async function insertarVariantes(
 
 export interface CombinacionLote {
   longitud: { id: string; valor: string };
-  color: { id: string; valor: string; hex: string | null } | null;
+  color: { id: string; valor: string; hex: string | null; hexSecundario: string | null } | null;
   sku: string;
   precio: number;
   costo: number | null;
@@ -373,7 +376,9 @@ async function armarCombinaciones(
       );
       combinaciones.push({
         longitud: { id: longitud.valor.id, valor: longitud.valor.valor },
-        color: color ? { id: color.id, valor: color.valor, hex: color.hex } : null,
+        color: color
+          ? { id: color.id, valor: color.valor, hex: color.hex, hexSecundario: color.hexSecundario }
+          : null,
         sku: skuDeValores(codigoProducto, valoresCombinacion),
         precio: longitud.precio,
         costo: longitud.costo ?? null,

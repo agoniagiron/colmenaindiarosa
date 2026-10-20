@@ -138,6 +138,7 @@ const SELECT_VARIANTE_DETALLE = {
           id: true,
           valor: true,
           hex: true,
+          hexSecundario: true,
           atributo: { select: { id: true, nombre: true, slug: true } },
         },
       },
@@ -241,7 +242,10 @@ function resumenPrincipal(producto: ProductoDetalleCrudo) {
 // clienta ve solo las genéricas (lib/imagenesVariante.ts).
 function coloresSinFotos(producto: ProductoDetalleCrudo) {
   const conFotos = new Set(producto.imagenes.map((imagen) => imagen.valorAtributoId));
-  const pendientes = new Map<string, { id: string; valor: string; hex: string | null }>();
+  const pendientes = new Map<
+    string,
+    { id: string; valor: string; hex: string | null; hexSecundario: string | null }
+  >();
   for (const variante of producto.variantes) {
     if (!variante.activa) continue;
     for (const { valorAtributo } of variante.valoresAtributo) {
@@ -250,6 +254,7 @@ function coloresSinFotos(producto: ProductoDetalleCrudo) {
         id: valorAtributo.id,
         valor: valorAtributo.valor,
         hex: valorAtributo.hex,
+        hexSecundario: valorAtributo.hexSecundario,
       });
     }
   }
@@ -881,6 +886,7 @@ export async function listarAtributos(categoriaId?: string) {
         id: v.id,
         valor: v.valor,
         hex: v.hex,
+        hexSecundario: v.hexSecundario,
         codigo: v.codigo,
       })),
     }));
@@ -894,7 +900,7 @@ export async function listarAtributos(categoriaId?: string) {
       orden: true,
       valoresAtributo: {
         orderBy: { orden: 'asc' },
-        select: { id: true, valor: true, hex: true, codigo: true },
+        select: { id: true, valor: true, hex: true, hexSecundario: true, codigo: true },
       },
     },
   });

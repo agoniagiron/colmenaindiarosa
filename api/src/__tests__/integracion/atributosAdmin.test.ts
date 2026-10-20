@@ -29,6 +29,7 @@ const { atributosDeCategoria, validarValoresParaCategoria } =
 const {
   cambiarActivoValor,
   crearValorAtributo,
+  editarValorAtributo,
   guardarConfiguracionCategoria,
   obtenerConfiguracionAtributos,
 } = await import('../../modulos/admin/productos/servicioAtributos.js');
@@ -307,6 +308,133 @@ describeConDbReal('Admin/Atributos: configuración por categoría contra Postgre
   it('cambiar activo de un valor que no existe: 404', async () => {
     await expect(
       cambiarActivoValor('00000000-0000-4000-8000-000000000000', true),
+    ).rejects.toMatchObject({ estadoHttp: 404 });
+  });
+
+  it('un color combinado guarda los dos tonos; igual al primario queda sólido', async () => {
+    const combinado = await crearValorAtributo({
+      atributoId: colorId,
+      valor: `Rubio raíz oscura ${SUFIJO}`,
+      hex: '#d9b98a',
+      hexSecundario: '#3b2620',
+      codigo: `RO${C}`,
+    });
+    expect(combinado).toMatchObject({ hex: '#d9b98a', hexSecundario: '#3b2620' });
+
+    const mismoTono = await crearValorAtributo({
+      atributoId: colorId,
+      valor: `Miel ${SUFIJO}`,
+      hex: '#a97e4c',
+      hexSecundario: '#A97E4C',
+      codigo: `MI${C}`,
+    });
+    expect(mismoTono.hexSecundario).toBeNull();
+  });
+
+  it('secundario sin primario, o en un atributo que no es color: 400', async () => {
+    await expect(
+      crearValorAtributo({
+        atributoId: colorId,
+        valor: `Sin primario ${SUFIJO}`,
+        hexSecundario: '#3b2620',
+        codigo: `SP${C}`,
+      }),
+    ).rejects.toMatchObject({ estadoHttp: 400 });
+    await expect(
+      crearValorAtributo({
+        atributoId: longitudId,
+        valor: `36 ${SUFIJO}`,
+        hex: '#000000',
+        hexSecundario: '#ffffff',
+        codigo: `36${C}`,
+        categoriaIds: [pelucasId],
+      }),
+    ).rejects.toMatchObject({ estadoHttp: 400 });
+  });
+
+  it('el caso "Caramelo rubio": creado sólido, se edita a dos tonos sin recrearlo', async () => {
+    const caramelo = await crearValorAtributo({
+      atributoId: colorId,
+      valor: `Caramelo rubio ${SUFIJO}`,
+      hex: '#8a5a34',
+      codigo: `CR${C}`,
+    });
+    // Recrearlo choca con el nombre: la salida es editarlo.
+    await expect(
+      crearValorAtributo({
+        atributoId: colorId,
+        valor: `Caramelo rubio ${SUFIJO}`,
+        hex: '#8a5a34',
+        hexSecundario: '#d9b98a',
+        codigo: `Q${C}`,
+      }),
+    ).rejects.toMatchObject({ estadoHttp: 409 });
+
+    const editado = await editarValorAtributo(caramelo.id, { hexSecundario: '#d9b98a' });
+    expect(editado).toMatchObject({
+      valor: `Caramelo rubio ${SUFIJO}`,
+      hex: '#8a5a34',
+      hexSecundario: '#d9b98a',
+      codigo: `CR${C}`,
+    });
+
+    // Volver a sólido.
+    expect((await editarValorAtributo(caramelo.id, { hexSecundario: null })).hexSecundario).toBe(
+      null,
+    );
+  });
+
+  it('el nombre se edita; no puede chocar con otro valor del mismo atributo', async () => {
+    const editado = await editarValorAtributo(rubio, { valor: `Rubio miel ${SUFIJO}` });
+    expect(editado.valor).toBe(`Rubio miel ${SUFIJO}`);
+    await expect(editarValorAtributo(rubio, { valor: `negro ${SUFIJO}` })).rejects.toMatchObject({
+      estadoHttp: 409,
+      detalles: { valorId: negro, campo: 'valor' },
+    });
+  });
+
+  it('el código se edita mientras ninguna variante lo usa; con variantes, 409 y no cambia', async () => {
+    const libre = await editarValorAtributo(negro, { codigo: `ng${C}` });
+    expect(libre.codigo).toBe(`NG${C}`);
+
+    // Una variante con este color: el código ya está dentro de su SKU.
+    const producto = await prisma.producto.create({
+      data: { nombre: `Peluca ${SUFIJO}`, slug: `peluca-${SUFIJO}`, categoriaId: pelucasId },
+    });
+    const variante = await prisma.varianteProducto.create({
+      data: { productoId: producto.id, sku: `SKU-NG${C}`, precioActual: 1 },
+    });
+    await prisma.varianteValorAtributo.create({
+      data: { varianteId: variante.id, valorId: negro },
+    });
+    try {
+      await expect(editarValorAtributo(negro, { codigo: `NN${C}` })).rejects.toMatchObject({
+        estadoHttp: 409,
+      });
+      // Mandar el mismo código no es un cambio: no se rechaza.
+      await expect(editarValorAtributo(negro, { codigo: `NG${C}` })).resolves.toMatchObject({
+        codigo: `NG${C}`,
+      });
+      // Nombre y tonos sí, aunque tenga variantes.
+      await expect(
+        editarValorAtributo(negro, { valor: `Negro azabache ${SUFIJO}`, hex: '#111111' }),
+      ).resolves.toMatchObject({ valor: `Negro azabache ${SUFIJO}`, hex: '#111111' });
+
+      const config = await obtenerConfiguracionAtributos();
+      const fila = config.atributos
+        .find((a) => a.id === colorId)!
+        .valores.find((v) => v.id === negro)!;
+      expect(fila.variantesQueLoUsan).toBe(1);
+    } finally {
+      await prisma.varianteValorAtributo.deleteMany({ where: { varianteId: variante.id } });
+      await prisma.varianteProducto.delete({ where: { id: variante.id } });
+      await prisma.producto.delete({ where: { id: producto.id } });
+    }
+  });
+
+  it('editar un valor que no existe: 404', async () => {
+    await expect(
+      editarValorAtributo('00000000-0000-4000-8000-000000000000', { valor: 'X' }),
     ).rejects.toMatchObject({ estadoHttp: 404 });
   });
 });

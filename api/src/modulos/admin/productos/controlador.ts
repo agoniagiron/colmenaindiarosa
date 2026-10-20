@@ -11,6 +11,7 @@ import type {
   BodyCrearValorAtributo,
   BodyCrearVariante,
   BodyEditarProducto,
+  BodyEditarValorAtributo,
   BodyEditarVariante,
   BodyEstadoProducto,
   BodyPortadaProducto,
@@ -125,6 +126,12 @@ export async function cambiarActivoValor(req: Request, res: Response): Promise<v
   const valorId = req.params.valorId as string;
   const { activo } = req.body as BodyActivoValor;
   res.json(await servicioAtributos.cambiarActivoValor(valorId, activo));
+}
+
+export async function editarValorAtributo(req: Request, res: Response): Promise<void> {
+  const valorId = req.params.valorId as string;
+  const datos = req.body as BodyEditarValorAtributo;
+  res.json(await servicioAtributos.editarValorAtributo(valorId, datos));
 }
 
 export async function obtenerConfiguracionAtributos(_req: Request, res: Response): Promise<void> {

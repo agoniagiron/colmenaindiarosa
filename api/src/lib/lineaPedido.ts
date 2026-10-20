@@ -17,6 +17,8 @@ import type { AtributoDeLinea } from '../dominio/describirLinea.js';
 export interface AtributoCongelado extends AtributoDeLinea {
   nombre: string;
   hex?: string;
+  // Segundo tono de un color combinado, congelado igual que el primero.
+  hexSecundario?: string;
 }
 
 // Lo que se guarda en pedido_item.atributos: todos los atributos de la
@@ -26,6 +28,7 @@ export function congelarAtributos(
     valorAtributo: {
       valor: string;
       hex: string | null;
+      hexSecundario: string | null;
       atributo: { slug: string; nombre: string };
     };
   }[],
@@ -36,6 +39,9 @@ export function congelarAtributos(
       nombre: valorAtributo.atributo.nombre,
       valor: valorAtributo.valor,
       ...(valorAtributo.hex ? { hex: valorAtributo.hex } : {}),
+      ...(valorAtributo.hex && valorAtributo.hexSecundario
+        ? { hexSecundario: valorAtributo.hexSecundario }
+        : {}),
     })),
   );
 }

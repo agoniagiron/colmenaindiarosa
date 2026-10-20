@@ -6,6 +6,8 @@ export interface RelacionValorAtributo {
   valorAtributo: {
     valor: string;
     hex: string | null;
+    // Segundo tono de un color combinado (esfera partida); null si es sólido.
+    hexSecundario: string | null;
     atributo: { slug: string };
   };
 }
@@ -15,7 +17,7 @@ export interface AtributosExtraidos {
   longitud?: string;
   talla?: string;
   densidad?: string;
-  color?: { nombre: string; hex?: string };
+  color?: { nombre: string; hex?: string; hexSecundario?: string };
 }
 
 export function extraerAtributosVariante(
@@ -25,12 +27,18 @@ export function extraerAtributosVariante(
 
   for (const relacion of valoresAtributo) {
     const { slug } = relacion.valorAtributo.atributo;
-    const { valor, hex } = relacion.valorAtributo;
+    const { valor, hex, hexSecundario } = relacion.valorAtributo;
     if (slug === 'tipo_base') resultado.tipoBase = valor;
     else if (slug === 'longitud') resultado.longitud = valor;
     else if (slug === 'talla') resultado.talla = valor;
     else if (slug === 'densidad') resultado.densidad = valor;
-    else if (slug === 'color') resultado.color = hex ? { nombre: valor, hex } : { nombre: valor };
+    else if (slug === 'color') {
+      resultado.color = {
+        nombre: valor,
+        ...(hex ? { hex } : {}),
+        ...(hex && hexSecundario ? { hexSecundario } : {}),
+      };
+    }
   }
 
   return resultado;

@@ -14,6 +14,21 @@ import { varianteMostradaDe } from '../catalogo/servicio.js';
 interface ColorDisponible {
   nombre: string;
   hex?: string;
+  // Segundo tono de un color combinado (esfera partida).
+  hexSecundario?: string;
+}
+
+// Sin claves vacías: un color sin tono es solo el nombre.
+function aColorDisponible(
+  nombre: string,
+  hex: string | null | undefined,
+  hexSecundario: string | null | undefined,
+): ColorDisponible {
+  return {
+    nombre,
+    ...(hex ? { hex } : {}),
+    ...(hex && hexSecundario ? { hexSecundario } : {}),
+  };
 }
 
 function estaAgotada(variantes: { stockActual: number; stockReservado: number }[]): boolean {
@@ -63,6 +78,7 @@ export async function obtenerHeroePortada() {
                     select: {
                       valor: true,
                       hex: true,
+                      hexSecundario: true,
                       orden: true,
                       atributo: { select: { slug: true } },
                     },
@@ -101,12 +117,9 @@ export async function obtenerHeroePortada() {
     for (const variante of producto.variantes) {
       for (const relacion of variante.valoresAtributo) {
         if (relacion.valorAtributo.atributo.slug !== 'color') continue;
-        const { valor, hex, orden } = relacion.valorAtributo;
+        const { valor, hex, hexSecundario, orden } = relacion.valorAtributo;
         if (!coloresProducto.has(valor)) {
-          coloresProducto.set(
-            valor,
-            hex ? { nombre: valor, hex, orden } : { nombre: valor, orden },
-          );
+          coloresProducto.set(valor, { ...aColorDisponible(valor, hex, hexSecundario), orden });
         }
       }
     }
@@ -122,13 +135,13 @@ export async function obtenerHeroePortada() {
       imagenPrincipal: portadaDe(producto, promociones),
       colores: [...coloresProducto.values()]
         .sort((a, b) => a.orden - b.orden)
-        .map(({ nombre, hex }) => (hex ? { nombre, hex } : { nombre })),
+        .map(({ nombre, hex, hexSecundario }) => aColorDisponible(nombre, hex, hexSecundario)),
     });
   }
 
   const colores = [...coloresUnion.values()]
     .sort((a, b) => a.orden - b.orden)
-    .map(({ nombre, hex }) => (hex ? { nombre, hex } : { nombre }));
+    .map(({ nombre, hex, hexSecundario }) => aColorDisponible(nombre, hex, hexSecundario));
 
   return { destacadas, colores };
 }

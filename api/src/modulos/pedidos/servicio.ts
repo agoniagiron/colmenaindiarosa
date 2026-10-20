@@ -63,6 +63,7 @@ const SELECT_ITEM_CARRITO = {
             select: {
               valor: true,
               hex: true,
+              hexSecundario: true,
               atributo: { select: { slug: true, nombre: true } },
             },
           },

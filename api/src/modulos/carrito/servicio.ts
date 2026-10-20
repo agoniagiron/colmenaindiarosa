@@ -48,7 +48,12 @@ const SELECT_ITEM = {
         select: {
           valorId: true,
           valorAtributo: {
-            select: { valor: true, hex: true, atributo: { select: { slug: true } } },
+            select: {
+              valor: true,
+              hex: true,
+              hexSecundario: true,
+              atributo: { select: { slug: true } },
+            },
           },
         },
       },

@@ -163,6 +163,7 @@ const SELECT_VARIANTE = {
         select: {
           valor: true,
           hex: true,
+          hexSecundario: true,
           atributo: { select: { slug: true } },
         },
       },
@@ -505,7 +506,10 @@ export async function listarFacetas(filtros: FiltrosProducto) {
     select: {
       id: true,
       slug: true,
-      valoresAtributo: { orderBy: { orden: 'asc' }, select: { id: true, valor: true, hex: true } },
+      valoresAtributo: {
+        orderBy: { orden: 'asc' },
+        select: { id: true, valor: true, hex: true, hexSecundario: true },
+      },
     },
   });
   const atributoPorSlug = new Map(atributos.map((a) => [a.slug, a]));
@@ -564,6 +568,7 @@ export async function listarFacetas(filtros: FiltrosProducto) {
       .map((valor) => ({
         valor: valor.valor,
         ...(valor.hex ? { hex: valor.hex } : {}),
+        ...(valor.hex && valor.hexSecundario ? { hexSecundario: valor.hexSecundario } : {}),
         conteo: conteoPorValor.get(valor.id) ?? 0,
       }));
   }

@@ -19,6 +19,7 @@ export interface ValorPermitido {
   id: string;
   valor: string;
   hex: string | null;
+  hexSecundario: string | null;
   codigo: string | null;
   orden: number;
 }
@@ -51,7 +52,14 @@ export async function atributosDeCategoria(
         where: { valorAtributo: { activo: true } },
         select: {
           valorAtributo: {
-            select: { id: true, valor: true, hex: true, codigo: true, orden: true },
+            select: {
+              id: true,
+              valor: true,
+              hex: true,
+              hexSecundario: true,
+              codigo: true,
+              orden: true,
+            },
           },
         },
       },

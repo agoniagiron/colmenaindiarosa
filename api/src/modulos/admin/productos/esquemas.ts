@@ -105,10 +105,20 @@ export const esquemaQueryAtributos = z.object({
   categoriaId: z.string().uuid().optional(),
 });
 
+// Segundo tono de un color combinado (la esfera se dibuja partida). Solo
+// para color y siempre junto a un hex primario: lo valida el servicio.
+const esquemaHexSecundario = z
+  .string()
+  .trim()
+  .regex(/^#[0-9a-fA-F]{6}$/, 'El color secundario va como #RRGGBB')
+  .nullable()
+  .optional();
+
 export const esquemaBodyCrearValorAtributo = z.object({
   atributoId: z.string().uuid(),
   valor: z.string().trim().min(1),
   hex: z.string().trim().min(1).nullable().optional(),
+  hexSecundario: esquemaHexSecundario,
   // Obligatorio para longitud y color (va en el SKU); lo valida el servicio.
   codigo: z.string().trim().min(1).optional(),
   // En qué categorías se habilita, en el mismo paso que se crea: un valor
@@ -124,6 +134,16 @@ export const esquemaBodyActivoValor = z.object({
 
 export const esquemaParamsValor = z.object({
   valorId: z.string().uuid(),
+});
+
+// Editar un valor ya creado: nombre y tonos siempre; el código solo
+// mientras ninguna variante lo use (va dentro del SKU guardado). Omitir un
+// campo lo deja como está; null en un tono lo borra.
+export const esquemaBodyEditarValorAtributo = z.object({
+  valor: z.string().trim().min(1).optional(),
+  hex: z.string().trim().min(1).nullable().optional(),
+  hexSecundario: esquemaHexSecundario,
+  codigo: z.string().trim().min(1).optional(),
 });
 
 // Configuración completa de una categoría. El orden de la lista es el orden
@@ -194,5 +214,6 @@ export type BodyPrecioVariante = z.infer<typeof esquemaBodyPrecioVariante>;
 export type BodyPreciosProducto = z.infer<typeof esquemaBodyPreciosProducto>;
 export type BodyCrearValorAtributo = z.infer<typeof esquemaBodyCrearValorAtributo>;
 export type BodyActivoValor = z.infer<typeof esquemaBodyActivoValor>;
+export type BodyEditarValorAtributo = z.infer<typeof esquemaBodyEditarValorAtributo>;
 export type QueryAtributos = z.infer<typeof esquemaQueryAtributos>;
 export type BodyConfiguracionCategoria = z.infer<typeof esquemaBodyConfiguracionCategoria>;
