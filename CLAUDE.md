@@ -31,6 +31,17 @@ la tienda confirma disponibilidad y forma de pago por chat.
 - Desactivar un valor de atributo impide crear variantes nuevas con él,
   pero no toca las que ya existen, que siguen visibles y vendibles. Es
   deliberado.
+- La línea del pedido (`pedido_item`) guarda una copia de lo que se vendió,
+  congelada al crear el pedido: nombre, precio, `imagen_url` y `atributos`
+  (jsonb). Un pedido nunca se resuelve contra la variante viva: renombrar un
+  color, desactivar una variante o cambiar fotos no toca lo vendido. Es
+  además la constancia de la transacción.
+- `pedido_item.atributos` (jsonb) es el registro completo de los atributos
+  elegidos, cualquiera sea la categoría. Las cinco columnas fijas
+  (`tipo_base`, `longitud`, `color_nombre`, `color_hex`, `talla`,
+  `densidad`) se siguen escribiendo para no romper lo que las lee, pero no
+  se agregan columnas nuevas por atributo. En NULL (pedidos anteriores al
+  jsonb) se lee de las cinco columnas.
 - El número de WhatsApp de la tienda vive en la variable de entorno
   NUMERO_WHATSAPP. Nunca escrito en el código.
 

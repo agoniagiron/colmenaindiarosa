@@ -26,7 +26,8 @@ if (!DATABASE_URL_TEST) {
 const describeConDbReal = DATABASE_URL_TEST ? describe : describe.skip;
 
 const { prisma } = await import('../../lib/prisma.js');
-const { iniciarCheckout } = await import('../../modulos/pedidos/servicio.js');
+const { iniciarCheckout, listarPedidosUsuario, obtenerEstadoPedido, obtenerPedidoDelUsuario } =
+  await import('../../modulos/pedidos/servicio.js');
 
 const SUFIJO = `checkout-idempotencia-${Date.now()}`;
 
@@ -186,5 +187,31 @@ describeConDbReal('Checkout: clave de idempotencia contra PostgreSQL real', () =
     });
     // 2 del primer pedido + 1 de este.
     expect(variante.stockReservado).toBe(3);
+  });
+
+  it('la línea guarda la copia y las pantallas de pedido la leen ya descrita', async () => {
+    const resultado = await iniciarCheckout(usuarioId, datosCheckout(`clave-otra-${SUFIJO}`));
+
+    const [item] = await prisma.pedidoItem.findMany({
+      where: { pedido: { numero: resultado.numeroPedido } },
+    });
+    // Sin atributos ni fotos: lista vacía (no NULL, que es "pedido viejo").
+    expect(item!.atributos).toEqual([]);
+    expect(item!.imagenUrl).toBeNull();
+
+    const detalle = await obtenerPedidoDelUsuario(usuarioId, resultado.numeroPedido);
+    expect(detalle.items[0]).toMatchObject({ descripcion: `Prod ${SUFIJO}`, imagenUrl: null });
+    expect(detalle.items[0]).not.toHaveProperty('atributos');
+
+    const estado = await obtenerEstadoPedido(usuarioId, resultado.numeroPedido);
+    expect(estado.lineas).toEqual([
+      expect.objectContaining({ descripcion: `Prod ${SUFIJO}`, cantidad: 1, subtotal: 100000 }),
+    ]);
+
+    const lista = await listarPedidosUsuario(usuarioId);
+    expect(lista.find((p) => p.numero === resultado.numeroPedido)?.resumenItems).toEqual({
+      texto: `Prod ${SUFIJO}`,
+      imagenUrl: null,
+    });
   });
 });

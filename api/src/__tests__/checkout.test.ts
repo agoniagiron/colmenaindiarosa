@@ -40,7 +40,7 @@ function varianteFalsa(overrides: Partial<Record<string, unknown>> = {}) {
     stockReservado: 0,
     activa: true,
     productoId: 'prod-1',
-    producto: { nombre: 'Producto Uno' },
+    producto: { nombre: 'Producto Uno', imagenes: [] },
     valoresAtributo: [],
     ...overrides,
   };
@@ -110,6 +110,71 @@ describe('POST /api/checkout/iniciar', () => {
     expect(prismaMock.varianteProducto.update).toHaveBeenCalledWith({
       where: { id: 'var-1' },
       data: { stockReservado: { increment: 2 } },
+    });
+  });
+
+  it('la línea del pedido guarda la copia: atributos completos y la foto del color', async () => {
+    prismaMock.carrito.findFirst.mockResolvedValueOnce(
+      carritoFalso(1, {
+        producto: {
+          nombre: 'HANNAH',
+          imagenes: [
+            {
+              id: 'i-gen',
+              url: 'https://ejemplo.com/gen.webp',
+              altTexto: '',
+              valorAtributoId: null,
+              orden: 0,
+            },
+            {
+              id: 'i-rosa',
+              url: 'https://ejemplo.com/rosa.webp',
+              altTexto: '',
+              valorAtributoId: 'v-rosa',
+              orden: 1,
+            },
+          ],
+        },
+        valoresAtributo: [
+          {
+            valorId: 'v-14',
+            valorAtributo: {
+              valor: '14',
+              hex: null,
+              atributo: { slug: 'longitud', nombre: 'Longitud' },
+            },
+          },
+          {
+            valorId: 'v-rosa',
+            valorAtributo: {
+              valor: 'Rosa',
+              hex: '#e8a0b4',
+              atributo: { slug: 'color', nombre: 'Color' },
+            },
+          },
+        ],
+      }),
+    );
+    prismaMock.pedido.count.mockResolvedValueOnce(0);
+    prismaMock.pedido.create.mockResolvedValueOnce({ id: 'pedido-1', numero: 'INR-000001' });
+    prismaMock.pedidoItem.create.mockResolvedValueOnce({});
+    prismaMock.reservaStock.create.mockResolvedValueOnce({});
+    prismaMock.varianteProducto.update.mockResolvedValueOnce({});
+    prismaMock.pago.count.mockResolvedValueOnce(0);
+    prismaMock.pago.create.mockResolvedValueOnce({});
+
+    await iniciarCheckout('usuario-1', datosCheckout);
+
+    expect(prismaMock.pedidoItem.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        nombreProducto: 'HANNAH',
+        colorNombre: 'Rosa',
+        imagenUrl: 'https://ejemplo.com/rosa.webp',
+        atributos: [
+          { slug: 'color', nombre: 'Color', valor: 'Rosa', hex: '#e8a0b4' },
+          { slug: 'longitud', nombre: 'Longitud', valor: '14' },
+        ],
+      }),
     });
   });
 

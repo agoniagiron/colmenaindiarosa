@@ -19,12 +19,18 @@ function rango(slug: string): number {
   return indice === -1 ? ORDEN_ATRIBUTOS.length : indice;
 }
 
-export function describirAtributos(atributos: readonly AtributoDeLinea[]): string {
+// El orden de arriba, estable para los que no están en la lista. Lo usa
+// también la copia que guarda el pedido (lib/lineaPedido.ts).
+export function ordenarAtributos<T extends AtributoDeLinea>(atributos: readonly T[]): T[] {
   return atributos
-    .filter((atributo) => atributo.valor.trim().length > 0)
     .map((atributo, indice) => ({ atributo, indice }))
     .sort((a, b) => rango(a.atributo.slug) - rango(b.atributo.slug) || a.indice - b.indice)
-    .map(({ atributo }) => atributo.valor.trim())
+    .map(({ atributo }) => atributo);
+}
+
+export function describirAtributos(atributos: readonly AtributoDeLinea[]): string {
+  return ordenarAtributos(atributos.filter((atributo) => atributo.valor.trim().length > 0))
+    .map((atributo) => atributo.valor.trim())
     .join(' / ');
 }
 

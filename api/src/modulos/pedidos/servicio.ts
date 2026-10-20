@@ -6,6 +6,18 @@ import { extraerAtributosVariante } from '../../lib/atributosVariante.js';
 import { obtenerConfigTotales } from '../../lib/configuracion.js';
 import { ErrorApi } from '../../lib/errorApi.js';
 import { formatearPesos } from '../../lib/formatearPesos.js';
+import {
+  imagenDeVariante,
+  SELECT_IMAGEN_PUBLICA,
+  valoresDeVariante,
+} from '../../lib/imagenesVariante.js';
+import {
+  conDescripcion,
+  congelarAtributos,
+  resumenItemsPedido,
+  SELECT_DESCRIPCION_ITEM,
+} from '../../lib/lineaPedido.js';
+import type { AtributoCongelado } from '../../lib/lineaPedido.js';
 import { obtenerTasaUsdVigente } from '../../lib/moneda.js';
 import { prisma } from '../../lib/prisma.js';
 import { generarFirmaIntegridad } from '../../lib/wompi/firma.js';
@@ -41,11 +53,18 @@ const SELECT_ITEM_CARRITO = {
       stockReservado: true,
       activa: true,
       productoId: true,
-      producto: { select: { nombre: true } },
+      // Las fotos, para congelar en el pedido la misma que muestra la
+      // línea del carrito (lib/imagenesVariante.ts).
+      producto: { select: { nombre: true, imagenes: { select: SELECT_IMAGEN_PUBLICA } } },
       valoresAtributo: {
         select: {
+          valorId: true,
           valorAtributo: {
-            select: { valor: true, hex: true, atributo: { select: { slug: true } } },
+            select: {
+              valor: true,
+              hex: true,
+              atributo: { select: { slug: true, nombre: true } },
+            },
           },
         },
       },
@@ -58,6 +77,7 @@ const SELECT_ITEM_CARRITO = {
       slug: true,
       precioCop: true,
       activo: true,
+      imagenUrl: true,
       items: {
         select: {
           cantidad: true,
@@ -110,6 +130,9 @@ interface LineaCheckoutVariante {
   color?: { nombre: string; hex?: string };
   talla?: string;
   densidad?: string;
+  // Copia congelada en pedido_item (lib/lineaPedido.ts).
+  atributosCongelados: AtributoCongelado[];
+  imagenUrl: string | null;
   precioUnitario: number;
   cantidad: number;
 }
@@ -119,6 +142,7 @@ interface LineaCheckoutCombo {
   comboId: string;
   nombreCombo: string;
   sku: string;
+  imagenUrl: string | null;
   precioUnitario: number;
   cantidad: number;
   piezas: PiezaCheckout[];
@@ -137,6 +161,9 @@ function mapearLineasCheckout(items: ItemCarritoParaCheckout[]): LineaCheckout[]
         nombreProducto: v.producto.nombre,
         sku: v.sku,
         ...atributos,
+        atributosCongelados: congelarAtributos(v.valoresAtributo),
+        // La misma foto que muestra la línea del carrito.
+        imagenUrl: imagenDeVariante(v.producto.imagenes, valoresDeVariante(v))?.url ?? null,
         precioUnitario: v.precioActual,
         cantidad: item.cantidad,
       };
@@ -148,6 +175,8 @@ function mapearLineasCheckout(items: ItemCarritoParaCheckout[]): LineaCheckout[]
       comboId: combo.id,
       nombreCombo: combo.nombre,
       sku: `combo:${combo.slug}`,
+      // La misma foto que muestra la línea del carrito para un kit.
+      imagenUrl: combo.imagenUrl,
       precioUnitario: combo.precioCop,
       cantidad: item.cantidad,
       piezas: combo.items.map((pieza) => ({
@@ -391,6 +420,9 @@ export async function iniciarCheckout(
                 colorHex: linea.color?.hex,
                 talla: linea.talla,
                 densidad: linea.densidad,
+                // El registro completo de lo vendido (lib/lineaPedido.ts).
+                atributos: linea.atributosCongelados as unknown as Prisma.InputJsonArray,
+                imagenUrl: linea.imagenUrl,
                 precioUnitario: linea.precioUnitario,
                 cantidad: linea.cantidad,
                 subtotal: linea.precioUnitario * linea.cantidad,
@@ -426,6 +458,10 @@ export async function iniciarCheckout(
               sku: linea.sku,
               comboId: linea.comboId,
               nombreCombo: linea.nombreCombo,
+              // Un kit no tiene atributos propios: lista vacía, no NULL (NULL
+              // es "pedido anterior a la copia").
+              atributos: [],
+              imagenUrl: linea.imagenUrl,
               precioUnitario: linea.precioUnitario,
               cantidad: linea.cantidad,
               subtotal: linea.precioUnitario * linea.cantidad,
@@ -544,14 +580,9 @@ const SELECT_PEDIDO_DETALLE = {
   items: {
     select: {
       id: true,
-      nombreProducto: true,
+      ...SELECT_DESCRIPCION_ITEM,
       sku: true,
-      tipoBase: true,
-      longitud: true,
-      colorNombre: true,
       colorHex: true,
-      talla: true,
-      densidad: true,
       precioUnitario: true,
       cantidad: true,
       subtotal: true,
@@ -572,11 +603,19 @@ const SELECT_PEDIDO_DETALLE = {
 } satisfies Prisma.PedidoSelect;
 
 export async function listarPedidosUsuario(usuarioId: string) {
-  return prisma.pedido.findMany({
+  const pedidos = await prisma.pedido.findMany({
     where: { usuarioId },
     orderBy: { creadoEn: 'desc' },
-    select: SELECT_PEDIDO_RESUMEN,
+    select: {
+      ...SELECT_PEDIDO_RESUMEN,
+      items: { select: { nombreProducto: true, imagenUrl: true, subtotal: true } },
+    },
   });
+  // Cada fila lleva la miniatura del primer ítem y "HANNAH y 1 más".
+  return pedidos.map(({ items, ...pedido }) => ({
+    ...pedido,
+    resumenItems: resumenItemsPedido(items),
+  }));
 }
 
 export async function obtenerPedidoDelUsuario(usuarioId: string, numero: string) {
@@ -592,16 +631,41 @@ export async function obtenerPedidoDelUsuario(usuarioId: string, numero: string)
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { usuarioId: _usuarioId, ...pedidoSinUsuarioId } = pedido;
-  return pedidoSinUsuarioId;
+  return { ...pedidoSinUsuarioId, items: pedido.items.map(conDescripcion) };
 }
 
+// La pantalla de resultado del pago: estado, total y qué se compró (foto,
+// texto y precio de cada línea, de la copia congelada).
 export async function obtenerEstadoPedido(usuarioId: string, numero: string) {
   const pedido = await prisma.pedido.findUnique({
     where: { numero },
-    select: { usuarioId: true, numero: true, estado: true, total: true },
+    select: {
+      usuarioId: true,
+      numero: true,
+      estado: true,
+      total: true,
+      items: {
+        select: {
+          id: true,
+          ...SELECT_DESCRIPCION_ITEM,
+          precioUnitario: true,
+          cantidad: true,
+          subtotal: true,
+        },
+      },
+    },
   });
   if (!pedido || pedido.usuarioId !== usuarioId) {
     throw ErrorApi.noEncontrado('El pedido no existe');
   }
-  return { numero: pedido.numero, estado: pedido.estado, total: pedido.total };
+  return {
+    numero: pedido.numero,
+    estado: pedido.estado,
+    total: pedido.total,
+    lineas: pedido.items.map((item) => {
+      const { id, descripcion, imagenUrl, precioUnitario, cantidad, subtotal } =
+        conDescripcion(item);
+      return { id, descripcion, imagenUrl, precioUnitario, cantidad, subtotal };
+    }),
+  };
 }

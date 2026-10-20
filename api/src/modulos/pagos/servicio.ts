@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import type { EstadoPago } from '@prisma/client';
 import { construirMensajeWhatsapp } from '../../dominio/construirMensajeWhatsapp.js';
+import { describirItemPedido, SELECT_DESCRIPCION_ITEM } from '../../lib/lineaPedido.js';
 import { prisma } from '../../lib/prisma.js';
 import { servicioNotificacionTienda } from '../../lib/notificacionTienda.js';
 import { obtenerUnidadesPorVariante } from '../../lib/unidadesPedido.js';
@@ -348,12 +349,7 @@ async function notificarTiendaSiCorresponde(pedidoId: string): Promise<void> {
         cuponCodigo: true,
         items: {
           select: {
-            nombreProducto: true,
-            tipoBase: true,
-            longitud: true,
-            colorNombre: true,
-            talla: true,
-            densidad: true,
+            ...SELECT_DESCRIPCION_ITEM,
             precioUnitario: true,
             cantidad: true,
           },
@@ -374,7 +370,12 @@ async function notificarTiendaSiCorresponde(pedidoId: string): Promise<void> {
     const mensaje = construirMensajeWhatsapp({
       numeroPedido: pedido.numero,
       nombreCliente: pedido.nombreContacto,
-      lineas: pedido.items,
+      // Mismo texto que ven la clienta y el panel, de la copia congelada.
+      lineas: pedido.items.map((item) => ({
+        descripcion: describirItemPedido(item),
+        precioUnitario: item.precioUnitario,
+        cantidad: item.cantidad,
+      })),
       cuponCodigo: pedido.cuponCodigo,
       totales: totalesPedido,
     });

@@ -1,6 +1,8 @@
 import type { EstadoPedido, Prisma } from '@prisma/client';
 import { ErrorApi } from '../../../lib/errorApi.js';
 import { limitesDia, limitesRango } from '../../../lib/fechasReporte.js';
+import { conDescripcion, SELECT_DESCRIPCION_ITEM } from '../../../lib/lineaPedido.js';
+import type { ItemPedidoParaDescribir } from '../../../lib/lineaPedido.js';
 import { prisma } from '../../../lib/prisma.js';
 import { obtenerUnidadesPorVariante } from '../../../lib/unidadesPedido.js';
 import type { BodyEnvio, BodyEstado, BodyReembolso, QueryListadoPedidos } from './esquemas.js';
@@ -160,14 +162,10 @@ const SELECT_DETALLE = {
   items: {
     select: {
       id: true,
-      nombreProducto: true,
+      // Copia congelada: texto e imagen de lo que se vendió, para empacar.
+      ...SELECT_DESCRIPCION_ITEM,
       sku: true,
-      tipoBase: true,
-      longitud: true,
-      colorNombre: true,
       colorHex: true,
-      talla: true,
-      densidad: true,
       precioUnitario: true,
       cantidad: true,
       subtotal: true,
@@ -238,10 +236,16 @@ const SELECT_DETALLE = {
 // Agrega las transiciones válidas desde el estado actual a cualquier
 // resultado con forma SELECT_DETALLE, para que el <select> de "Cambiar
 // estado" del admin nunca tenga que adivinarlas ni traer su propia copia.
-function conTransicionesDisponibles<T extends { estado: EstadoPedido }>(
-  pedido: T,
-): T & { transicionesDisponibles: EstadoPedido[] } {
-  return { ...pedido, transicionesDisponibles: transicionesDisponibles(pedido.estado) };
+// Cada ítem lleva su texto ya armado (lib/lineaPedido.ts).
+function conTransicionesDisponibles<
+  I extends ItemPedidoParaDescribir,
+  T extends { estado: EstadoPedido; items: I[] },
+>(pedido: T) {
+  return {
+    ...pedido,
+    items: pedido.items.map(conDescripcion),
+    transicionesDisponibles: transicionesDisponibles(pedido.estado),
+  };
 }
 
 export async function obtenerDetallePedido(numero: string) {

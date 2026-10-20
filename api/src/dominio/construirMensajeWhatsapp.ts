@@ -6,7 +6,6 @@
 
 import { formatearPesos } from '../lib/formatearPesos.js';
 import type { TotalesCarrito } from './calcularTotales.js';
-import { atributosDeColumnas, describirLinea } from './describirLinea.js';
 
 // Solo los cuatro montos: este mensaje nunca necesitó saber cuál de los
 // dos descuentos ganó (ver dominio/calcularTotales.ts), así que no hace
@@ -14,12 +13,9 @@ import { atributosDeColumnas, describirLinea } from './describirLinea.js';
 type TotalesParaMensaje = Pick<TotalesCarrito, 'subtotal' | 'descuento' | 'envio' | 'total'>;
 
 export interface LineaParaMensaje {
-  nombreProducto: string;
-  tipoBase?: string | null;
-  longitud?: string | null;
-  colorNombre?: string | null;
-  talla?: string | null;
-  densidad?: string | null;
+  // "HANNAH — Rosa / 14 / …", de describirLinea (para una línea de pedido,
+  // lib/lineaPedido.ts: describirItemPedido).
+  descripcion: string;
   precioUnitario: number;
   cantidad: number;
 }
@@ -32,11 +28,10 @@ export interface DatosMensajeWhatsapp {
   totales: TotalesParaMensaje;
 }
 
-// El texto de la línea sale de describirLinea, el mismo que ven la clienta
-// y el panel.
+// El texto de la línea es el mismo que ven la clienta y el panel.
 function bloqueItem(linea: LineaParaMensaje, indice: number): string {
   const subtotalLinea = linea.precioUnitario * linea.cantidad;
-  const encabezado = `${indice + 1}. ${describirLinea(linea.nombreProducto, atributosDeColumnas(linea))}`;
+  const encabezado = `${indice + 1}. ${linea.descripcion}`;
   const cantidadPrecio = `\n   ${linea.cantidad} x ${formatearPesos(linea.precioUnitario)} = ${formatearPesos(subtotalLinea)}`;
   return `${encabezado}${cantidadPrecio}`;
 }

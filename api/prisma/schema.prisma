@@ -179,21 +179,21 @@ model EventoPasarela {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model ImagenProducto {
-  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  productoId        String            @map("producto_id") @db.Uuid
-  varianteId        String?           @map("variante_id") @db.Uuid
-  url               String
-  urlMiniatura      String?           @map("url_miniatura")
-  altTexto          String            @map("alt_texto")
-  tipo              TipoImagen        @default(galeria)
-  orden             Int               @default(0)
-  ancho             Int?
-  alto              Int?
-  creadoEn          DateTime          @default(now()) @map("creado_en") @db.Timestamptz(6)
-  valorAtributoId   String?           @map("valor_atributo_id") @db.Uuid
-  producto          Producto          @relation(fields: [productoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  valorAtributo     ValorAtributo?    @relation(fields: [valorAtributoId], references: [id], onUpdate: NoAction)
-  varianteProducto  VarianteProducto? @relation(fields: [varianteId], references: [id], onUpdate: NoAction)
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productoId       String            @map("producto_id") @db.Uuid
+  varianteId       String?           @map("variante_id") @db.Uuid
+  url              String
+  urlMiniatura     String?           @map("url_miniatura")
+  altTexto         String            @map("alt_texto")
+  tipo             TipoImagen        @default(galeria)
+  orden            Int               @default(0)
+  ancho            Int?
+  alto             Int?
+  creadoEn         DateTime          @default(now()) @map("creado_en") @db.Timestamptz(6)
+  valorAtributoId  String?           @map("valor_atributo_id") @db.Uuid
+  producto         Producto          @relation(fields: [productoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  valorAtributo    ValorAtributo?    @relation(fields: [valorAtributoId], references: [id], onUpdate: NoAction)
+  varianteProducto VarianteProducto? @relation(fields: [varianteId], references: [id], onUpdate: NoAction)
 
   @@index([productoId, orden], map: "idx_imagen_producto")
   @@index([varianteId], map: "idx_imagen_variante")
@@ -409,6 +409,8 @@ model PedidoItem {
   subtotal         Int
   comboId          String?                  @map("combo_id") @db.Uuid
   nombreCombo      String?                  @map("nombre_combo")
+  imagenUrl        String?                  @map("imagen_url")
+  atributos        Json?
   combo            Combo?                   @relation(fields: [comboId], references: [id], onUpdate: NoAction)
   pedido           Pedido                   @relation(fields: [pedidoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   varianteProducto VarianteProducto?        @relation(fields: [varianteId], references: [id], onDelete: NoAction, onUpdate: NoAction)
