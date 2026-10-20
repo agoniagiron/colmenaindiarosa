@@ -17,6 +17,9 @@ export interface ImagenProducto {
 export interface ValorAtributo {
   nombre: string;
   hex?: string;
+  // Segundo tono de un color combinado: la esfera se dibuja partida
+  // (componentes/EsferaColor.tsx). Sigue siendo un solo color.
+  hexSecundario?: string;
 }
 
 // Precio en las dos monedas que maneja la tienda: cop es el valor

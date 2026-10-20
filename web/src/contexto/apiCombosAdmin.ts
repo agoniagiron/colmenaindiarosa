@@ -50,6 +50,7 @@ async function solicitar<T>(
 export interface ColorPieza {
   nombre: string;
   hex: string | null;
+  hexSecundario: string | null;
 }
 
 export interface PiezaKit {

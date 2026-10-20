@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
+import { fondoDeColor } from '../../componentes/fondoDeColor.ts';
 import { Boton } from '../../componentes/Boton.tsx';
 import { EsqueletoCarga } from '../../componentes/EsqueletoCarga.tsx';
 import * as api from '../../contexto/apiCombosAdmin.ts';
@@ -54,6 +55,7 @@ interface PiezaFormulario {
   nombreProducto: string;
   colorNombre: string | null;
   colorHex: string | null;
+  colorHexSecundario: string | null;
   cantidad: number;
   precioUnitario: number;
 }
@@ -65,6 +67,7 @@ function piezaDesdeBusqueda(v: VarianteBuscada): PiezaFormulario {
     nombreProducto: v.nombreProducto,
     colorNombre: v.color?.nombre ?? null,
     colorHex: v.color?.hex ?? null,
+    colorHexSecundario: v.color?.hexSecundario ?? null,
     cantidad: 1,
     precioUnitario: v.precioActual,
   };
@@ -77,6 +80,7 @@ function piezaDesdeDetalle(item: KitDetalle['items'][number]): PiezaFormulario {
     nombreProducto: item.nombreProducto,
     colorNombre: item.color?.nombre ?? null,
     colorHex: item.color?.hex ?? null,
+    colorHexSecundario: item.color?.hexSecundario ?? null,
     cantidad: item.cantidad,
     precioUnitario: item.precioUnitario,
   };
@@ -449,7 +453,7 @@ export function AdminKits() {
                             <span
                               aria-hidden="true"
                               className="h-4 w-4 shrink-0 rounded-sm"
-                              style={{ backgroundColor: v.color.hex ?? undefined }}
+                              style={{ background: fondoDeColor(v.color.hex, v.color.hexSecundario) }}
                             />
                           ) : null}
                           {v.nombreProducto} · {v.sku}
@@ -474,7 +478,7 @@ export function AdminKits() {
                               <span
                                 aria-hidden="true"
                                 className="h-4 w-4 shrink-0 rounded-sm"
-                                style={{ backgroundColor: p.colorHex }}
+                                style={{ background: fondoDeColor(p.colorHex, p.colorHexSecundario) }}
                               />
                             ) : null}
                             {p.nombreProducto}

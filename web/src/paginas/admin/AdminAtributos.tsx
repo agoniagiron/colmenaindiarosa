@@ -12,11 +12,12 @@
 // crear variantes nuevas. El orden de cada categoría es también el orden del
 // selector de la ficha de la tienda.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { Boton } from '../../componentes/Boton.tsx';
 import { CampoTexto } from '../../componentes/CampoTexto.tsx';
+import { EsferaColor } from '../../componentes/EsferaColor.tsx';
 import { EsqueletoCarga } from '../../componentes/EsqueletoCarga.tsx';
 import * as api from '../../contexto/apiProductosAdmin.ts';
 import type {
@@ -25,6 +26,7 @@ import type {
   ConfiguracionAtributos,
 } from '../../contexto/apiProductosAdmin.ts';
 import { useSesionAdmin } from '../../contexto/ContextoSesionAdmin.tsx';
+import { CamposTono } from './CamposTono.tsx';
 
 // Atributos que van en el SKU: sus valores necesitan código.
 const SLUGS_CON_CODIGO = ['longitud', 'color'];
@@ -349,10 +351,10 @@ function EditorCategoria({
                         }`}
                       >
                         {valor.hex ? (
-                          <span
-                            aria-hidden="true"
-                            className="h-3 w-3 rounded-full border border-linea"
-                            style={{ backgroundColor: valor.hex }}
+                          <EsferaColor
+                            className="h-3 w-3 border border-linea"
+                            hex={valor.hex}
+                            hexSecundario={valor.hexSecundario}
                           />
                         ) : null}
                         {valor.valor}
@@ -457,6 +459,8 @@ function FormularioNuevoValor({
   const [valor, setValor] = useState('');
   const [codigo, setCodigo] = useState('');
   const [hex, setHex] = useState('#3b2620');
+  // Segundo tono de un color combinado; null es sólido.
+  const [hexSecundario, setHexSecundario] = useState<string | null>(null);
   const [categoriaIds, setCategoriaIds] = useState<string[]>([]);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -501,7 +505,7 @@ function FormularioNuevoValor({
         atributoId: atributo.id,
         valor: valor.trim(),
         ...(codigo.trim() ? { codigo: codigo.trim() } : {}),
-        ...(esColor ? { hex } : {}),
+        ...(esColor ? { hex, ...(hexSecundario ? { hexSecundario } : {}) } : {}),
         // Universal: el servidor lo habilita en todas las que lo usan.
         ...(universal ? {} : { categoriaIds }),
       });
@@ -516,6 +520,7 @@ function FormularioNuevoValor({
       );
       setValor('');
       setCodigo('');
+      setHexSecundario(null);
       onCreado();
     } catch (e) {
       setExistente(api.valorExistenteDe(e));
@@ -525,7 +530,8 @@ function FormularioNuevoValor({
           {
             valor: 'Nombre',
             codigo: 'Código',
-            hex: 'Color',
+            hex: 'Color primario',
+            hexSecundario: 'Color secundario',
             categoriaIds: 'Categorías',
           },
           'No se pudo crear el valor',
@@ -593,16 +599,14 @@ function FormularioNuevoValor({
         </div>
 
         {esColor ? (
-          <label className="flex items-center gap-3 text-sm text-tinta">
-            Tono
-            <input
-              type="color"
-              value={hex}
-              onChange={(e) => setHex(e.target.value)}
-              className="h-9 w-14 cursor-pointer rounded border border-linea"
-            />
-            <span className="font-mono text-[12px] text-texto-secundario">{hex}</span>
-          </label>
+          <CamposTono
+            hex={hex}
+            hexSecundario={hexSecundario}
+            onCambiar={(tonos) => {
+              setHex(tonos.hex);
+              setHexSecundario(tonos.hexSecundario);
+            }}
+          />
         ) : null}
 
         {atributo && universal ? (
@@ -656,6 +660,13 @@ function FormularioNuevoValor({
         ) : null}
 
         {error ? <p className="text-sm text-rosa">{error}</p> : null}
+        {existente && existente.activo && existente.campo === 'valor' ? (
+          // Por ejemplo, se creó sólido y era de dos tonos: no hace falta
+          // recrearlo.
+          <p className="text-[13px] text-texto-secundario">
+            Si querés cambiarle el nombre o los tonos, usá Editar en la lista de valores.
+          </p>
+        ) : null}
         {existente && !existente.activo ? (
           puedeEditar ? (
             <div>
@@ -723,6 +734,7 @@ function ListaValoresUniversales({
   onCambiado: () => void;
 }) {
   const [cambiandoId, setCambiandoId] = useState<string | null>(null);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function alternar(valorId: string, activo: boolean) {
@@ -754,10 +766,10 @@ function ListaValoresUniversales({
         {atributo.valores.map((v) => (
           <li key={v.id} className="flex flex-wrap items-center gap-3 py-2">
             {v.hex ? (
-              <span
-                aria-hidden="true"
-                className="h-4 w-4 rounded-full border border-linea"
-                style={{ backgroundColor: v.hex }}
+              <EsferaColor
+                className="h-4 w-4 border border-linea"
+                hex={v.hex}
+                hexSecundario={v.hexSecundario}
               />
             ) : null}
             <span className={v.activo ? 'text-tinta' : 'text-texto-secundario line-through'}>
@@ -772,7 +784,16 @@ function ListaValoresUniversales({
               </span>
             )}
             {puedeEditar ? (
-              <div className="ml-auto">
+              <div className="ml-auto flex gap-2">
+                <Boton
+                  type="button"
+                  variante="fantasma"
+                  disabled={cambiandoId !== null || editandoId === v.id}
+                  aria-label={`Editar ${v.valor}`}
+                  onClick={() => setEditandoId(v.id)}
+                >
+                  Editar
+                </Boton>
                 <Boton
                   type="button"
                   variante="fantasma"
@@ -785,10 +806,148 @@ function ListaValoresUniversales({
                 </Boton>
               </div>
             ) : null}
+            {editandoId === v.id ? (
+              <EditorValor
+                valor={v}
+                conTono={atributo.slug === 'color'}
+                accessToken={accessToken}
+                onCerrar={() => setEditandoId(null)}
+                onGuardado={() => {
+                  setEditandoId(null);
+                  onCambiado();
+                }}
+              />
+            ) : null}
           </li>
         ))}
       </ul>
       {error ? <p className="mt-2 text-sm text-rosa">{error}</p> : null}
     </Seccion>
+  );
+}
+
+// --- Editar un valor ya creado ---------------------------------------------------
+// Nombre y tonos se editan siempre: así un color creado sólido que resulta
+// ser de dos tonos se arregla sin recrearlo (recrearlo chocaría con su
+// propio nombre). El código, solo mientras ninguna variante lo use: el SKU se
+// guarda en la variante con el código adentro, y cambiarlo dejaría los SKU
+// existentes sin correspondencia. Lo vendido no cambia: el pedido guarda su
+// propia copia del color.
+
+export function EditorValor({
+  valor,
+  conTono,
+  accessToken,
+  onCerrar,
+  onGuardado,
+}: {
+  valor: api.ValorDeAtributo;
+  conTono: boolean;
+  accessToken: string;
+  onCerrar: () => void;
+  onGuardado: () => void;
+}) {
+  const [nombre, setNombre] = useState(valor.valor);
+  const [codigo, setCodigo] = useState(valor.codigo ?? '');
+  const [hex, setHex] = useState(valor.hex ?? '#3b2620');
+  const [hexSecundario, setHexSecundario] = useState(valor.hexSecundario);
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const idBase = useId();
+
+  const variantes = valor.variantesQueLoUsan ?? 0;
+  const codigoBloqueado = variantes > 0;
+
+  async function guardar(evento: FormEvent) {
+    evento.preventDefault();
+    setEnviando(true);
+    setError(null);
+    try {
+      await api.editarValorAtributo(accessToken, valor.id, {
+        ...(nombre.trim() !== valor.valor ? { valor: nombre.trim() } : {}),
+        ...(!codigoBloqueado && codigo.trim() && codigo.trim() !== valor.codigo
+          ? { codigo: codigo.trim() }
+          : {}),
+        ...(conTono ? { hex, hexSecundario } : {}),
+      });
+      onGuardado();
+    } catch (e) {
+      setError(
+        api.describirError(
+          e,
+          {
+            valor: 'Nombre',
+            codigo: 'Código',
+            hex: 'Color primario',
+            hexSecundario: 'Color secundario',
+          },
+          'No se pudo guardar el cambio',
+        ),
+      );
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  return (
+    <form
+      onSubmit={(e) => void guardar(e)}
+      aria-label={`Editar ${valor.valor}`}
+      className="flex w-full flex-col gap-3 rounded-lg border border-linea bg-hueso p-3"
+    >
+      <div className="grid gap-3 sm:grid-cols-2">
+        <CampoTexto
+          etiqueta="Nombre"
+          value={nombre}
+          onChange={(e) => setNombre(e.target.value)}
+          required
+        />
+        <div className="flex flex-col gap-1">
+          <CampoTexto
+            etiqueta="Código (va en el SKU)"
+            value={codigo}
+            onChange={(e) => setCodigo(e.target.value.toUpperCase())}
+            maxLength={10}
+            disabled={codigoBloqueado}
+            aria-describedby={codigoBloqueado ? `${idBase}-codigo-bloqueado` : undefined}
+            className="font-mono disabled:cursor-not-allowed disabled:bg-arena disabled:text-texto-secundario"
+            required
+          />
+          {codigoBloqueado ? (
+            <p id={`${idBase}-codigo-bloqueado`} className="text-[12px] text-texto-secundario">
+              No se puede cambiar:{' '}
+              {variantes === 1 ? 'una variante lo usa' : `${variantes} variantes lo usan`} dentro de
+              su SKU. Cambiarlo dejaría esos SKU sin correspondencia con su color.
+            </p>
+          ) : null}
+        </div>
+      </div>
+
+      {conTono ? (
+        <CamposTono
+          hex={hex}
+          hexSecundario={hexSecundario}
+          onCambiar={(tonos) => {
+            setHex(tonos.hex);
+            setHexSecundario(tonos.hexSecundario);
+          }}
+        />
+      ) : null}
+
+      <p className="text-[12px] text-texto-secundario">
+        Los pedidos ya hechos no cambian: guardan el color tal como se vendió.
+      </p>
+
+      {error ? <p className="text-sm text-rosa">{error}</p> : null}
+
+      <div className="flex justify-end gap-2">
+        <Boton type="button" variante="fantasma" onClick={onCerrar}>
+          Cancelar
+        </Boton>
+        <Boton type="submit" cargando={enviando} disabled={!nombre.trim()}>
+          Guardar
+        </Boton>
+      </div>
+    </form>
   );
 }

@@ -6,6 +6,7 @@
 
 import { useState } from 'react';
 import type { ReactNode } from 'react';
+import { EsferaColor } from '../../componentes/EsferaColor.tsx';
 import { Boton } from '../../componentes/Boton.tsx';
 import * as api from '../../contexto/apiProductosAdmin.ts';
 import type {
@@ -355,10 +356,10 @@ export function AsistenteVariantes({
                       onClick={() => setColores((c) => alternar(c, v.id))}
                     >
                       {v.hex ? (
-                        <span
-                          aria-hidden="true"
-                          className="h-3.5 w-3.5 rounded-full border border-linea"
-                          style={{ backgroundColor: v.hex }}
+                        <EsferaColor
+                          className="h-3.5 w-3.5 border border-linea"
+                          hex={v.hex}
+                          hexSecundario={v.hexSecundario}
                         />
                       ) : null}
                       {v.valor}
@@ -599,10 +600,10 @@ export function AsistenteVariantes({
                           <td className="py-1.5 pr-3">
                             <span className="flex items-center gap-2">
                               {c.color?.hex ? (
-                                <span
-                                  aria-hidden="true"
-                                  className="h-3.5 w-3.5 rounded-full border border-linea"
-                                  style={{ backgroundColor: c.color.hex }}
+                                <EsferaColor
+                                  className="h-3.5 w-3.5 border border-linea"
+                                  hex={c.color.hex}
+                                  hexSecundario={c.color.hexSecundario}
                                 />
                               ) : null}
                               {c.color?.valor ?? '—'}

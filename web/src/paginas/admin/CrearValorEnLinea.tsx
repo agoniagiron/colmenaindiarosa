@@ -12,6 +12,7 @@ import type { KeyboardEvent } from 'react';
 import { Boton } from '../../componentes/Boton.tsx';
 import * as api from '../../contexto/apiProductosAdmin.ts';
 import type { AtributoConValores, ValorExistente } from '../../contexto/apiProductosAdmin.ts';
+import { CamposTono } from './CamposTono.tsx';
 
 // Atributos que van en el SKU: sus valores necesitan código.
 const SLUGS_CON_CODIGO = ['longitud', 'color'];
@@ -45,6 +46,8 @@ export function CrearValorEnLinea({
   const [valor, setValor] = useState('');
   const [codigo, setCodigo] = useState('');
   const [hex, setHex] = useState('#3b2620');
+  // Segundo tono de un color combinado; null es sólido.
+  const [hexSecundario, setHexSecundario] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<{ campo: CampoConError; mensaje: string } | null>(null);
   const [existente, setExistente] = useState<ValorExistente | null>(null);
@@ -53,6 +56,7 @@ export function CrearValorEnLinea({
     setAbierto(false);
     setValor('');
     setCodigo('');
+    setHexSecundario(null);
     setError(null);
     setExistente(null);
   }
@@ -72,7 +76,7 @@ export function CrearValorEnLinea({
         atributoId: atributo.id,
         valor: valor.trim(),
         ...(codigo.trim() ? { codigo: codigo.trim() } : {}),
-        ...(conTono ? { hex } : {}),
+        ...(conTono ? { hex, ...(hexSecundario ? { hexSecundario } : {}) } : {}),
       });
       await terminar(creado.id);
     } catch (e) {
@@ -205,16 +209,14 @@ export function CrearValorEnLinea({
       </div>
 
       {conTono ? (
-        <label className="flex items-center gap-3 text-sm text-tinta">
-          Tono
-          <input
-            type="color"
-            value={hex}
-            onChange={(e) => setHex(e.target.value)}
-            className="h-8 w-12 cursor-pointer rounded border border-linea"
-          />
-          <span className="font-mono text-[12px] text-texto-secundario">{hex}</span>
-        </label>
+        <CamposTono
+          hex={hex}
+          hexSecundario={hexSecundario}
+          onCambiar={(tonos) => {
+            setHex(tonos.hex);
+            setHexSecundario(tonos.hexSecundario);
+          }}
+        />
       ) : null}
 
       {pideCodigo && prefijoSku ? (

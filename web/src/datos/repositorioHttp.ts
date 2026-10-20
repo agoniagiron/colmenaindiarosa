@@ -117,6 +117,7 @@ async function listarProductos(
 interface ValorFaceta {
   valor: string;
   hex?: string;
+  hexSecundario?: string;
   conteo: number;
 }
 
@@ -139,6 +140,7 @@ async function listarFacetas(filtros: FiltrosProducto = {}): Promise<Facetas> {
       nombre: valor.valor,
       conteo: valor.conteo,
       ...(valor.hex ? { hex: valor.hex } : {}),
+      ...(valor.hexSecundario ? { hexSecundario: valor.hexSecundario } : {}),
     })),
   };
 }

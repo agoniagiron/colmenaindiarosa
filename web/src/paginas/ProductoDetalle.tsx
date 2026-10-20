@@ -5,13 +5,14 @@ import { Boton } from '../componentes/Boton.tsx';
 import { Contenedor } from '../componentes/Contenedor.tsx';
 import { EsqueletoCarga } from '../componentes/EsqueletoCarga.tsx';
 import { EstadoVacio } from '../componentes/EstadoVacio.tsx';
+import { EsferaColor } from '../componentes/EsferaColor.tsx';
 import { Estrellas } from '../componentes/Estrellas.tsx';
 import { ImagenProducto } from '../componentes/ImagenProducto.tsx';
 import { TarjetaProducto } from '../componentes/TarjetaProducto.tsx';
 import { useCarrito } from '../contexto/ContextoCarrito.tsx';
 import { useConfiguracion } from '../contexto/ContextoConfiguracion.tsx';
 import { repositorio } from '../datos/index.ts';
-import type { Producto, VarianteProducto } from '../tipos/index.ts';
+import type { Producto, ValorAtributo, VarianteProducto } from '../tipos/index.ts';
 import { useAccionAsincrona } from '../utilidades/useAccionAsincrona.ts';
 import {
   disponibleDe,
@@ -242,9 +243,8 @@ export function ProductoDetalle() {
                       estadoOpcion(producto.variantes, grupo.clave, valor, varianteActual, orden)
                     }
                     aviso={avisoDeAjuste(ajustes.find((a) => a.clave === grupo.clave))}
-                    hexDe={(valor) =>
+                    colorDe={(valor) =>
                       producto.variantes.find((variante) => variante.color?.nombre === valor)?.color
-                        ?.hex
                     }
                     onSeleccionar={(valor) => seleccionarAtributo(grupo.clave, valor)}
                   />
@@ -403,7 +403,7 @@ function GrupoSelectorAtributo({
   esColor,
   estadoDe,
   aviso,
-  hexDe,
+  colorDe,
   onSeleccionar,
 }: {
   etiqueta: string;
@@ -412,7 +412,7 @@ function GrupoSelectorAtributo({
   esColor: boolean;
   estadoDe: (valor: string) => EstadoOpcion;
   aviso: string | null;
-  hexDe: (valor: string) => string | undefined;
+  colorDe: (valor: string) => ValorAtributo | undefined;
   onSeleccionar: (valor: string) => void;
 }) {
   return (
@@ -446,21 +446,16 @@ function GrupoSelectorAtributo({
                 className={`relative h-9 w-9 shrink-0 overflow-hidden rounded-full border-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa focus-visible:ring-offset-2 disabled:cursor-not-allowed ${
                   activo ? 'border-rosa' : 'border-linea'
                 }`}
-                style={{ backgroundColor: hexDe(valor) }}
               >
-                {/* Sin opacidad: atenuar un color de cabello lo convierte en
-                    otro (un negro al 40% parece gris). Deshabilitado, sea
-                    agotado o inexistente, se marca con una diagonal clara con
-                    borde, visible sobre cualquier tono; el motivo va en el
-                    texto accesible y el tooltip. */}
-                {!disponible ? (
-                  <span
-                    aria-hidden="true"
-                    className="absolute inset-0 flex items-center justify-center"
-                  >
-                    <span className="h-0.5 w-[140%] rotate-45 bg-hueso shadow-[0_0_0_1px_rgba(26,21,19,0.55)]" />
-                  </span>
-                ) : null}
+                {/* Deshabilitado, sea agotado o inexistente, lleva la franja
+                    diagonal de EsferaColor; el motivo va en el texto
+                    accesible y el tooltip. */}
+                <EsferaColor
+                  className="h-full w-full"
+                  hex={colorDe(valor)?.hex}
+                  hexSecundario={colorDe(valor)?.hexSecundario}
+                  deshabilitada={!disponible}
+                />
               </button>
             );
           }

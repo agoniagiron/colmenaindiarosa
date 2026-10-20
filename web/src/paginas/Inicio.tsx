@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Boton } from '../componentes/Boton.tsx';
 import { CarruselHeroe } from '../componentes/CarruselHeroe.tsx';
 import { Contenedor } from '../componentes/Contenedor.tsx';
+import { EsferaColor } from '../componentes/EsferaColor.tsx';
 import { EsqueletoCarga } from '../componentes/EsqueletoCarga.tsx';
 import { ImagenProducto } from '../componentes/ImagenProducto.tsx';
 import { MiniaturaGaleria } from '../componentes/MiniaturaGaleria.tsx';
@@ -135,12 +136,12 @@ function SeccionHeroe() {
                       onClick={() => elegirTono(item.nombre)}
                       className="flex min-h-11 shrink-0 flex-col items-center gap-1.5 rounded-2xl px-2 py-2"
                     >
-                      <span
-                        aria-hidden="true"
-                        className={`h-10 w-10 rounded-full shadow-[0_0_0_1px_var(--color-linea)] ${
+                      <EsferaColor
+                        className={`h-10 w-10 shadow-[0_0_0_1px_var(--color-linea)] ${
                           activo ? 'shadow-[0_0_0_2px_var(--color-rosa)]' : ''
                         }`}
-                        style={{ backgroundColor: item.hex }}
+                        hex={item.hex}
+                        hexSecundario={item.hexSecundario}
                       />
                       <span
                         className={`text-xs whitespace-nowrap ${activo ? 'font-medium text-tinta' : 'text-texto-secundario'}`}
@@ -171,12 +172,12 @@ function SeccionHeroe() {
                           : 'border-transparent hover:border-linea hover:bg-white/60'
                       }`}
                     >
-                      <span
-                        aria-hidden="true"
-                        className={`h-10 w-10 shrink-0 rounded-full shadow-[0_0_0_1px_var(--color-linea)] ${
+                      <EsferaColor
+                        className={`h-10 w-10 shadow-[0_0_0_1px_var(--color-linea)] ${
                           activo ? 'shadow-[0_0_0_2px_var(--color-rosa)]' : ''
                         }`}
-                        style={{ backgroundColor: item.hex }}
+                        hex={item.hex}
+                        hexSecundario={item.hexSecundario}
                       />
                       <span
                         className={`text-sm tracking-wide ${activo ? 'font-medium text-tinta' : 'text-texto-secundario'}`}

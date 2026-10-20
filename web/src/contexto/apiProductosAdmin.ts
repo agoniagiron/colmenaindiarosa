@@ -134,6 +134,7 @@ export interface ValorAtributoVariante {
   id: string;
   valor: string;
   hex: string | null;
+  hexSecundario: string | null;
   atributo: { id: string; nombre: string; slug: string };
 }
 
@@ -207,7 +208,12 @@ export interface ProductoDetalle {
   principal: ResumenPrincipal;
   // Colores de variantes activas sin ninguna foto asignada: quien los elija
   // en la tienda ve solo las genéricas.
-  coloresSinFotos: { id: string; valor: string; hex: string | null }[];
+  coloresSinFotos: {
+    id: string;
+    valor: string;
+    hex: string | null;
+    hexSecundario: string | null;
+  }[];
   // La foto que usa hoy la tarjeta del catálogo (la calcula el backend).
   imagenPortadaId: string | null;
   creadoEn: string;
@@ -366,7 +372,7 @@ export interface DatosPrevisualizarLote {
 
 export interface CombinacionLote {
   longitud: { id: string; valor: string };
-  color: { id: string; valor: string; hex: string | null } | null;
+  color: { id: string; valor: string; hex: string | null; hexSecundario: string | null } | null;
   sku: string;
   precio: number;
   costo: number | null;
@@ -475,6 +481,7 @@ export interface ValorAtributoOpcion {
   id: string;
   valor: string;
   hex: string | null;
+  hexSecundario: string | null;
   // Parte del SKU (24, NEG). null en atributos que no van en el SKU.
   codigo: string | null;
 }
@@ -511,11 +518,16 @@ export interface ValorDeAtributo {
   id: string;
   valor: string;
   hex: string | null;
+  // Segundo tono de un color combinado (esfera partida); null si es sólido.
+  hexSecundario: string | null;
   codigo: string | null;
   orden: number;
   // Desactivado: no se ofrece al crear variantes nuevas; las que ya lo usan
   // siguen igual. Se reactiva desde la pantalla de atributos.
   activo: boolean;
+  // Solo en la configuración: cuántas variantes lo usan. Con alguna, el
+  // código ya no se puede editar (va dentro del SKU guardado).
+  variantesQueLoUsan?: number;
 }
 
 export interface AtributoConfigurable {
@@ -569,6 +581,7 @@ export interface DatosNuevoValor {
   atributoId: string;
   valor: string;
   hex?: string;
+  hexSecundario?: string;
   codigo?: string;
   // En qué categorías se habilita, en el mismo paso. No va para un atributo
   // universal: el servidor lo habilita en todas las que lo usan.
@@ -610,6 +623,27 @@ export function cambiarActivoValor(
   return solicitar(BASE_ATRIBUTOS, `/valores/${encodeURIComponent(valorId)}`, accessToken, {
     method: 'PATCH',
     body: JSON.stringify({ activo }),
+  });
+}
+
+// Editar un valor ya creado: nombre y tonos siempre; el código solo
+// mientras ninguna variante lo use (el backend responde 409 si no).
+// hexSecundario null lo vuelve sólido.
+export interface DatosEditarValor {
+  valor?: string;
+  hex?: string | null;
+  hexSecundario?: string | null;
+  codigo?: string;
+}
+
+export function editarValorAtributo(
+  accessToken: string,
+  valorId: string,
+  datos: DatosEditarValor,
+): Promise<ValorDeAtributo> {
+  return solicitar(BASE_ATRIBUTOS, `/valores/${encodeURIComponent(valorId)}`, accessToken, {
+    method: 'PUT',
+    body: JSON.stringify(datos),
   });
 }
 

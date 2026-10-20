@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { DragEvent } from 'react';
 import { Boton } from '../../componentes/Boton.tsx';
 import { CampoTexto } from '../../componentes/CampoTexto.tsx';
+import { EsferaColor } from '../../componentes/EsferaColor.tsx';
 import * as api from '../../contexto/apiProductosAdmin.ts';
 import type {
   ImagenProductoDetalle,
@@ -29,6 +30,7 @@ interface ColorProducto {
   id: string;
   valor: string;
   hex: string | null;
+  hexSecundario: string | null;
 }
 
 interface ItemCola {
@@ -56,6 +58,7 @@ function coloresDelProducto(producto: ProductoDetalle): ColorProducto[] {
         id: valorAtributo.id,
         valor: valorAtributo.valor,
         hex: valorAtributo.hex,
+        hexSecundario: valorAtributo.hexSecundario,
       });
     }
   }
@@ -496,15 +499,19 @@ function SelectorColor({
   );
 }
 
-function PastillaColor({ color }: { color: { valor: string; hex: string | null } | undefined }) {
+function PastillaColor({
+  color,
+}: {
+  color: { valor: string; hex: string | null; hexSecundario: string | null } | undefined;
+}) {
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full border border-linea bg-white px-2.5 py-0.5 text-[12px] text-tinta">
       {color ? (
         <>
-          <span
-            aria-hidden="true"
-            className="h-2.5 w-2.5 rounded-full border border-linea"
-            style={{ backgroundColor: color.hex ?? 'transparent' }}
+          <EsferaColor
+            className="h-2.5 w-2.5 border border-linea"
+            hex={color.hex}
+            hexSecundario={color.hexSecundario}
           />
           {color.valor}
         </>

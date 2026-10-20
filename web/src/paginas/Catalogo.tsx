@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Boton } from '../componentes/Boton.tsx';
 import { Contenedor } from '../componentes/Contenedor.tsx';
+import { EsferaColor } from '../componentes/EsferaColor.tsx';
 import { EsqueletoCarga } from '../componentes/EsqueletoCarga.tsx';
 import { EstadoVacio } from '../componentes/EstadoVacio.tsx';
 import { TarjetaProducto } from '../componentes/TarjetaProducto.tsx';
@@ -382,11 +383,16 @@ function GrupoColores({
               aria-label={color.nombre}
               title={color.nombre}
               onClick={() => onAlternar(color.nombre)}
-              className={`h-8 w-8 rounded-full border-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa focus-visible:ring-offset-2 ${
+              className={`h-8 w-8 overflow-hidden rounded-full border-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa focus-visible:ring-offset-2 ${
                 activo ? 'border-rosa' : 'border-linea'
               }`}
-              style={{ backgroundColor: color.hex }}
-            />
+            >
+              <EsferaColor
+                className="h-full w-full"
+                hex={color.hex}
+                hexSecundario={color.hexSecundario}
+              />
+            </button>
           );
         })}
       </div>

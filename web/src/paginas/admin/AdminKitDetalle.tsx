@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
+import { fondoDeColor } from '../../componentes/fondoDeColor.ts';
 import { EsqueletoCarga } from '../../componentes/EsqueletoCarga.tsx';
 import { MiniaturaGaleria } from '../../componentes/MiniaturaGaleria.tsx';
 import * as api from '../../contexto/apiCombosAdmin.ts';
@@ -154,7 +155,9 @@ export function AdminKitDetalle() {
                       <span
                         aria-hidden="true"
                         className="h-4 w-4 shrink-0 rounded-sm"
-                        style={{ backgroundColor: item.color.hex }}
+                        style={{
+                          background: fondoDeColor(item.color.hex, item.color.hexSecundario),
+                        }}
                       />
                     ) : null}
                     {item.nombreProducto}
