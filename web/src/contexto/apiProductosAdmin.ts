@@ -173,7 +173,8 @@ export type TipoImagenProducto = 'galeria' | 'detalle' | 'modelo' | 'medida' | '
 export interface ImagenProductoDetalle {
   id: string;
   productoId: string;
-  varianteId: string | null;
+  // Valor de atributo (un color) al que pertenece la foto; null = genérica.
+  valorAtributoId: string | null;
   url: string;
   altTexto: string;
   tipo: TipoImagenProducto;
@@ -204,6 +205,11 @@ export interface ProductoDetalle {
   // La variante que muestra la tienda (tarjeta, ficha, orden y filtro).
   variantePrincipalId: string | null;
   principal: ResumenPrincipal;
+  // Colores de variantes activas sin ninguna foto asignada: quien los elija
+  // en la tienda ve solo las genéricas.
+  coloresSinFotos: { id: string; valor: string; hex: string | null }[];
+  // La foto que usa hoy la tarjeta del catálogo (la calcula el backend).
+  imagenPortadaId: string | null;
   creadoEn: string;
   actualizadoEn: string;
   categoria: { id: string; nombre: string; slug: string; codigo: string | null };
@@ -642,7 +648,7 @@ export interface DatosCrearImagen {
   orden: number;
   ancho: number;
   alto: number;
-  varianteId?: string;
+  valorAtributoId?: string;
 }
 
 export function crearImagen(
@@ -659,7 +665,7 @@ export function crearImagen(
 export interface DatosEditarImagen {
   altTexto?: string;
   tipo?: TipoImagenProducto;
-  varianteId?: string | null;
+  valorAtributoId?: string | null;
 }
 
 export function editarImagen(
@@ -689,6 +695,25 @@ export function reordenarImagenes(
     {
       method: 'PATCH',
       body: JSON.stringify({ ids }),
+    },
+  );
+}
+
+// Marca varias fotos con el mismo valor (o como genéricas, con null) en una
+// sola transacción.
+export function asignarValorImagenes(
+  accessToken: string,
+  productoId: string,
+  ids: string[],
+  valorAtributoId: string | null,
+): Promise<ImagenProductoDetalle[]> {
+  return solicitar(
+    BASE_PRODUCTOS,
+    `/${encodeURIComponent(productoId)}/imagenes/valor`,
+    accessToken,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ ids, valorAtributoId }),
     },
   );
 }
