@@ -65,13 +65,18 @@ function imagenesProducto(slugProducto: string, nombre: string) {
 // Variante sin promoción: precioOriginal y precioConDescuento son iguales,
 // tal como los devuelve el backend cuando no hay ninguna vigente.
 function variante(
-  datos: Omit<VarianteProducto, 'precioOriginal' | 'precioConDescuento' | 'precioAntes'> & {
+  datos: Omit<
+    VarianteProducto,
+    'precioOriginal' | 'precioConDescuento' | 'precioAntes' | 'imagenes'
+  > & {
     precioCop: number;
     precioAntesCop?: number;
   },
 ): VarianteProducto {
   const { precioCop, precioAntesCop, ...resto } = datos;
   return {
+    // Sin fotos: la muestra no trae imágenes.
+    imagenes: [],
     ...resto,
     precioOriginal: pd(precioCop),
     precioConDescuento: pd(precioCop),

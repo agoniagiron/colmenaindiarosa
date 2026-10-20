@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { FormEvent } from 'react';
 import { Boton } from '../componentes/Boton.tsx';
 import { CampoTexto } from '../componentes/CampoTexto.tsx';
+import { ImagenProducto } from '../componentes/ImagenProducto.tsx';
 import { IndicadorCarga } from '../componentes/IndicadorCarga.tsx';
 import { registrarEvento } from '../contexto/apiAnalitica.ts';
 import * as apiCheckout from '../contexto/apiCheckout.ts';
@@ -10,7 +11,7 @@ import { ErrorCheckout } from '../contexto/apiCheckout.ts';
 import type { MetodoPagoCheckout } from '../contexto/apiCheckout.ts';
 import { useAvisos } from '../contexto/ContextoAvisos.tsx';
 import { listarDirecciones } from '../contexto/apiCuenta.ts';
-import type { TotalesCarrito } from '../tipos/index.ts';
+import type { LineaCarrito, TotalesCarrito } from '../tipos/index.ts';
 import { useCarrito } from '../contexto/ContextoCarrito.tsx';
 import { useConfiguracion } from '../contexto/ContextoConfiguracion.tsx';
 import { useSesion } from '../contexto/ContextoSesion.tsx';
@@ -457,28 +458,45 @@ function IndicadorPasos({ pasoActual }: { pasoActual: Paso }) {
   );
 }
 
-function ResumenPedido({
+export function ResumenPedido({
   lineas,
   cuponCodigo,
   totales,
 }: {
-  lineas: { id?: string; nombreProducto: string; cantidad: number; precioUnitario: number }[];
+  lineas: Pick<
+    LineaCarrito,
+    'id' | 'nombreProducto' | 'descripcion' | 'imagenUrl' | 'color' | 'cantidad' | 'precioUnitario'
+  >[];
   cuponCodigo?: string;
   totales: TotalesCarrito;
 }) {
   const { formatearMonto } = useConfiguracion();
 
+  // Es la pantalla donde se paga: cada línea dice qué se compra (foto del
+  // color elegido, nombre con sus atributos) y por cuánto.
   return (
     <div className="lg:sticky lg:top-8 lg:self-start">
       <div className="flex flex-col gap-4 rounded-lg border border-linea bg-white p-6">
         <h2 className="font-serif text-lg text-tinta">Resumen</h2>
-        <ul className="flex flex-col gap-2 text-sm text-tinta">
+        <ul className="flex flex-col gap-3 text-sm text-tinta">
           {lineas.map((linea) => (
-            <li key={linea.id ?? linea.nombreProducto} className="flex justify-between gap-2">
-              <span className="text-texto-secundario">
-                {linea.cantidad} × {linea.nombreProducto}
+            <li key={linea.id ?? linea.descripcion} className="flex gap-3">
+              <div className="w-14 shrink-0">
+                <ImagenProducto
+                  nombre={linea.nombreProducto}
+                  colorHex={linea.color?.hex}
+                  url={linea.imagenUrl}
+                />
+              </div>
+              <div className="flex flex-1 flex-col gap-0.5">
+                <span className="text-tinta">{linea.descripcion}</span>
+                <span className="text-[12.5px] text-texto-secundario">
+                  {linea.cantidad} × {formatearMonto(linea.precioUnitario)}
+                </span>
+              </div>
+              <span className="shrink-0">
+                {formatearMonto(linea.precioUnitario * linea.cantidad)}
               </span>
-              <span>{formatearMonto(linea.precioUnitario * linea.cantidad)}</span>
             </li>
           ))}
         </ul>

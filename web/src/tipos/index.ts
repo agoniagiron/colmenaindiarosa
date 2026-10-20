@@ -35,6 +35,10 @@ export interface VarianteProducto {
   precioAntes?: PrecioDual;
   stockActual: number;
   stockReservado: number;
+  // Galería de esta variante, ya resuelta por el backend
+  // (api/src/lib/imagenesVariante.ts): primero las fotos de su color,
+  // después las genéricas. La ficha la muestra tal cual.
+  imagenes: ImagenProducto[];
   tipoBase?: string;
   longitud?: string;
   color?: ValorAtributo;
@@ -79,10 +83,12 @@ export interface LineaCarrito {
   comboId?: string;
   productoId?: string;
   nombreProducto: string;
-  // Atributos de la variante por separado, no una cadena ya armada: el
-  // formato de presentación se decide en un único lugar
-  // (dominio/formatearEspecificacionesVariante.ts). Nunca presentes en una
-  // línea de combo.
+  // "HANNAH — Rosa / 14 / Lace frontal 13x4 / Mediana / 210", armado por el
+  // backend (api/src/dominio/describirLinea.ts): es lo que se muestra como
+  // texto de la línea. El frontend no lo arma por su cuenta.
+  descripcion: string;
+  // Atributos de la variante por separado (el color tiñe la silueta cuando
+  // no hay foto). Nunca presentes en una línea de combo.
   tipoBase?: string;
   longitud?: string;
   color?: ValorAtributo;

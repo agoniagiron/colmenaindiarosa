@@ -8,7 +8,6 @@ import { EstadoVacio } from '../componentes/EstadoVacio.tsx';
 import { ImagenProducto } from '../componentes/ImagenProducto.tsx';
 import { useCarrito } from '../contexto/ContextoCarrito.tsx';
 import { useConfiguracion } from '../contexto/ContextoConfiguracion.tsx';
-import { formatearEspecificacionesVariante } from '../dominio/formatearEspecificacionesVariante.ts';
 import type { LineaCarrito } from '../tipos/index.ts';
 import { useAccionAsincrona } from '../utilidades/useAccionAsincrona.ts';
 
@@ -134,7 +133,6 @@ function FilaCarrito({
 }) {
   const { formatearMonto } = useConfiguracion();
   const subtotalLinea = linea.precioUnitario * linea.cantidad;
-  const especificaciones = formatearEspecificacionesVariante(linea);
   const sinDisponibilidadSuficiente =
     typeof linea.disponible === 'number' && linea.disponible < linea.cantidad;
 
@@ -165,14 +163,16 @@ function FilaCarrito({
   return (
     <li className="flex gap-4 py-5">
       <div className="w-20 shrink-0 sm:w-24">
-        <ImagenProducto nombre={linea.nombreProducto} colorHex={linea.color?.hex} />
+        {/* La foto del color elegido (la resuelve el backend). */}
+        <ImagenProducto
+          nombre={linea.nombreProducto}
+          colorHex={linea.color?.hex}
+          url={linea.imagenUrl}
+        />
       </div>
 
       <div className="flex flex-1 flex-col gap-1">
-        <p className="font-serif text-base text-tinta">{linea.nombreProducto}</p>
-        {especificaciones ? (
-          <p className="text-sm text-texto-secundario">{especificaciones}</p>
-        ) : null}
+        <p className="font-serif text-base text-tinta">{linea.descripcion}</p>
         <p className="text-sm text-texto-secundario">{formatearMonto(linea.precioUnitario)}</p>
         {sinDisponibilidadSuficiente ? (
           <p className="text-sm text-red-600">

@@ -285,41 +285,43 @@ export function ProductoDetalle() {
 }
 
 // --- Galería (miniaturas + imagen principal) ---------------------------------
-function GaleriaProducto({
+// La galería de la variante elegida llega resuelta del backend
+// (api/src/lib/imagenesVariante.ts): primero las fotos de su color, después
+// las genéricas. Acá no se decide qué fotos van, solo cuál se ve grande.
+export function GaleriaProducto({
   producto,
   variante,
   colorHex,
 }: {
-  producto: any; // o usa el tipo Producto de tu index.ts
-  variante?: any; // o usa el tipo VarianteProducto de tu index.ts
+  producto: Pick<Producto, 'nombre'>;
+  variante: Pick<VarianteProducto, 'imagenes' | 'color'>;
   colorHex?: string;
 }) {
-  const [indiceActivo, setIndiceActivo] = useState(0);
+  // La foto elegida vale solo para el color con que se eligió: al cambiar
+  // de color, la grande salta a la primera de ese color. Al cambiar otro
+  // atributo (la longitud) la galería es la misma y la elegida se mantiene.
+  const colorActual = variante.color?.nombre ?? '';
+  const [elegida, setElegida] = useState<{ color: string; id: string } | null>(null);
+  const imagenes = variante.imagenes;
+  const idElegida = elegida?.color === colorActual ? elegida.id : null;
+  const activa = imagenes.find((imagen) => imagen.id === idElegida) ?? imagenes[0];
 
-  // Lógica de prioridad: si la variante tiene imágenes, úsalas. Si no, usa las generales.
-  const imagenesVariante =
-    variante?.imagenes && variante.imagenes.length > 0 ? variante.imagenes : null;
-  const imagenesProducto =
-    producto.imagenes && producto.imagenes.length > 0 ? producto.imagenes : null;
-  const imagenes = imagenesVariante || imagenesProducto;
-
-  const indiceSeguro = imagenes ? Math.min(indiceActivo, imagenes.length - 1) : 0;
   return (
     <div className="flex flex-col gap-4 sm:flex-row">
-      {imagenes && imagenes.length > 1 ? (
+      {imagenes.length > 1 ? (
         <div className="order-2 flex gap-2 overflow-x-auto sm:order-1 sm:w-20 sm:flex-col sm:overflow-visible">
-          {imagenes.map((imagen: any, indice: number) => (
+          {imagenes.map((imagen, indice) => (
             <button
               key={imagen.id}
               type="button"
-              onClick={() => setIndiceActivo(indice)}
+              onClick={() => setElegida({ color: colorActual, id: imagen.id })}
               aria-label={`Ver imagen ${indice + 1} de ${producto.nombre}`}
-              aria-current={indice === indiceSeguro}
+              aria-current={imagen.id === activa?.id}
               className={`w-16 shrink-0 overflow-hidden rounded-lg border-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rosa ${
-                indice === indiceSeguro ? 'border-rosa' : 'border-transparent'
+                imagen.id === activa?.id ? 'border-rosa' : 'border-transparent'
               }`}
             >
-              <ImagenProducto nombre={producto.nombre} colorHex={colorHex} url={imagen.url} />
+              <ImagenProducto nombre={imagen.altTexto} colorHex={colorHex} url={imagen.url} />
             </button>
           ))}
         </div>
@@ -327,9 +329,10 @@ function GaleriaProducto({
 
       <div className="order-1 flex-1 sm:order-2">
         <ImagenProducto
-          nombre={producto.nombre}
+          key={activa?.id}
+          nombre={activa?.altTexto ?? producto.nombre}
           colorHex={colorHex}
-          url={imagenes?.[indiceSeguro]?.url}
+          url={activa?.url}
         />
       </div>
     </div>
