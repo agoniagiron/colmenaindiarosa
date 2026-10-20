@@ -1,7 +1,11 @@
 import type { Prisma } from '@prisma/client';
 import { ErrorApi } from '../../../lib/errorApi.js';
 import { contarUnidadesVendidas } from '../../limitadas/servicio.js';
+import { galeriaDeVarianteId, SELECT_IMAGEN_PUBLICA } from '../../../lib/imagenesVariante.js';
 import { prisma } from '../../../lib/prisma.js';
+import { listarPromocionesVigentes } from '../../../lib/promociones.js';
+import type { PromocionVigente } from '../../../lib/promociones.js';
+import { varianteMostradaDe } from '../../catalogo/servicio.js';
 import type { BodyCrearEdicion, BodyEditarEdicion, QueryListadoLimitadas } from './esquemas.js';
 
 const SELECT_FILA = {
@@ -18,20 +22,23 @@ const SELECT_FILA = {
       id: true,
       nombre: true,
       slug: true,
-      // Hasta 5 (tope de rotación de MiniaturaGaleria): el listado ya trae
-      // lo necesario para la galería del hover, así la fila no tiene que
-      // pedir el detalle completo del producto solo para 5 URLs — ver
-      // AdminLimitadas.tsx, que ya no llama a apiProductosAdmin por fila.
-      imagenes: {
-        where: { varianteId: null },
-        orderBy: { orden: 'asc' },
-        take: 5,
-        select: { url: true, altTexto: true },
+      categoriaId: true,
+      variantePrincipalId: true,
+      // Todas: la galería del hover es la de la variante mostrada, la misma
+      // que ve la tienda (lib/imagenesVariante.ts). El listado ya trae lo
+      // necesario, así la fila no pide el detalle completo del producto —
+      // ver AdminLimitadas.tsx, que ya no llama a apiProductosAdmin por fila.
+      imagenes: { select: SELECT_IMAGEN_PUBLICA },
+      variantes: {
+        where: { activa: true },
+        select: {
+          id: true,
+          precioActual: true,
+          stockActual: true,
+          stockReservado: true,
+          valoresAtributo: { select: { valorId: true } },
+        },
       },
-      // Total real (puede ser más de 5): para el indicador "1/N" en
-      // celular sin tener que traer la galería completa solo para contar.
-      _count: { select: { imagenes: { where: { varianteId: null } } } },
-      variantes: { where: { activa: true }, select: { id: true } },
     },
   },
 } satisfies Prisma.EdicionLimitadaSelect;
@@ -58,8 +65,18 @@ function calcularEstado(
   return 'vigente';
 }
 
-async function mapearFila(edicion: FilaCruda) {
+// Hasta 5: tope de rotación de MiniaturaGaleria.
+const MAXIMO_IMAGENES_FILA = 5;
+
+async function mapearFila(edicion: FilaCruda, promocionesCargadas?: PromocionVigente[]) {
   const varianteIds = edicion.producto.variantes.map((v) => v.id);
+  const promociones = promocionesCargadas ?? (await listarPromocionesVigentes());
+  const { varianteId } = varianteMostradaDe(edicion.producto, promociones);
+  const galeria = galeriaDeVarianteId(
+    edicion.producto.imagenes,
+    edicion.producto.variantes,
+    varianteId,
+  ).map(({ url, altTexto }) => ({ url, altTexto }));
   // Misma consulta que el endpoint público (ver modulos/limitadas/servicio.ts):
   // ventas desde que arrancó el lote, no stock actual. No se duplica acá.
   const unidadesVendidas = await contarUnidadesVendidas(varianteIds, edicion.desde);
@@ -74,9 +91,10 @@ async function mapearFila(edicion: FilaCruda) {
       id: edicion.producto.id,
       nombre: edicion.producto.nombre,
       slug: edicion.producto.slug,
-      imagen: edicion.producto.imagenes[0] ?? null,
-      imagenes: edicion.producto.imagenes,
-      cantidadImagenes: edicion.producto._count.imagenes,
+      imagen: galeria[0] ?? null,
+      imagenes: galeria.slice(0, MAXIMO_IMAGENES_FILA),
+      // Total real (puede ser más de 5): el indicador "1/N" en celular.
+      cantidadImagenes: galeria.length,
     },
     unidadesLote: edicion.unidadesLote,
     unidadesVendidas,
@@ -105,7 +123,8 @@ export async function listarEdicionesAdmin(query: QueryListadoLimitadas) {
     }),
   ]);
 
-  const datos = await Promise.all(filas.map(mapearFila));
+  const promociones = await listarPromocionesVigentes();
+  const datos = await Promise.all(filas.map((fila) => mapearFila(fila, promociones)));
 
   return {
     datos,

@@ -22,6 +22,7 @@ import {
   esquemaBodyCrearImagen,
   esquemaBodyFirmarImagen,
   esquemaBodyOrdenImagenes,
+  esquemaBodyValorImagenes,
 } from './esquemasImagenes.js';
 
 // Montado en app.ts con requiereAuthAdmin + requierePermiso('productos.ver')
@@ -133,4 +134,11 @@ rutasAdminProductos.patch(
   requierePermiso('productos.imagenes'),
   validar({ body: esquemaBodyOrdenImagenes }),
   controladorImagenes.reordenar,
+);
+
+rutasAdminProductos.patch(
+  '/:id/imagenes/valor',
+  requierePermiso('productos.imagenes'),
+  validar({ body: esquemaBodyValorImagenes }),
+  controladorImagenes.asignarValor,
 );

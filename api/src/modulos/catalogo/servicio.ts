@@ -1,6 +1,14 @@
 import { Prisma } from '@prisma/client';
 import { atributosDeCategoria } from '../../lib/atributosCategoria.js';
 import { extraerAtributosVariante } from '../../lib/atributosVariante.js';
+import {
+  aImagenPublica,
+  galeriaDeVarianteId,
+  resolverImagenesVariante,
+  SELECT_IMAGEN_PUBLICA,
+  valoresDeVariante,
+} from '../../lib/imagenesVariante.js';
+import type { ImagenCruda } from '../../lib/imagenesVariante.js';
 import { calcularPrecioDualConTasa, obtenerTasaUsdVigente } from '../../lib/moneda.js';
 import { prisma } from '../../lib/prisma.js';
 import {
@@ -148,12 +156,9 @@ const SELECT_VARIANTE = {
   precioUsd: true,
   stockActual: true,
   stockReservado: true,
-  imagenes: {
-    orderBy: { orden: 'asc' },
-    select: { id: true, url: true, altTexto: true },
-  },
   valoresAtributo: {
     select: {
+      valorId: true,
       valorAtributo: {
         select: {
           valor: true,
@@ -172,11 +177,9 @@ const SELECT_PRODUCTO = {
   descripcion: true,
   categoriaId: true,
   creadoEn: true,
-  imagenes: {
-    where: { varianteId: null },
-    orderBy: { orden: 'asc' },
-    select: { id: true, url: true, altTexto: true },
-  },
+  // Todas las fotos del producto: la galería de cada variante se resuelve
+  // en memoria con resolverImagenesVariante (lib/imagenesVariante.ts).
+  imagenes: { select: SELECT_IMAGEN_PUBLICA },
   variantePrincipalId: true,
   variantes: { where: { activa: true }, select: SELECT_VARIANTE },
   resumen: { select: { calificacionPromedio: true, cantidadResenas: true } },
@@ -227,8 +230,9 @@ interface ProductoParaMostrar {
 }
 
 // Qué variante y qué precio muestra la tienda para este producto. Ver
-// variantePrincipal.ts para las reglas.
-function varianteMostradaDe(
+// variantePrincipal.ts para las reglas. Exportada para quien muestra la
+// portada de un producto fuera del catálogo (el héroe).
+export function varianteMostradaDe(
   producto: ProductoParaMostrar,
   promociones: PromocionVigente[],
 ): VarianteMostrada {
@@ -276,7 +280,11 @@ function precioMostradoEnRango(precio: number, filtros: FiltrosProducto): boolea
   return true;
 }
 
-function mapearVariante(variante: VarianteConAtributos, contexto: ContextoPrecio) {
+function mapearVariante(
+  variante: VarianteConAtributos,
+  contexto: ContextoPrecio,
+  imagenesProducto: ImagenCruda[],
+) {
   const { promo, cop: precioConDescuentoCop } = precioConPromocion(variante, contexto);
 
   return {
@@ -300,7 +308,10 @@ function mapearVariante(variante: VarianteConAtributos, contexto: ContextoPrecio
       : {}),
     stockActual: variante.stockActual,
     stockReservado: variante.stockReservado,
-    imagenes: variante.imagenes,
+    // Galería ya resuelta para esta variante: la ficha la muestra tal cual.
+    imagenes: resolverImagenesVariante(imagenesProducto, valoresDeVariante(variante)).map(
+      aImagenPublica,
+    ),
     ...extraerAtributosVariante(variante.valoresAtributo),
   };
 }
@@ -316,7 +327,7 @@ function mapearProducto(
     promociones,
     tasaUsd,
   };
-  const variantes = producto.variantes.map((v) => mapearVariante(v, contexto));
+  const variantes = producto.variantes.map((v) => mapearVariante(v, contexto, producto.imagenes));
 
   // Precio de la tarjeta = precio de la variante mostrada (la principal, o
   // su reemplazo si está agotada), con la promoción ya aplicada. La ficha
@@ -338,7 +349,11 @@ function mapearProducto(
     calificacion: producto.resumen ? Number(producto.resumen.calificacionPromedio) : 0,
     cantidadResenas: producto.resumen?.cantidadResenas ?? 0,
     destacado: esDestacadoVigente(producto.destacados),
-    imagenes: producto.imagenes,
+    // La galería de la variante mostrada (la misma que pone el precio): la
+    // tarjeta usa la primera como portada.
+    imagenes: galeriaDeVarianteId(producto.imagenes, producto.variantes, mostrada.varianteId).map(
+      aImagenPublica,
+    ),
     variantes,
   };
 }

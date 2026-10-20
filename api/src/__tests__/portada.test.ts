@@ -5,17 +5,33 @@ const findManyMock = vi.fn();
 vi.mock('../lib/prisma.js', () => ({
   prisma: {
     productoDestacado: { findMany: findManyMock },
+    promocion: { findMany: vi.fn().mockResolvedValue([]) },
   },
 }));
 
 const { obtenerHeroePortada } = await import('../modulos/portada/servicio.js');
 
-function variante(colores: { valor: string; hex?: string; orden: number }[], agotada = false) {
+let contadorVariantes = 0;
+
+function variante(
+  colores: { valor: string; hex?: string; orden: number }[],
+  agotada = false,
+  precioActual = 500000,
+) {
+  contadorVariantes += 1;
   return {
+    id: `var-${contadorVariantes}`,
+    precioActual,
     stockActual: agotada ? 3 : 5,
     stockReservado: agotada ? 3 : 1,
     valoresAtributo: colores.map((c) => ({
-      valorAtributo: { valor: c.valor, hex: c.hex ?? null, orden: c.orden },
+      valorId: `valor-${c.valor}`,
+      valorAtributo: {
+        valor: c.valor,
+        hex: c.hex ?? null,
+        orden: c.orden,
+        atributo: { slug: 'color' },
+      },
     })),
   };
 }
@@ -26,7 +42,16 @@ function filaDestacada(id: string, variantes: ReturnType<typeof variante>[], ext
       id,
       nombre: `Producto ${id}`,
       slug: `producto-${id}`,
-      imagenes: [{ url: `https://ejemplo.com/${id}.jpg`, altTexto: `Foto ${id}` }],
+      categoriaId: 'cat-pelucas',
+      variantePrincipalId: null,
+      imagenes: [
+        {
+          url: `https://ejemplo.com/${id}.jpg`,
+          altTexto: `Foto ${id}`,
+          valorAtributoId: null,
+          orden: 0,
+        },
+      ],
       variantes,
       ...extra,
     },
@@ -95,5 +120,36 @@ describe('portada: carrusel del héroe', () => {
     const heroe = await obtenerHeroePortada();
 
     expect(heroe.destacadas[0]!.imagenPrincipal).toBeNull();
+  });
+
+  it('la foto sale del color de la variante principal, no de la primera foto del producto', async () => {
+    const rubio = variante([{ valor: 'Rubio', orden: 0 }]);
+    const rosa = variante([{ valor: 'Rosa', orden: 1 }]);
+    findManyMock.mockResolvedValueOnce([
+      filaDestacada('hannah', [rubio, rosa], {
+        variantePrincipalId: rosa.id,
+        imagenes: [
+          {
+            url: 'https://ejemplo.com/rubio.jpg',
+            altTexto: 'Rubio',
+            valorAtributoId: 'valor-Rubio',
+            orden: 0,
+          },
+          {
+            url: 'https://ejemplo.com/rosa.jpg',
+            altTexto: 'Rosa',
+            valorAtributoId: 'valor-Rosa',
+            orden: 1,
+          },
+        ],
+      }),
+    ]);
+
+    const heroe = await obtenerHeroePortada();
+
+    expect(heroe.destacadas[0]!.imagenPrincipal).toEqual({
+      url: 'https://ejemplo.com/rosa.jpg',
+      altTexto: 'Rosa',
+    });
   });
 });

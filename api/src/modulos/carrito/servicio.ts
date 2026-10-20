@@ -4,6 +4,11 @@ import { extraerAtributosVariante } from '../../lib/atributosVariante.js';
 import { obtenerConfigTotales } from '../../lib/configuracion.js';
 import { ErrorApi } from '../../lib/errorApi.js';
 import { formatearPesos } from '../../lib/formatearPesos.js';
+import {
+  imagenDeVariante,
+  SELECT_IMAGEN_PUBLICA,
+  valoresDeVariante,
+} from '../../lib/imagenesVariante.js';
 import { calcularPrecioDualConTasa, obtenerTasaUsdVigente } from '../../lib/moneda.js';
 import { prisma } from '../../lib/prisma.js';
 import type { DatosAgregarItem } from './esquemas.js';
@@ -40,6 +45,7 @@ const SELECT_ITEM = {
       productoId: true,
       valoresAtributo: {
         select: {
+          valorId: true,
           valorAtributo: {
             select: { valor: true, hex: true, atributo: { select: { slug: true } } },
           },
@@ -48,12 +54,9 @@ const SELECT_ITEM = {
       producto: {
         select: {
           nombre: true,
-          imagenes: {
-            where: { varianteId: null },
-            orderBy: { orden: 'asc' },
-            take: 1,
-            select: { url: true },
-          },
+          // La foto de la línea es la de la variante elegida (su color):
+          // ver lib/imagenesVariante.ts.
+          imagenes: { select: SELECT_IMAGEN_PUBLICA },
         },
       },
     },
@@ -92,6 +95,7 @@ function mapearLineaVariante(
   const v = item.varianteProducto;
   const atributos = extraerAtributosVariante(v.valoresAtributo);
   const disponible = v.stockActual - v.stockReservado;
+  const imagen = imagenDeVariante(v.producto.imagenes, valoresDeVariante(v));
 
   return {
     tipo: 'variante' as const,
@@ -102,7 +106,7 @@ function mapearLineaVariante(
     ...atributos,
     precioUnitario: v.precioActual,
     cantidad: item.cantidad,
-    ...(v.producto.imagenes[0] ? { imagenUrl: v.producto.imagenes[0].url } : {}),
+    ...(imagen ? { imagenUrl: imagen.url } : {}),
     disponible,
   };
 }

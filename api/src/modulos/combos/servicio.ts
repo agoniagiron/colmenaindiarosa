@@ -1,6 +1,11 @@
 import type { EstadoPublicacion, Prisma } from '@prisma/client';
 import { ErrorApi } from '../../lib/errorApi.js';
 import { calcularPrecioDualConTasa, obtenerTasaUsdVigente } from '../../lib/moneda.js';
+import {
+  imagenDeVariante,
+  SELECT_IMAGEN_PUBLICA,
+  valoresDeVariante,
+} from '../../lib/imagenesVariante.js';
 import { prisma } from '../../lib/prisma.js';
 
 // Mismo filtro en listado y detalle a propósito: un kit inactivo o fuera de
@@ -179,20 +184,16 @@ const SELECT_COMBO_DETALLE = {
           stockActual: true,
           stockReservado: true,
           activa: true,
+          valoresAtributo: { select: { valorId: true } },
           producto: {
             select: {
               nombre: true,
               slug: true,
               estado: true,
-              // Portada de la ficha del producto (primera por orden, igual
-              // que en todo el resto del sitio) — no la de la variante: es
-              // la miniatura de "qué es esta pieza", no una foto puntual.
-              imagenes: {
-                where: { varianteId: null },
-                orderBy: { orden: 'asc' },
-                take: 1,
-                select: { url: true, altTexto: true },
-              },
+              // La pieza es una variante concreta: su miniatura es la foto
+              // de esa variante (su color), con la misma función que el
+              // resto del sitio (lib/imagenesVariante.ts).
+              imagenes: { select: SELECT_IMAGEN_PUBLICA },
             },
           },
         },
@@ -200,6 +201,16 @@ const SELECT_COMBO_DETALLE = {
     },
   },
 } satisfies Prisma.ComboSelect;
+
+function imagenPieza(variante: {
+  valoresAtributo: { valorId: string }[];
+  producto: {
+    imagenes: { url: string; altTexto: string; valorAtributoId: string | null; orden: number }[];
+  };
+}) {
+  const imagen = imagenDeVariante(variante.producto.imagenes, valoresDeVariante(variante));
+  return imagen ? { url: imagen.url, altTexto: imagen.altTexto } : null;
+}
 
 export async function obtenerComboPorSlug(slug: string) {
   const ahora = new Date();
@@ -228,7 +239,7 @@ export async function obtenerComboPorSlug(slug: string) {
       nombreProducto: variante.producto.nombre,
       cantidad: item.cantidad,
       precioUnitario: calcularPrecioDualConTasa(variante.precioActual, variante.precioUsd, tasaUsd),
-      imagen: variante.producto.imagenes[0] ?? null,
+      imagen: imagenPieza(variante),
       // Solo enlaza si la ficha pública del producto existe de verdad: la
       // misma regla que ya usa modulos/catalogo/servicio.ts
       // (estado: 'publicado') — cubre solo_kits, archivado y borrador por

@@ -26,20 +26,30 @@ export const esquemaBodyCrearImagen = z.object({
   orden: z.coerce.number().int().nonnegative().default(0),
   ancho: z.coerce.number().int().positive().optional(),
   alto: z.coerce.number().int().positive().optional(),
-  varianteId: z.string().uuid().optional(),
+  // Valor de atributo (un color) al que pertenece la foto; sin valor es
+  // genérica. variante_id ya no se escribe: la foto va al valor, no a la
+  // variante (ver lib/imagenesVariante.ts).
+  valorAtributoId: z.string().uuid().optional(),
 });
 
 export const esquemaBodyEditarImagen = z.object({
   altTexto: z.string().trim().min(1).optional(),
   tipo: z.enum(TIPOS_IMAGEN_PRODUCTO).optional(),
-  varianteId: z.string().uuid().nullable().optional(),
+  valorAtributoId: z.string().uuid().nullable().optional(),
 });
 
 export const esquemaBodyOrdenImagenes = z.object({
   ids: z.array(z.string().uuid()).min(1),
 });
 
+// Asignar el mismo valor (o genérica, con null) a varias fotos de una vez.
+export const esquemaBodyValorImagenes = z.object({
+  ids: z.array(z.string().uuid()).min(1),
+  valorAtributoId: z.string().uuid().nullable(),
+});
+
 export type BodyFirmarImagen = z.infer<typeof esquemaBodyFirmarImagen>;
 export type BodyCrearImagen = z.infer<typeof esquemaBodyCrearImagen>;
 export type BodyEditarImagen = z.infer<typeof esquemaBodyEditarImagen>;
 export type BodyOrdenImagenes = z.infer<typeof esquemaBodyOrdenImagenes>;
+export type BodyValorImagenes = z.infer<typeof esquemaBodyValorImagenes>;

@@ -5,6 +5,7 @@ import type {
   BodyEditarImagen,
   BodyFirmarImagen,
   BodyOrdenImagenes,
+  BodyValorImagenes,
 } from './esquemasImagenes.js';
 
 export async function firmar(req: Request, res: Response): Promise<void> {
@@ -30,6 +31,12 @@ export async function reordenar(req: Request, res: Response): Promise<void> {
   const productoId = req.params.id as string;
   const datos = req.body as BodyOrdenImagenes;
   res.json(await servicio.reordenarImagenes(productoId, datos));
+}
+
+export async function asignarValor(req: Request, res: Response): Promise<void> {
+  const productoId = req.params.id as string;
+  const datos = req.body as BodyValorImagenes;
+  res.json(await servicio.asignarValorImagenes(productoId, datos));
 }
 
 export async function eliminar(req: Request, res: Response): Promise<void> {

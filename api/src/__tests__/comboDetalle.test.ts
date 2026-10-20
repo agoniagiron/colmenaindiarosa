@@ -29,11 +29,19 @@ function piezaFalsa({
       stockActual: 10,
       stockReservado: 0,
       activa: true,
+      valoresAtributo: [{ valorId: 'valor-negro' }],
       producto: {
         nombre: 'Extensión lisa',
         slug: 'extension-lisa',
         estado: 'publicado',
-        imagenes: [{ url: 'https://ejemplo.com/extension.webp', altTexto: 'Extensión lisa' }],
+        imagenes: [
+          {
+            url: 'https://ejemplo.com/extension.webp',
+            altTexto: 'Extensión lisa',
+            valorAtributoId: null,
+            orden: 0,
+          },
+        ],
       },
       ...overridesVariante,
     },
@@ -64,6 +72,36 @@ describe('obtenerComboPorSlug', () => {
       estadoHttp: 404,
       codigo: 'no_encontrado',
     });
+  });
+
+  it('la miniatura de la pieza es la foto del color de su variante, no la portada del producto', async () => {
+    const foto = (nombre: string, valorAtributoId: string | null, orden: number) => ({
+      url: `https://ejemplo.com/${nombre}.webp`,
+      altTexto: nombre,
+      valorAtributoId,
+      orden,
+    });
+    comboFindFirstMock.mockResolvedValueOnce(
+      comboFalso([
+        piezaFalsa({
+          valoresAtributo: [{ valorId: 'valor-rosa' }],
+          producto: {
+            nombre: 'Peluca HANNAH',
+            slug: 'hannah',
+            estado: 'publicado',
+            imagenes: [
+              foto('generica', null, 0),
+              foto('rubio', 'valor-rubio', 1),
+              foto('rosa', 'valor-rosa', 2),
+            ],
+          },
+        }),
+      ]),
+    );
+
+    const combo = await obtenerComboPorSlug('kit-duo');
+
+    expect(combo.piezas[0]!.imagen).toEqual({ url: 'https://ejemplo.com/rosa.webp', altTexto: 'rosa' });
   });
 
   it('con todas las piezas publicadas, activas y con stock, el kit es comprable', async () => {

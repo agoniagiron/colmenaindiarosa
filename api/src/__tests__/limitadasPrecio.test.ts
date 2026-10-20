@@ -31,11 +31,20 @@ vi.mock('../lib/prisma.js', () => ({
 const { listarEdicionesLimitadasVigentes } = await import('../modulos/limitadas/servicio.js');
 
 function variante(id: string, precioActual: number, stock = 5) {
-  return { id, precioActual, precioUsd: null, stockActual: stock, stockReservado: 0 };
+  return {
+    id,
+    precioActual,
+    precioUsd: null,
+    stockActual: stock,
+    stockReservado: 0,
+    valoresAtributo: [{ valorId: `valor-${id}` }],
+  };
 }
 
 // La peluca del reporte: 26" a 990.000 y 28" a 1.050.000.
-function edicion(principal: string, variantes: ReturnType<typeof variante>[]) {
+type Foto = { url: string; altTexto: string; valorAtributoId: string | null; orden: number };
+
+function edicion(principal: string, variantes: ReturnType<typeof variante>[], imagenes: Foto[] = []) {
   return {
     id: 'ed-1',
     nombre: 'Lote de otoño',
@@ -50,8 +59,7 @@ function edicion(principal: string, variantes: ReturnType<typeof variante>[]) {
       slug: 'peluca',
       categoriaId: 'cat-1',
       variantePrincipalId: principal,
-      imagenes: [],
-      _count: { imagenes: 0 },
+      imagenes,
       variantes,
     },
   };
@@ -82,5 +90,25 @@ describe('ediciones limitadas: precio de la variante principal', () => {
     ]);
     const [limitada] = await listarEdicionesLimitadasVigentes();
     expect(limitada).toMatchObject({ precio: { cop: 1050000 } });
+  });
+
+  it('la foto sale de la misma variante que el precio', async () => {
+    const foto = (nombre: string, valorAtributoId: string | null, orden: number) => ({
+      url: `https://ejemplo.com/${nombre}.webp`,
+      altTexto: nombre,
+      valorAtributoId,
+      orden,
+    });
+    edicionFindManyMock.mockResolvedValueOnce([
+      edicion(
+        'v28',
+        [variante('v26', 990000), variante('v28', 1050000)],
+        [foto('26', 'valor-v26', 0), foto('28', 'valor-v28', 1), foto('gen', null, 2)],
+      ),
+    ]);
+    const [limitada] = await listarEdicionesLimitadasVigentes();
+    expect(limitada!.producto.imagen).toEqual({ url: 'https://ejemplo.com/28.webp', altTexto: '28' });
+    // La del 28 + la genérica; la del 26 no es de esta variante.
+    expect(limitada!.producto.cantidadImagenes).toBe(2);
   });
 });

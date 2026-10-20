@@ -2,6 +2,7 @@ import type { EstadoPedido } from '@prisma/client';
 import { obtenerTasaUsdVigente } from '../../lib/moneda.js';
 import { prisma } from '../../lib/prisma.js';
 import { listarPromocionesVigentes } from '../../lib/promociones.js';
+import { galeriaDeVarianteId, SELECT_IMAGEN_PUBLICA } from '../../lib/imagenesVariante.js';
 import { precioDeTarjeta } from '../catalogo/servicio.js';
 
 // "pagado o posterior" en el ciclo de vida normal del pedido (no incluye
@@ -59,15 +60,9 @@ export async function listarEdicionesLimitadasVigentes() {
           slug: true,
           categoriaId: true,
           variantePrincipalId: true,
-          imagenes: {
-            where: { varianteId: null },
-            orderBy: { orden: 'asc' },
-            take: 1,
-            select: { url: true, altTexto: true },
-          },
-          // Para el indicador "1/N" en celular (MiniaturaGaleria) sin
-          // traer la galería completa solo para contar.
-          _count: { select: { imagenes: { where: { varianteId: null } } } },
+          // Todas: la portada y el "1/N" de MiniaturaGaleria salen de la
+          // galería de la variante mostrada (lib/imagenesVariante.ts).
+          imagenes: { select: SELECT_IMAGEN_PUBLICA },
           variantes: {
             where: { activa: true },
             select: {
@@ -76,6 +71,7 @@ export async function listarEdicionesLimitadasVigentes() {
               precioUsd: true,
               stockActual: true,
               stockReservado: true,
+              valoresAtributo: { select: { valorId: true } },
             },
           },
         },
@@ -99,6 +95,12 @@ export async function listarEdicionesLimitadasVigentes() {
       // su promoción; así la misma peluca no muestra un número distinto
       // según desde dónde se la mire.
       const tarjeta = precioDeTarjeta(edicion.producto, promociones, tasaUsd);
+      // La foto sale de la misma variante que el precio.
+      const galeria = galeriaDeVarianteId(
+        edicion.producto.imagenes,
+        edicion.producto.variantes,
+        tarjeta.varianteId,
+      );
 
       // Restantes se cuenta por VENTAS desde que arrancó el lote, no por
       // stock actual: el lote anunciado es una promesa ("van 6 piezas de
@@ -129,8 +131,8 @@ export async function listarEdicionesLimitadasVigentes() {
           id: edicion.producto.id,
           nombre: edicion.producto.nombre,
           slug: edicion.producto.slug,
-          imagen: edicion.producto.imagenes[0] ?? null,
-          cantidadImagenes: edicion.producto._count.imagenes,
+          imagen: galeria[0] ? { url: galeria[0].url, altTexto: galeria[0].altTexto } : null,
+          cantidadImagenes: galeria.length,
         },
         precio: tarjeta.precio,
         // "desde" del precio (hay más de un precio y este es el mínimo); no

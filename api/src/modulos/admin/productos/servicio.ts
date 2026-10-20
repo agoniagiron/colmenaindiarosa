@@ -180,7 +180,7 @@ const SELECT_DETALLE = {
     select: {
       id: true,
       productoId: true,
-      varianteId: true,
+      valorAtributoId: true,
       url: true,
       altTexto: true,
       tipo: true,
@@ -234,6 +234,26 @@ function resumenPrincipal(producto: ProductoDetalleCrudo) {
   };
 }
 
+// Trabajo pendiente en la pestaña Imágenes: colores que vende alguna
+// variante activa y que no tienen ninguna foto asignada. En la tienda, esa
+// clienta ve solo las genéricas (lib/imagenesVariante.ts).
+function coloresSinFotos(producto: ProductoDetalleCrudo) {
+  const conFotos = new Set(producto.imagenes.map((imagen) => imagen.valorAtributoId));
+  const pendientes = new Map<string, { id: string; valor: string; hex: string | null }>();
+  for (const variante of producto.variantes) {
+    if (!variante.activa) continue;
+    for (const { valorAtributo } of variante.valoresAtributo) {
+      if (valorAtributo.atributo.slug !== 'color' || conFotos.has(valorAtributo.id)) continue;
+      pendientes.set(valorAtributo.id, {
+        id: valorAtributo.id,
+        valor: valorAtributo.valor,
+        hex: valorAtributo.hex,
+      });
+    }
+  }
+  return [...pendientes.values()];
+}
+
 // El panel solo necesita saber si está marcado para portada y con qué
 // orden, no la fila de producto_destacado en sí (desde/hasta no aplican a
 // esta sección, se ignoran a propósito — ver el plan).
@@ -245,6 +265,7 @@ function mapearDetalle(producto: ProductoDetalleCrudo) {
     // IR-PEL-VAL: el mismo armado que usan los SKU (sku.ts). null mientras
     // falte el código de modelo o el de la categoría.
     principal: resumenPrincipal(producto),
+    coloresSinFotos: coloresSinFotos(producto),
     codigoProducto:
       producto.codigoModelo && producto.categoria.codigo
         ? armarCodigoProducto(producto.categoria.codigo, producto.codigoModelo)
