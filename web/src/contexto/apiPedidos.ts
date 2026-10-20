@@ -72,14 +72,32 @@ export interface PedidoResumen {
   creadoEn: string;
 }
 
-export function listarPedidos(accessToken: string | null): Promise<PedidoResumen[]> {
+// Una fila de "Mis pedidos": "HANNAH y 1 más" con la foto del primer ítem,
+// armado por el backend (api/src/lib/lineaPedido.ts).
+export interface PedidoListado extends PedidoResumen {
+  resumenItems: { texto: string; imagenUrl: string | null };
+}
+
+export function listarPedidos(accessToken: string | null): Promise<PedidoListado[]> {
   return solicitar('', accessToken);
+}
+
+// Una línea del pedido, de la copia congelada al comprar: el texto ya viene
+// armado ("HANNAH — Rosa / 14 / …") y la foto es la que vio la clienta.
+export interface LineaPedidoResumen {
+  id: string;
+  descripcion: string;
+  imagenUrl: string | null;
+  precioUnitario: number;
+  cantidad: number;
+  subtotal: number;
 }
 
 export interface EstadoPedidoResumen {
   numero: string;
   estado: EstadoPedido;
   total: number;
+  lineas: LineaPedidoResumen[];
 }
 
 export function obtenerEstadoPedido(
@@ -99,6 +117,10 @@ export interface PiezaComboPedido {
 export interface ItemPedido {
   id: string;
   nombreProducto: string;
+  // Texto de la línea desde la copia congelada (api/src/lib/lineaPedido.ts).
+  descripcion: string;
+  // Foto congelada al comprar; null en pedidos anteriores a la copia.
+  imagenUrl: string | null;
   sku: string;
   tipoBase: string | null;
   longitud: string | null;

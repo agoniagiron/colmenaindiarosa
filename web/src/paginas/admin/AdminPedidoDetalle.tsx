@@ -5,6 +5,7 @@ import { Boton } from '../../componentes/Boton.tsx';
 import { CampoTexto } from '../../componentes/CampoTexto.tsx';
 import { EsqueletoCarga } from '../../componentes/EsqueletoCarga.tsx';
 import { EstadoPedidoBadge } from '../../componentes/EstadoPedidoBadge.tsx';
+import { ImagenProducto } from '../../componentes/ImagenProducto.tsx';
 import { Modal } from '../../componentes/Modal.tsx';
 import * as api from '../../contexto/apiPedidosAdmin.ts';
 import type {
@@ -179,17 +180,18 @@ export function AdminPedidoDetalle() {
           {pedido.items.map((item) => (
             <div key={item.id} className="rounded-lg border border-linea bg-hueso p-3.5">
               <div className="flex justify-between gap-3">
-                <div>
-                  <p className="font-medium text-tinta">
-                    {item.nombreCombo ?? item.nombreProducto}
-                  </p>
-                  <p className="text-[12.5px] text-texto-secundario">
-                    {item.sku}
-                    {item.colorNombre ? ` · ${item.colorNombre}` : ''}
-                    {item.talla ? ` · Talla ${item.talla}` : ''}
-                    {item.densidad ? ` · ${item.densidad}` : ''}
-                    {item.longitud ? ` · ${item.longitud}` : ''}
-                  </p>
+                {/* Para empacar: la foto y el texto de lo que se vendió, de la
+                    copia congelada al comprar, no del catálogo de hoy. */}
+                <div className="w-20 shrink-0">
+                  <ImagenProducto
+                    nombre={item.nombreProducto}
+                    colorHex={item.colorHex ?? undefined}
+                    url={item.imagenUrl ?? undefined}
+                  />
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-tinta">{item.descripcion}</p>
+                  <p className="font-mono text-[12.5px] text-texto-secundario">{item.sku}</p>
                 </div>
                 <div className="shrink-0 text-right text-sm">
                   <div>

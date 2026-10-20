@@ -4,11 +4,12 @@ import { Link, Navigate } from 'react-router-dom';
 import { Boton } from '../componentes/Boton.tsx';
 import { CampoTexto } from '../componentes/CampoTexto.tsx';
 import { Contenedor } from '../componentes/Contenedor.tsx';
+import { ImagenProducto } from '../componentes/ImagenProducto.tsx';
 import * as apiAuth from '../contexto/apiAuth.ts';
 import * as apiCuenta from '../contexto/apiCuenta.ts';
 import type { DatosDireccion, DireccionApi } from '../contexto/apiCuenta.ts';
 import * as apiPedidos from '../contexto/apiPedidos.ts';
-import type { PedidoResumen } from '../contexto/apiPedidos.ts';
+import type { PedidoListado } from '../contexto/apiPedidos.ts';
 import { useAvisos } from '../contexto/ContextoAvisos.tsx';
 import { useSesion } from '../contexto/ContextoSesion.tsx';
 import { ETIQUETAS_ESTADO_PEDIDO_CLIENTA } from '../dominio/etiquetasPedidoClienta.ts';
@@ -397,7 +398,7 @@ function FormularioDireccion({
 // --- Pedidos ----------------------------------------------------------------
 
 function SeccionPedidos({ accessToken }: { accessToken: string }) {
-  const [pedidos, setPedidos] = useState<PedidoResumen[] | null>(null);
+  const [pedidos, setPedidos] = useState<PedidoListado[] | null>(null);
 
   useEffect(() => {
     let vigente = true;
@@ -433,17 +434,27 @@ function SeccionPedidos({ accessToken }: { accessToken: string }) {
             <li key={pedido.numero}>
               <Link
                 to={`/cuenta/pedidos/${encodeURIComponent(pedido.numero)}`}
-                className="block rounded-lg border border-linea p-4 text-sm transition-colors hover:bg-arena"
+                className="flex gap-3 rounded-lg border border-linea p-4 text-sm transition-colors hover:bg-arena"
               >
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-medium text-tinta">{pedido.numero}</span>
-                  <span className="text-texto-secundario">
-                    {ETIQUETAS_ESTADO_PEDIDO_CLIENTA[pedido.estado]}
-                  </span>
+                <div className="w-12 shrink-0">
+                  <ImagenProducto
+                    nombre={pedido.resumenItems.texto}
+                    url={pedido.resumenItems.imagenUrl ?? undefined}
+                  />
                 </div>
-                <div className="mt-1 flex items-center justify-between gap-3 text-texto-secundario">
-                  <span>{formatearFechaHora(pedido.creadoEn)}</span>
-                  <span>{formatearPesos(pedido.total)}</span>
+                <div className="flex flex-1 flex-col">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-medium text-tinta">{pedido.numero}</span>
+                    <span className="text-texto-secundario">
+                      {ETIQUETAS_ESTADO_PEDIDO_CLIENTA[pedido.estado]}
+                    </span>
+                  </div>
+                  {/* "HANNAH y 1 más", armado por el backend. */}
+                  <p className="mt-0.5 text-tinta">{pedido.resumenItems.texto}</p>
+                  <div className="mt-1 flex items-center justify-between gap-3 text-texto-secundario">
+                    <span>{formatearFechaHora(pedido.creadoEn)}</span>
+                    <span>{formatearPesos(pedido.total)}</span>
+                  </div>
                 </div>
               </Link>
             </li>

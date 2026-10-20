@@ -155,6 +155,11 @@ export interface DetallePiezaCombo {
 export interface DetalleItemPedido {
   id: string;
   nombreProducto: string;
+  // Texto de la línea desde la copia congelada (api/src/lib/lineaPedido.ts):
+  // lo que se vendió, aunque después se haya renombrado el color.
+  descripcion: string;
+  // Foto congelada al comprar; null en pedidos anteriores a la copia.
+  imagenUrl: string | null;
   sku: string;
   tipoBase: string | null;
   longitud: string | null;

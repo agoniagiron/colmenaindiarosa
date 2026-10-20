@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Boton } from '../componentes/Boton.tsx';
+import { ImagenProducto } from '../componentes/ImagenProducto.tsx';
 import { registrarEvento } from '../contexto/apiAnalitica.ts';
 import { obtenerEstadoPedido } from '../contexto/apiPedidos.ts';
+import type { LineaPedidoResumen } from '../contexto/apiPedidos.ts';
 import { useConfiguracion } from '../contexto/ContextoConfiguracion.tsx';
 import { useSesion } from '../contexto/ContextoSesion.tsx';
 
@@ -27,6 +29,7 @@ export function ResultadoPedidoPagina() {
 
   const [estadoVista, setEstadoVista] = useState<EstadoVista>('esperando');
   const [total, setTotal] = useState<number | null>(null);
+  const [lineas, setLineas] = useState<LineaPedidoResumen[]>([]);
   const intentosRef = useRef(0);
   const notificadoRef = useRef(false);
 
@@ -42,6 +45,7 @@ export function ResultadoPedidoPagina() {
         const resultado = await obtenerEstadoPedido(accessToken, numero as string);
         if (!vigente) return;
         setTotal(resultado.total);
+        setLineas(resultado.lineas);
 
         if (ESTADOS_APROBADOS.has(resultado.estado)) {
           setEstadoVista('aprobado');
@@ -92,7 +96,35 @@ export function ResultadoPedidoPagina() {
       {estadoVista === 'aprobado' ? <VistaAprobado numero={numero} total={total} /> : null}
       {estadoVista === 'rechazado' ? <VistaRechazado numero={numero} /> : null}
       {estadoVista === 'agotado' ? <VistaSigueEnProceso numero={numero} /> : null}
+      {lineas.length > 0 ? <LineasDelPedido lineas={lineas} /> : null}
     </div>
+  );
+}
+
+// Qué se compró: foto, texto y precio de cada línea, de la copia congelada
+// del pedido (el texto llega armado del backend).
+function LineasDelPedido({ lineas }: { lineas: LineaPedidoResumen[] }) {
+  const { formatearMonto } = useConfiguracion();
+  return (
+    <section className="mt-10 rounded-2xl border border-linea bg-white p-6">
+      <h2 className="font-serif text-lg text-tinta">Tu pedido</h2>
+      <ul className="mt-4 flex flex-col gap-3 text-sm">
+        {lineas.map((linea) => (
+          <li key={linea.id} className="flex gap-3">
+            <div className="w-14 shrink-0">
+              <ImagenProducto nombre={linea.descripcion} url={linea.imagenUrl ?? undefined} />
+            </div>
+            <div className="flex flex-1 flex-col gap-0.5">
+              <span className="text-tinta">{linea.descripcion}</span>
+              <span className="text-[12.5px] text-texto-secundario">
+                {linea.cantidad} × {formatearMonto(linea.precioUnitario)}
+              </span>
+            </div>
+            <span className="shrink-0 text-tinta">{formatearMonto(linea.subtotal)}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

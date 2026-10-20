@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { Contenedor } from '../componentes/Contenedor.tsx';
 import { EsqueletoCarga } from '../componentes/EsqueletoCarga.tsx';
+import { ImagenProducto } from '../componentes/ImagenProducto.tsx';
 import * as apiPedidos from '../contexto/apiPedidos.ts';
 import { ErrorPedidos } from '../contexto/apiPedidos.ts';
 import type { PedidoDetalle } from '../contexto/apiPedidos.ts';
@@ -81,15 +82,16 @@ export function DetallePedidoPagina() {
               {pedido.items.map((item) => (
                 <li key={item.id} className="rounded-lg border border-linea p-3.5 text-sm">
                   <div className="flex justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-tinta">{item.nombreCombo ?? item.nombreProducto}</p>
-                      <p className="text-[12.5px] text-texto-secundario">
-                        {item.colorNombre ? item.colorNombre : null}
-                        {item.talla ? ` · Talla ${item.talla}` : ''}
-                        {item.densidad ? ` · ${item.densidad}` : ''}
-                        {item.longitud ? ` · ${item.longitud}` : ''}
-                      </p>
+                    <div className="w-14 shrink-0">
+                      <ImagenProducto
+                        nombre={item.nombreProducto}
+                        colorHex={item.colorHex ?? undefined}
+                        url={item.imagenUrl ?? undefined}
+                      />
                     </div>
+                    {/* Texto y foto de la copia congelada al comprar: lo que se
+                        vendió, aunque después cambie el catálogo. */}
+                    <p className="flex-1 font-medium text-tinta">{item.descripcion}</p>
                     <div className="shrink-0 text-right">
                       <div>
                         {item.cantidad} × {formatearPesos(item.precioUnitario)}
