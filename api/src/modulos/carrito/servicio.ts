@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { calcularTotales } from '../../dominio/calcularTotales.js';
+import { atributosDeVariante, describirLinea } from '../../dominio/describirLinea.js';
 import { extraerAtributosVariante } from '../../lib/atributosVariante.js';
 import { obtenerConfigTotales } from '../../lib/configuracion.js';
 import { ErrorApi } from '../../lib/errorApi.js';
@@ -103,6 +104,9 @@ function mapearLineaVariante(
     varianteId: v.id,
     productoId: v.productoId,
     nombreProducto: v.producto.nombre,
+    // "HANNAH — Rosa / 14 / …": el texto que muestran el carrito y el
+    // checkout (dominio/describirLinea.ts).
+    descripcion: describirLinea(v.producto.nombre, atributosDeVariante(v.valoresAtributo)),
     ...atributos,
     precioUnitario: v.precioActual,
     cantidad: item.cantidad,
@@ -126,6 +130,7 @@ function mapearLineaCombo(item: ItemDeCarrito & { combo: NonNullable<ItemDeCarri
     id: item.id,
     comboId: combo.id,
     nombreProducto: combo.nombre,
+    descripcion: describirLinea(combo.nombre, []),
     precioUnitario: combo.precioCop,
     cantidad: item.cantidad,
     ...(combo.imagenUrl ? { imagenUrl: combo.imagenUrl } : {}),

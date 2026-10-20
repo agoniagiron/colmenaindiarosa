@@ -6,6 +6,7 @@
 
 import { formatearPesos } from '../lib/formatearPesos.js';
 import type { TotalesCarrito } from './calcularTotales.js';
+import { atributosDeColumnas, describirLinea } from './describirLinea.js';
 
 // Solo los cuatro montos: este mensaje nunca necesitó saber cuál de los
 // dos descuentos ganó (ver dominio/calcularTotales.ts), así que no hace
@@ -31,23 +32,13 @@ export interface DatosMensajeWhatsapp {
   totales: TotalesParaMensaje;
 }
 
-function especificaciones(linea: LineaParaMensaje): string {
-  const partes: string[] = [];
-  if (linea.tipoBase) partes.push(linea.tipoBase);
-  if (linea.longitud) partes.push(linea.longitud);
-  if (linea.colorNombre) partes.push(linea.colorNombre);
-  if (linea.talla) partes.push(`Talla ${linea.talla}`);
-  if (linea.densidad) partes.push(linea.densidad);
-  return partes.join(' · ');
-}
-
+// El texto de la línea sale de describirLinea, el mismo que ven la clienta
+// y el panel.
 function bloqueItem(linea: LineaParaMensaje, indice: number): string {
   const subtotalLinea = linea.precioUnitario * linea.cantidad;
-  const encabezado = `${indice + 1}. ${linea.nombreProducto}`;
-  const textoEspecificaciones = especificaciones(linea);
-  const bloqueEspecificaciones = textoEspecificaciones ? `\n   ${textoEspecificaciones}` : '';
+  const encabezado = `${indice + 1}. ${describirLinea(linea.nombreProducto, atributosDeColumnas(linea))}`;
   const cantidadPrecio = `\n   ${linea.cantidad} x ${formatearPesos(linea.precioUnitario)} = ${formatearPesos(subtotalLinea)}`;
-  return `${encabezado}${bloqueEspecificaciones}${cantidadPrecio}`;
+  return `${encabezado}${cantidadPrecio}`;
 }
 
 export function construirMensajeWhatsapp({

@@ -187,5 +187,6 @@ describeConDbReal('Fotos por color contra PostgreSQL real', () => {
     const carrito = await obtenerCarrito({ visitanteId });
     const linea = carrito.lineas.find((l) => l.tipo === 'variante');
     expect(linea?.imagenUrl).toBe('https://ejemplo.com/rosa-1.webp');
+    expect(linea?.descripcion).toBe(`HANNAH ${SUFIJO} — Rosa ${SUFIJO}`);
   });
 });
