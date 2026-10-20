@@ -61,24 +61,24 @@ la tienda confirma disponibilidad y forma de pago por chat.
   sistema.
 - Bordes redondeados generosos en tarjetas (14–18px), botones tipo píldora.
 
-## Fase actual: visual con datos simulados
+## Estado actual: la API está andando
 
-El proyecto se está construyendo frontend primero. La base de datos y la API
-todavía no existen. Reglas mientras dure esta fase:
+El backend (`api/`) está en marcha contra la base de Supabase y el frontend
+lo consume. No hay datos simulados en la tienda ni en el panel.
 
-- Todos los datos vienen de `web/src/datos/`, no de peticiones HTTP.
-- El acceso a datos pasa siempre por la interfaz `Repositorio`
-  (`web/src/datos/repositorio.ts`). Los componentes nunca importan el archivo
-  de datos simulados directamente.
-- El cálculo de totales del carrito vive en un único módulo puro
-  (`web/src/dominio/calcularTotales.ts`). Cuando exista el backend, ese
-  archivo se mueve al servidor sin reescribirse. No dupliques esa lógica en
-  ningún componente.
-- No escribas llamadas `fetch` a endpoints que no existen. Nada de
-  AuthContext contra `/api/auth/*`.
-- La sesión se simula en memoria y se pierde al recargar. Es intencional.
-
-Cuando el backend exista, esta sección se elimina.
+- El catálogo se lee a través de la interfaz `Repositorio`
+  (`web/src/datos/repositorio.ts`); `web/src/datos/index.ts` exporta
+  `repositorioHttp`. `repositorioMemoria` y `datos/muestra.ts` quedan solo
+  para las pruebas: ningún componente los importa.
+- El resto de la API (auth, carrito, checkout, pedidos, cuenta, panel) se
+  llama desde los módulos `web/src/contexto/api*.ts`. Un endpoint nuevo
+  primero existe en `api/` y después se consume desde ahí.
+- Los totales del carrito y del pedido los calcula solo
+  `api/src/dominio/calcularTotales.ts`. El frontend no tiene copia de esa
+  lógica.
+- La sesión es real: JWT de acceso corto y refresh token en cookie
+  httpOnly, para clientas (`/api/auth/*`) y para el panel
+  (`/api/admin/auth/*`).
 
 ## Prisma y la base de datos
 
