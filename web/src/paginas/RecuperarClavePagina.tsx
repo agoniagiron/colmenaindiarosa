@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Boton } from '../componentes/Boton.tsx';
 import { CampoTexto } from '../componentes/CampoTexto.tsx';
 import * as apiAuth from '../contexto/apiAuth.ts';
@@ -13,13 +13,17 @@ const MENSAJE_CLAVE_INVALIDA =
 export function RecuperarClavePagina() {
   const navigate = useNavigate();
   const { avisarExito, avisarError } = useAvisos();
+  // El enlace del correo trae el código: llega cargado y se pasa directo a
+  // elegir la contraseña nueva.
+  const [searchParams] = useSearchParams();
+  const tokenDelEnlace = searchParams.get('token') ?? '';
 
   const [correo, setCorreo] = useState('');
-  const [solicitado, setSolicitado] = useState(false);
+  const [solicitado, setSolicitado] = useState(tokenDelEnlace !== '');
   const [cargandoSolicitud, setCargandoSolicitud] = useState(false);
   const [errorSolicitud, setErrorSolicitud] = useState<string | null>(null);
 
-  const [token, setToken] = useState('');
+  const [token, setToken] = useState(tokenDelEnlace);
   const [claveNueva, setClaveNueva] = useState('');
   const [cargandoConfirmacion, setCargandoConfirmacion] = useState(false);
   const [errorConfirmacion, setErrorConfirmacion] = useState<string | null>(null);

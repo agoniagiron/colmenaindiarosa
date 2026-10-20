@@ -1,6 +1,11 @@
 import 'dotenv/config';
 import { z } from 'zod';
 
+// Variable opcional: vacía (como queda al copiar .env.example) cuenta como
+// ausente.
+const opcional = <T extends z.ZodTypeAny>(esquema: T) =>
+  z.preprocess((valor) => (valor === '' ? undefined : valor), esquema.optional());
+
 const esquemaEnv = z.object({
   DATABASE_URL: z.string().url('DATABASE_URL debe ser una URL de conexión postgresql:// válida'),
   DIRECT_URL: z.string().url('DIRECT_URL debe ser una URL de conexión postgresql:// válida'),
@@ -35,6 +40,14 @@ const esquemaEnv = z.object({
   // web/: con ella se firman las URLs de subida desde acá.
   SUPABASE_URL: z.string().url('SUPABASE_URL debe ser una URL válida'),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, 'SUPABASE_SERVICE_ROLE_KEY es obligatoria'),
+  // Correo saliente por Resend (dominio verificado en Resend). Obligatorias
+  // en producción, ver abajo: sin ellas un correo de recuperación de clave
+  // no sale y nadie se entera. En desarrollo y pruebas, si faltan, los
+  // correos se imprimen en consola (lib/correo.ts).
+  RESEND_API_KEY: opcional(z.string().min(1)),
+  CORREO_REMITENTE: opcional(z.string().email('CORREO_REMITENTE debe ser un correo')),
+  CORREO_NOMBRE_REMITENTE: opcional(z.string().min(1)),
+  CORREO_RESPUESTA: opcional(z.string().email('CORREO_RESPUESTA debe ser un correo')),
 })
   // Coherencia entre WOMPI_AMBIENTE y las credenciales: Wompi prefija sus
   // llaves y secretos según el ambiente (pub_test_/prv_test_/test_... en
@@ -43,6 +56,23 @@ const esquemaEnv = z.object({
   // creyendo que está probando (o al revés, que un comercio real quede
   // corriendo contra sandbox).
   .superRefine((datos, ctx) => {
+    if (datos.NODE_ENV === 'production') {
+      for (const campo of [
+        'RESEND_API_KEY',
+        'CORREO_REMITENTE',
+        'CORREO_NOMBRE_REMITENTE',
+        'CORREO_RESPUESTA',
+      ] as const) {
+        if (!datos[campo]) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [campo],
+            message: `${campo} es obligatoria en producción: sin ella los correos no salen.`,
+          });
+        }
+      }
+    }
+
     const PREFIJOS_PRODUCCION = ['pub_prod_', 'prv_prod_', 'prod_'];
     const PREFIJOS_SANDBOX = ['pub_test_', 'prv_test_', 'test_'];
     const credenciales = [

@@ -2,6 +2,7 @@ import bcrypt from 'bcrypt';
 import type { TipoToken } from '@prisma/client';
 import { fusionarCarritoAnonimo } from '../carrito/servicio.js';
 import { ErrorApi } from '../../lib/errorApi.js';
+import { env } from '../../config/env.js';
 import { servicioCorreo } from '../../lib/correo.js';
 import { firmarAccessToken } from '../../lib/jwt.js';
 import { prisma } from '../../lib/prisma.js';
@@ -196,11 +197,21 @@ export async function solicitarVerificacionCorreo(usuarioId: string): Promise<vo
     },
   });
 
-  await servicioCorreo.enviar({
-    para: usuario.correo,
-    asunto: 'Confirmá tu correo - India Rosa',
-    texto: `Para confirmar tu correo usá este token (vence en 24 horas): ${tokenCrudo}`,
-  });
+  try {
+    await servicioCorreo.enviar({
+      para: usuario.correo,
+      asunto: 'Confirmá tu correo - India Rosa',
+      texto: `Para confirmar tu correo usá este código (vence en 24 horas): ${tokenCrudo}`,
+    });
+  } catch (error) {
+    // Quien pide esto ya inició sesión: decirle que falló no revela nada.
+    console.error('[correo] No salió la verificación de correo:', error);
+    throw new ErrorApi(
+      500,
+      'correo_no_enviado',
+      'No pudimos enviarte el correo. Probá de nuevo en unos minutos.',
+    );
+  }
 }
 
 export async function confirmarVerificacionCorreo(tokenCrudo: string): Promise<void> {
@@ -240,11 +251,28 @@ export async function solicitarRecuperacion(correo: string): Promise<void> {
     },
   });
 
-  await servicioCorreo.enviar({
-    para: usuario.correo,
-    asunto: 'Recuperar contraseña - India Rosa',
-    texto: `Para restablecer tu contraseña usá este token (vence en 1 hora): ${tokenCrudo}`,
-  });
+  const enlace = `${env.ORIGEN_WEB}/cuenta/recuperar?token=${encodeURIComponent(tokenCrudo)}`;
+  try {
+    await servicioCorreo.enviar({
+      para: usuario.correo,
+      asunto: 'Recuperar contraseña - India Rosa',
+      texto: [
+        'Recibimos un pedido para restablecer la contraseña de tu cuenta en India Rosa.',
+        '',
+        `Entrá a este enlace para elegir una contraseña nueva (vence en 1 hora):`,
+        enlace,
+        '',
+        `Si el enlace no abre, pegá este código en la página de recuperación: ${tokenCrudo}`,
+        '',
+        'Si no fuiste vos, ignorá este correo: tu contraseña sigue igual.',
+      ].join('\n'),
+    });
+  } catch (error) {
+    // Mismo silencio que cuando el correo no existe: si un fallo del
+    // proveedor diera error solo para cuentas reales, revelaría cuáles
+    // están registradas. Queda en el log para revisarlo.
+    console.error('[correo] No salió la recuperación de clave:', error);
+  }
 }
 
 export async function confirmarRecuperacion(tokenCrudo: string, claveNueva: string): Promise<void> {
