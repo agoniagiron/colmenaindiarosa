@@ -130,6 +130,8 @@ describeConDbReal('Fotos por color contra PostgreSQL real', () => {
     expect(detalle.coloresSinFotos.map((c) => c.id).sort()).toEqual(
       [valorRosaId, valorRubioId, valorNegroId].sort(),
     );
+    // Todo genérico: la portada es la primera por orden, aunque sea rosa.
+    expect(detalle.imagenPortadaId).toBe(idsImagenRosa[0]);
   });
 
   it('marca varias fotos de una vez y el aviso deja solo el color pendiente', async () => {
@@ -144,6 +146,8 @@ describeConDbReal('Fotos por color contra PostgreSQL real', () => {
     );
     const detalle = await obtenerDetalleProducto(productoId);
     expect(detalle.coloresSinFotos.map((c) => c.id)).toEqual([valorNegroId]);
+    // La principal es la rubia: la portada pasa a ser su foto.
+    expect(detalle.imagenPortadaId).toBe(idImagenRubio);
   });
 
   it('rechaza un valor que no usa ninguna variante del producto', async () => {

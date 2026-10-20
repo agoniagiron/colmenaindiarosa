@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { atributosDeCategoria } from '../../../lib/atributosCategoria.js';
 import { ErrorApi } from '../../../lib/errorApi.js';
+import { galeriaDeVarianteId } from '../../../lib/imagenesVariante.js';
 import { prisma } from '../../../lib/prisma.js';
 import type {
   BodyCrearProducto,
@@ -13,6 +14,7 @@ import type {
   BodyPrecioVariante,
   QueryListadoProductos,
 } from './esquemas.js';
+import { resolverVarianteMostrada } from '../../catalogo/variantePrincipal.js';
 import { armarCodigoProducto, esCodigoModeloValido, normalizarCodigoModelo } from './sku.js';
 import { insertarVariantes, obtenerCodigoProducto } from './variantes.js';
 
@@ -254,6 +256,27 @@ function coloresSinFotos(producto: ProductoDetalleCrudo) {
   return [...pendientes.values()];
 }
 
+// Qué foto usa hoy la tarjeta del catálogo: la primera de la galería de la
+// variante mostrada, con la misma función que la tienda. Precios de lista,
+// sin promociones, igual que resumenPrincipal: es la marca de la pestaña
+// Imágenes, no la vitrina exacta.
+function imagenPortadaId(producto: ProductoDetalleCrudo): string | null {
+  const activas = producto.variantes.filter((v) => v.activa);
+  const { varianteId } = resolverVarianteMostrada(
+    activas.map((v) => ({
+      id: v.id,
+      precio: v.precioActual,
+      disponible: v.stockActual - v.stockReservado,
+    })),
+    producto.variantePrincipalId,
+  );
+  const variantes = activas.map((v) => ({
+    id: v.id,
+    valoresAtributo: v.valoresAtributo.map(({ valorAtributo }) => ({ valorId: valorAtributo.id })),
+  }));
+  return galeriaDeVarianteId(producto.imagenes, variantes, varianteId)[0]?.id ?? null;
+}
+
 // El panel solo necesita saber si está marcado para portada y con qué
 // orden, no la fila de producto_destacado en sí (desde/hasta no aplican a
 // esta sección, se ignoran a propósito — ver el plan).
@@ -266,6 +289,7 @@ function mapearDetalle(producto: ProductoDetalleCrudo) {
     // falte el código de modelo o el de la categoría.
     principal: resumenPrincipal(producto),
     coloresSinFotos: coloresSinFotos(producto),
+    imagenPortadaId: imagenPortadaId(producto),
     codigoProducto:
       producto.codigoModelo && producto.categoria.codigo
         ? armarCodigoProducto(producto.categoria.codigo, producto.codigoModelo)
