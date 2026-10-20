@@ -3,9 +3,9 @@ import { Prisma } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const prismaMock = {
-  eventoPasarela: { create: vi.fn(), update: vi.fn() },
-  pago: { findUnique: vi.fn(), update: vi.fn() },
-  pedido: { findUnique: vi.fn(), update: vi.fn() },
+  eventoPasarela: { create: vi.fn(), update: vi.fn(), findUnique: vi.fn(), updateMany: vi.fn() },
+  pago: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+  pedido: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
   pedidoItem: { findMany: vi.fn() },
   varianteProducto: { update: vi.fn() },
   movimientoInventario: { create: vi.fn() },
@@ -111,7 +111,7 @@ describe('POST /api/webhooks/wompi', () => {
       usuarioId: 'usuario-1',
       cuponId: null,
     });
-    prismaMock.pago.update.mockResolvedValueOnce({});
+    prismaMock.pago.updateMany.mockResolvedValueOnce({ count: 1 });
     prismaMock.pedido.update.mockResolvedValueOnce({});
     prismaMock.pedidoItem.findMany.mockResolvedValueOnce([{ varianteId: 'var-1', cantidad: 2 }]);
     prismaMock.varianteProducto.update.mockResolvedValueOnce({ stockActual: 8 });
@@ -138,6 +138,12 @@ describe('POST /api/webhooks/wompi', () => {
         clientVersion: '6.19.3',
       }),
     );
+
+    // El registro existente ya está procesado: no hay nada que retomar.
+    prismaMock.eventoPasarela.findUnique.mockResolvedValueOnce({
+      id: 'evt-1',
+      procesadoEn: new Date(),
+    });
 
     await procesarWebhook(evento);
 

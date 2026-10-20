@@ -38,10 +38,55 @@ function leerNumero(objeto: unknown, ruta: string[]): number | undefined {
   return typeof valor === 'number' ? valor : undefined;
 }
 
-// Procesa un webhook de Wompi. Responde SIEMPRE 200 desde el controlador,
-// incluso si esta función no hace nada (cuerpo irreconocible, firma
-// inválida, referencia desconocida): reintentar no ayuda en esos casos y
-// Wompi solo necesita el 200 para no seguir reenviando.
+// Otro envío del mismo evento lo está procesando ahora (o quedó colgado hace
+// menos de TIEMPO_ABANDONO_MS). El controlador responde 503: si el otro
+// termina bien, el próximo reintento de Wompi lo ve procesado; si murió a
+// mitad de camino, el reintento lo retoma.
+export class ErrorEventoEnProceso extends Error {
+  constructor() {
+    super('El evento ya se está procesando');
+  }
+}
+
+// Un evento registrado y sin procesado_en durante más que esto se da por
+// abandonado (el proceso murió sin llegar a guardar el error) y se puede
+// retomar. Muy por encima de lo que tarda un procesamiento normal.
+const TIEMPO_ABANDONO_MS = 2 * 60 * 1000;
+
+// Un evento que ya estaba registrado: si se procesó, no hay nada que hacer
+// (null). Si falló (error_proceso) o quedó abandonado, lo retoma ESTE envío
+// y solo este: el UPDATE condicional lo gana uno solo aunque lleguen dos a
+// la vez. recibido_en pasa a ser el momento del último intento.
+async function retomarEventoPendiente(idEventoExterno: string): Promise<{ id: string } | null> {
+  const existente = await prisma.eventoPasarela.findUnique({
+    where: { idEventoExterno },
+    select: { id: true, procesadoEn: true },
+  });
+  if (!existente || existente.procesadoEn) return null;
+
+  const { count } = await prisma.eventoPasarela.updateMany({
+    where: {
+      id: existente.id,
+      procesadoEn: null,
+      OR: [
+        { errorProceso: { not: null } },
+        { recibidoEn: { lt: new Date(Date.now() - TIEMPO_ABANDONO_MS) } },
+      ],
+    },
+    data: { errorProceso: null, recibidoEn: new Date() },
+  });
+  if (count === 0) throw new ErrorEventoEnProceso();
+  return { id: existente.id };
+}
+
+// Procesa un webhook de Wompi. Si termina sin lanzar, el controlador
+// responde 200, también cuando no hay nada que hacer (cuerpo irreconocible,
+// firma inválida, referencia desconocida): reintentar no ayuda en esos
+// casos. Si el procesamiento FALLA, el error queda en
+// evento_pasarela.error_proceso y esta función lanza: el controlador
+// responde 500, Wompi reintenta y el reintento retoma el evento
+// (retomarEventoPendiente). Un pago aprobado nunca queda registrado y sin
+// procesar para siempre.
 export async function procesarWebhook(cuerpoCrudo: unknown): Promise<void> {
   const parseo = esquemaEventoWompi.safeParse(cuerpoCrudo);
   if (!parseo.success) return;
@@ -77,7 +122,7 @@ export async function procesarWebhook(cuerpoCrudo: unknown): Promise<void> {
   // estado, así que sí se procesa.
   const idEventoExterno = `${idTransaccion}:${estadoTransaccion}`;
 
-  let registro;
+  let registro: { id: string };
   try {
     registro = await prisma.eventoPasarela.create({
       data: {
@@ -87,15 +132,49 @@ export async function procesarWebhook(cuerpoCrudo: unknown): Promise<void> {
         cuerpo: evento as Prisma.InputJsonValue,
         firmaValida: true,
       },
+      select: { id: true },
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       // Ya se había insertado (reenvío de Wompi, o llegada casi simultánea).
-      return;
+      // Si quedó sin procesar porque falló o se colgó, se retoma acá.
+      const retomado = await retomarEventoPendiente(idEventoExterno);
+      if (!retomado) return;
+      registro = retomado;
+    } else {
+      throw error;
     }
+  }
+
+  try {
+    await procesarEventoRegistrado(transaccion, estadoTransaccion);
+  } catch (error) {
+    // Queda el motivo y el evento sin procesado_en: el reintento de Wompi
+    // (que llega porque el controlador responde 500) lo retoma.
+    await prisma.eventoPasarela
+      .update({
+        where: { id: registro.id },
+        data: { errorProceso: error instanceof Error ? error.message : String(error) },
+      })
+      .catch(() => {
+        // Si ni esto se puede guardar (base caída), el evento queda sin
+        // error y sin procesar: se retoma por abandono.
+      });
     throw error;
   }
 
+  // procesado_en también cuando no había nada que hacer (referencia o pago
+  // desconocidos): el evento ya se decidió y no se vuelve a retomar.
+  await prisma.eventoPasarela.update({
+    where: { id: registro.id },
+    data: { procesadoEn: new Date() },
+  });
+}
+
+async function procesarEventoRegistrado(
+  transaccion: unknown,
+  estadoTransaccion: string,
+): Promise<void> {
   const referencia = leerTexto(transaccion, ['reference']);
   if (!referencia) return;
 
@@ -110,11 +189,6 @@ export async function procesarWebhook(cuerpoCrudo: unknown): Promise<void> {
   } else if (ESTADOS_RECHAZADOS.has(estadoTransaccion)) {
     await procesarRechazado(pago, transaccion, estadoTransaccion);
   }
-
-  await prisma.eventoPasarela.update({
-    where: { id: registro.id },
-    data: { procesadoEn: new Date() },
-  });
 }
 
 type ResultadoProcesarAprobado =
@@ -186,8 +260,12 @@ async function procesarAprobado(
       };
     }
 
-    await tx.pago.update({
-      where: { id: pago.id },
+    // Condicional: si otro procesamiento del mismo pago ya lo aprobó (un
+    // evento retomado mientras corría el original), este no encuentra el
+    // pago en 'iniciado' y no descuenta stock otra vez. El UPDATE toma el
+    // lock de la fila, así que de dos a la vez gana uno solo.
+    const { count: aprobados } = await tx.pago.updateMany({
+      where: { id: pago.id, estado: 'iniciado' },
       data: {
         estado: 'aprobado',
         referenciaExterna: leerTexto(transaccion, ['id']),
@@ -200,6 +278,7 @@ async function procesarAprobado(
         aprobadoEn: new Date(),
       },
     });
+    if (aprobados === 0) return { tipo: 'ninguna' };
 
     await tx.pedido.update({
       where: { id: pedido.id },
@@ -299,6 +378,16 @@ async function procesarRechazado(
     });
     if (!pedido || pedido.estado !== 'esperandoPago') return;
 
+    // Condicional, primero: de dos procesamientos del mismo rechazo (un
+    // evento retomado mientras corría el original), solo uno encuentra el
+    // pedido en 'esperandoPago' y libera la reserva. El otro sale sin tocar
+    // stock.
+    const { count: rechazados } = await tx.pedido.updateMany({
+      where: { id: pedido.id, estado: 'esperandoPago' },
+      data: { estado: 'pagoRechazado' },
+    });
+    if (rechazados === 0) return;
+
     await tx.pago.update({
       where: { id: pago.id },
       data: {
@@ -321,8 +410,6 @@ async function procesarRechazado(
         data: { liberadaEn: new Date() },
       });
     }
-
-    await tx.pedido.update({ where: { id: pedido.id }, data: { estado: 'pagoRechazado' } });
 
     await tx.pedidoHistorial.create({
       data: {
