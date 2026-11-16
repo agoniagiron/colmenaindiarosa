@@ -66,23 +66,25 @@ export interface Facetas {
   colores: TonoConConteo[];
 }
 
-// Una peluca marcada para el carrusel del héroe (panel: Sección de
-// portada). colores son los que tienen sus variantes activas, en el orden
-// definido en el valor de atributo — no el conteo del catálogo, eso sigue
-// saliendo de Facetas.colores (ver Inicio.tsx).
+// Una peluca del carrusel del héroe bajo un tono: con la foto de ESE color
+// y el SKU de la variante de ese color a la que lleva (la ficha la abre ya
+// elegida). Lo arma el backend (api/src/modulos/portada/servicio.ts).
 export interface ProductoHeroe {
   id: string;
   slug: string;
   nombre: string;
-  imagenPrincipal?: { url: string; altTexto: string };
-  colores: ValorAtributo[];
+  sku: string;
+  imagen: { url: string; altTexto: string };
+}
+
+export interface TonoPortada extends ValorAtributo {
+  // Nunca vacío: un tono sin productos con foto propia no llega.
+  productos: ProductoHeroe[];
 }
 
 export interface HeroePortada {
-  destacadas: ProductoHeroe[];
-  // Unión deduplicada de los colores de `destacadas`, en el mismo orden.
-  // Vacío cuando no hay ninguna peluca marcada para portada.
-  colores: ValorAtributo[];
+  // En el orden del valor de atributo. Vacío: la sección no se muestra.
+  tonos: TonoPortada[];
 }
 
 export interface Repositorio {

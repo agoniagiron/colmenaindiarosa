@@ -152,6 +152,6 @@ describeConDbReal('Admin/Productos: portada (seccion:"portada") contra PostgreSQ
     await cambiarPortadaProducto(producto.id, { destacado: true, orden: 0 });
 
     const heroe = await obtenerHeroePortada();
-    expect(heroe.destacadas.some((d) => d.id === producto.id)).toBe(false);
+    expect(heroe.tonos.some((t) => t.productos.some((p) => p.id === producto.id))).toBe(false);
   });
 });

@@ -5,12 +5,11 @@ import { CarruselHeroe } from '../componentes/CarruselHeroe.tsx';
 import { Contenedor } from '../componentes/Contenedor.tsx';
 import { EsferaColor } from '../componentes/EsferaColor.tsx';
 import { EsqueletoCarga } from '../componentes/EsqueletoCarga.tsx';
-import { ImagenProducto } from '../componentes/ImagenProducto.tsx';
 import { MiniaturaGaleria } from '../componentes/MiniaturaGaleria.tsx';
 import { useCarrito } from '../contexto/ContextoCarrito.tsx';
 import { useConfiguracion } from '../contexto/ContextoConfiguracion.tsx';
 import { repositorio } from '../datos/index.ts';
-import type { Facetas, HeroePortada, TonoConConteo } from '../datos/repositorio.ts';
+import type { HeroePortada } from '../datos/repositorio.ts';
 import { estimarEntrega } from '../dominio/estimarEntrega.ts';
 import type { ReglasEntrega } from '../dominio/estimarEntrega.ts';
 import type { Combo, EdicionLimitada } from '../tipos/index.ts';
@@ -28,68 +27,55 @@ export function Inicio() {
   );
 }
 
-// --- Héroe: tonos + retrato --------------------------------------------------
+// --- Héroe: tonos + carrusel -------------------------------------------------
 
+// La hilera de tonos y el carrusel salen de /portada, ya armados por tono:
+// bajo cada tono, las pelucas de portada con foto propia de ese color y
+// stock en ese color (ver api/src/modulos/portada/servicio.ts).
 function SeccionHeroe() {
   const [heroe, setHeroe] = useState<HeroePortada | null>(null);
-  const [facetasCatalogo, setFacetasCatalogo] = useState<Facetas | null>(null);
-  const [tonoActivoManual, setTonoActivoManual] = useState<string | null>(null);
-  const [indiceRecorrido, setIndiceRecorrido] = useState(0);
+  const [nombreTonoElegido, setNombreTonoElegido] = useState<string | null>(null);
+  const [indice, setIndice] = useState(0);
+  // Antes de que la persona toque algo, el carrusel recorre solo el tono
+  // activo (escaparate). Desde el primer tono, flecha, punto o swipe,
+  // maneja ella: no vuelve a avanzar solo.
+  const [interactuo, setInteractuo] = useState(false);
 
   useEffect(() => {
     let vigente = true;
-    Promise.all([repositorio.obtenerHeroePortada(), repositorio.listarFacetas({})]).then(
-      ([heroeCargado, facetas]) => {
-        if (!vigente) return;
-        setHeroe(heroeCargado);
-        setFacetasCatalogo(facetas);
-      },
-    );
+    repositorio
+      .obtenerHeroePortada()
+      .then((cargado) => {
+        if (vigente) setHeroe(cargado);
+      })
+      .catch(() => {
+        // Sin portada (error de red): la sección no se muestra, igual que
+        // sin tonos. No es un error que la clienta pueda resolver.
+        if (vigente) setHeroe({ tonos: [] });
+      });
     return () => {
       vigente = false;
     };
   }, []);
 
-  const cargando = heroe === null || facetasCatalogo === null;
-  const hayDestacadas = !cargando && heroe.destacadas.length > 0;
+  const tonos = heroe?.tonos ?? null;
 
-  const conteoPorNombre = useMemo(
-    () => new Map((facetasCatalogo?.colores ?? []).map((c) => [c.nombre, c.conteo])),
-    [facetasCatalogo],
-  );
-  const tonos: TonoConConteo[] | null = cargando
-    ? null
-    : hayDestacadas
-      ? heroe.colores.map((color) => ({ ...color, conteo: conteoPorNombre.get(color.nombre) ?? 0 }))
-      : facetasCatalogo.colores;
+  // PARCHE: este es el único título principal del inicio, y la sección
+  // puede no mostrarse (ningún tono con fotos). Mientras tanto queda un
+  // título solo para lectores de pantalla y buscadores. Pendiente para
+  // cuando se trabaje SEO: el inicio necesita un h1 estable que no dependa
+  // de esta sección.
+  if (tonos !== null && tonos.length === 0) {
+    return <h1 className="sr-only">India Rosa: pelucas y extensiones de cabello</h1>;
+  }
 
-  const recorrido = useMemo(() => {
-    if (!hayDestacadas) return [];
-    return heroe.colores.flatMap((color) =>
-      heroe.destacadas
-        .filter((producto) => producto.colores.some((c) => c.nombre === color.nombre))
-        .map((producto) => ({ producto, tonoNombre: color.nombre })),
-    );
-  }, [hayDestacadas, heroe]);
-
-  const indiceSeguro = recorrido.length > 0 ? indiceRecorrido % recorrido.length : 0;
-
-  const tono =
-    cargando || !tonos || tonos.length === 0
-      ? null
-      : hayDestacadas
-        ? (tonos.find((t) => t.nombre === recorrido[indiceSeguro]?.tonoNombre) ?? tonos[0]!)
-        : (tonos.find((t) => t.nombre === tonoActivoManual) ?? tonos[0]!);
-
-  if (tonos !== null && tonos.length === 0) return null;
+  const tono = tonos ? (tonos.find((t) => t.nombre === nombreTonoElegido) ?? tonos[0]!) : null;
 
   function elegirTono(nombreTono: string) {
-    if (hayDestacadas) {
-      const indice = recorrido.findIndex((item) => item.tonoNombre === nombreTono);
-      if (indice !== -1) setIndiceRecorrido(indice);
-    } else {
-      setTonoActivoManual(nombreTono);
-    }
+    setInteractuo(true);
+    if (nombreTono === tono?.nombre) return;
+    setNombreTonoElegido(nombreTono);
+    setIndice(0);
   }
 
   return (
@@ -105,16 +91,16 @@ function SeccionHeroe() {
             ideal y nosotras hacemos el resto.
           </p>
 
-          {cargando || !tono ? (
+          {!tonos || !tono ? (
             <>
               <div className="mt-6 flex gap-3 lg:hidden">
-                {Array.from({ length: 4 }).map((_, indice) => (
-                  <EsqueletoCarga key={indice} ancho="w-14" alto="h-14" redondeado="rounded-2xl" />
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <EsqueletoCarga key={i} ancho="w-14" alto="h-14" redondeado="rounded-2xl" />
                 ))}
               </div>
               <div className="mt-8 hidden flex-col gap-2 lg:flex">
-                {Array.from({ length: 4 }).map((_, indice) => (
-                  <EsqueletoCarga key={indice} alto="h-11" redondeado="rounded-full" />
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <EsqueletoCarga key={i} alto="h-11" redondeado="rounded-full" />
                 ))}
               </div>
               <EsqueletoCarga ancho="w-40" alto="h-12" redondeado="rounded-full" className="mt-8" />
@@ -126,7 +112,7 @@ function SeccionHeroe() {
                 aria-label="Elegir tono de cabello"
                 className="mt-6 flex gap-2 overflow-x-auto pb-1 lg:hidden"
               >
-                {tonos!.map((item) => {
+                {tonos.map((item) => {
                   const activo = item.nombre === tono.nombre;
                   return (
                     <button
@@ -158,7 +144,7 @@ function SeccionHeroe() {
                 aria-label="Elegir tono de cabello"
                 className="mt-8 hidden flex-col gap-1 lg:flex"
               >
-                {tonos!.map((item) => {
+                {tonos.map((item) => {
                   const activo = item.nombre === tono.nombre;
                   return (
                     <button
@@ -205,25 +191,20 @@ function SeccionHeroe() {
           )}
         </div>
 
-        {cargando || !tono ? (
+        {!tono ? (
           <EsqueletoCarga alto="aspect-[4/5] h-auto lg:aspect-[11/10]" redondeado="rounded-2xl" />
-        ) : hayDestacadas ? (
-          <CarruselHeroe
-            productos={recorrido.map((item) => item.producto)}
-            indice={indiceSeguro}
-            onCambiarIndice={setIndiceRecorrido}
-          />
         ) : (
-          <figure className="relative overflow-hidden rounded-2xl">
-            <ImagenProducto
-              nombre={tono.nombre}
-              colorHex={tono.hex}
-              className="aspect-[4/5] h-auto lg:aspect-[11/10]"
-            />
-            <figcaption className="absolute bottom-5 left-5 rounded-full bg-white px-4 py-2 text-xs tracking-[0.1em] text-tinta shadow-lg">
-              {tono.nombre}
-            </figcaption>
-          </figure>
+          // Un carrusel por tono: al cambiar de tono se monta de cero en la
+          // primera foto, sin animar el salto desde la posición anterior.
+          <CarruselHeroe
+            key={tono.nombre}
+            productos={tono.productos}
+            nombreTono={tono.nombre}
+            indice={indice}
+            onCambiarIndice={setIndice}
+            avanzaSolo={!interactuo}
+            onInteraccion={() => setInteractuo(true)}
+          />
         )}
       </Contenedor>
     </section>

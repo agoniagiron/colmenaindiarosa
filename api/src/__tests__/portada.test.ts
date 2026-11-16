@@ -13,30 +13,47 @@ const { obtenerHeroePortada } = await import('../modulos/portada/servicio.js');
 
 let contadorVariantes = 0;
 
+// Una variante con un color. Prisma ya filtra los valores a los de color
+// (ver el select del servicio), así que el mock trae solo ese.
 function variante(
-  colores: { valor: string; hex?: string; orden: number }[],
-  agotada = false,
-  precioActual = 500000,
+  color: { valor: string; hex?: string; hexSecundario?: string; orden: number },
+  { agotada = false, precioActual = 500000 } = {},
 ) {
   contadorVariantes += 1;
   return {
     id: `var-${contadorVariantes}`,
+    sku: `SKU-${contadorVariantes}`,
     precioActual,
     stockActual: agotada ? 3 : 5,
     stockReservado: agotada ? 3 : 1,
-    valoresAtributo: colores.map((c) => ({
-      valorId: `valor-${c.valor}`,
-      valorAtributo: {
-        valor: c.valor,
-        hex: c.hex ?? null,
-        orden: c.orden,
-        atributo: { slug: 'color' },
+    valoresAtributo: [
+      {
+        valorId: `valor-${color.valor}`,
+        valorAtributo: {
+          valor: color.valor,
+          hex: color.hex ?? null,
+          hexSecundario: color.hexSecundario ?? null,
+          orden: color.orden,
+        },
       },
-    })),
+    ],
   };
 }
 
-function filaDestacada(id: string, variantes: ReturnType<typeof variante>[], extra = {}) {
+const foto = (id: string, valor: string | null, orden = 0) => ({
+  id: `img-${id}-${valor}-${orden}`,
+  url: `https://ejemplo.com/${id}-${valor ?? 'generica'}-${orden}.jpg`,
+  altTexto: `${id} ${valor ?? 'genérica'}`,
+  valorAtributoId: valor ? `valor-${valor}` : null,
+  orden,
+});
+
+function filaDestacada(
+  id: string,
+  variantes: ReturnType<typeof variante>[],
+  imagenes: ReturnType<typeof foto>[],
+  extra = {},
+) {
   return {
     producto: {
       id,
@@ -44,112 +61,131 @@ function filaDestacada(id: string, variantes: ReturnType<typeof variante>[], ext
       slug: `producto-${id}`,
       categoriaId: 'cat-pelucas',
       variantePrincipalId: null,
-      imagenes: [
-        {
-          url: `https://ejemplo.com/${id}.jpg`,
-          altTexto: `Foto ${id}`,
-          valorAtributoId: null,
-          orden: 0,
-        },
-      ],
+      imagenes,
       variantes,
       ...extra,
     },
   };
 }
 
-describe('portada: carrusel del héroe', () => {
+const ROSA = { valor: 'Rosa', hex: '#e8a0b4', orden: 1 };
+const RUBIO = { valor: 'Rubio', hex: '#eee', orden: 0 };
+const NEGRO = { valor: 'Negro', hex: '#111', orden: 2 };
+
+describe('portada: carrusel del héroe por tono', () => {
   beforeEach(() => {
     findManyMock.mockReset();
   });
 
-  it('pide producto_destacado con seccion:"portada", solo productos publicados, ordenado por orden', async () => {
+  it('pide producto_destacado con seccion:"portada", solo publicados, ordenado por orden', async () => {
     findManyMock.mockResolvedValueOnce([]);
 
-    await obtenerHeroePortada();
+    const heroe = await obtenerHeroePortada();
 
     const llamada = findManyMock.mock.calls[0]![0];
     expect(llamada.where).toEqual({ seccion: 'portada', producto: { estado: 'publicado' } });
     expect(llamada.orderBy).toEqual({ orden: 'asc' });
+    expect(heroe).toEqual({ tonos: [] });
   });
 
-  it('excluye una peluca cuyas variantes activas están todas agotadas (stock - reservado <= 0)', async () => {
+  it('bajo cada tono, la foto de ese color: HANNAH en Rosa muestra la rosa y en Rubio la rubia', async () => {
+    const rubio = variante(RUBIO);
+    const rosa = variante(ROSA);
     findManyMock.mockResolvedValueOnce([
-      filaDestacada('agotada', [variante([{ valor: 'Negro', orden: 0 }], true)]),
-      filaDestacada('disponible', [variante([{ valor: 'Rubio', orden: 1 }])]),
+      filaDestacada(
+        'hannah',
+        [rubio, rosa],
+        [foto('hannah', 'Rubio', 0), foto('hannah', 'Rosa', 1), foto('hannah', 'Rosa', 2)],
+        // La principal es la rosa: no puede decidir la foto del rubio.
+        { variantePrincipalId: rosa.id },
+      ),
     ]);
 
-    const heroe = await obtenerHeroePortada();
+    const { tonos } = await obtenerHeroePortada();
 
-    expect(heroe.destacadas.map((d) => d.id)).toEqual(['disponible']);
-    // El color de la agotada tampoco debe colarse en la hilera de tonos.
-    expect(heroe.colores.map((c) => c.nombre)).toEqual(['Rubio']);
+    expect(tonos.map((t) => t.nombre)).toEqual(['Rubio', 'Rosa']);
+    expect(tonos[0]!.productos).toEqual([
+      {
+        id: 'hannah',
+        slug: 'producto-hannah',
+        nombre: 'Producto hannah',
+        sku: rubio.sku,
+        imagen: { url: 'https://ejemplo.com/hannah-Rubio-0.jpg', altTexto: 'hannah Rubio' },
+      },
+    ]);
+    // La primera foto del color por orden.
+    expect(tonos[1]!.productos[0]!.imagen.url).toBe('https://ejemplo.com/hannah-Rosa-1.jpg');
+    expect(tonos[1]!.productos[0]!.sku).toBe(rosa.sku);
   });
 
-  it('arma la unión de colores deduplicada y ordenada por el orden del valor de atributo', async () => {
+  it('un producto sin foto en un tono no aparece bajo ese tono: ni genérica ni de otro color', async () => {
     findManyMock.mockResolvedValueOnce([
-      filaDestacada('p1', [
-        variante([
-          { valor: 'Negro', hex: '#111', orden: 2 },
-          { valor: 'Rubio', hex: '#eee', orden: 0 },
-        ]),
-      ]),
-      filaDestacada('p2', [variante([{ valor: 'Rubio', hex: '#eee', orden: 0 }])]),
-      filaDestacada('p3', [variante([{ valor: 'Castaño', hex: '#842', orden: 1 }])]),
+      // Tiene variante negra pero solo fotos rosa y genérica.
+      filaDestacada(
+        'p1',
+        [variante(ROSA), variante(NEGRO)],
+        [foto('p1', null), foto('p1', 'Rosa')],
+      ),
+      filaDestacada('p2', [variante(NEGRO)], [foto('p2', 'Negro')]),
     ]);
 
-    const heroe = await obtenerHeroePortada();
+    const { tonos } = await obtenerHeroePortada();
 
-    // "Rubio" (orden 0) aparece en p1 y p2 pero una sola vez en la unión.
-    expect(heroe.colores).toEqual([
-      { nombre: 'Rubio', hex: '#eee' },
-      { nombre: 'Castaño', hex: '#842' },
-      { nombre: 'Negro', hex: '#111' },
-    ]);
-    expect(heroe.destacadas.find((d) => d.id === 'p1')!.colores).toEqual([
-      { nombre: 'Rubio', hex: '#eee' },
-      { nombre: 'Negro', hex: '#111' },
-    ]);
+    const negro = tonos.find((t) => t.nombre === 'Negro')!;
+    expect(negro.productos.map((p) => p.id)).toEqual(['p2']);
+    for (const tono of tonos) {
+      for (const p of tono.productos) {
+        expect(p.imagen.url).toContain(`-${tono.nombre}-`);
+      }
+    }
   });
 
-  it('usa null en imagenPrincipal cuando el producto no tiene foto', async () => {
+  it('un tono sin ningún producto con foto propia no sale; sin fotos por color no hay tonos', async () => {
     findManyMock.mockResolvedValueOnce([
-      filaDestacada('sin-foto', [variante([{ valor: 'Negro', orden: 0 }])], { imagenes: [] }),
+      filaDestacada('p1', [variante(ROSA), variante(RUBIO)], [foto('p1', null)]),
     ]);
 
-    const heroe = await obtenerHeroePortada();
-
-    expect(heroe.destacadas[0]!.imagenPrincipal).toBeNull();
+    expect(await obtenerHeroePortada()).toEqual({ tonos: [] });
   });
 
-  it('la foto sale del color de la variante principal, no de la primera foto del producto', async () => {
-    const rubio = variante([{ valor: 'Rubio', orden: 0 }]);
-    const rosa = variante([{ valor: 'Rosa', orden: 1 }]);
+  it('un color agotado en ese producto no lo muestra bajo ese tono, aunque tenga foto', async () => {
     findManyMock.mockResolvedValueOnce([
-      filaDestacada('hannah', [rubio, rosa], {
-        variantePrincipalId: rosa.id,
-        imagenes: [
-          {
-            url: 'https://ejemplo.com/rubio.jpg',
-            altTexto: 'Rubio',
-            valorAtributoId: 'valor-Rubio',
-            orden: 0,
-          },
-          {
-            url: 'https://ejemplo.com/rosa.jpg',
-            altTexto: 'Rosa',
-            valorAtributoId: 'valor-Rosa',
-            orden: 1,
-          },
-        ],
-      }),
+      filaDestacada(
+        'p1',
+        [variante(ROSA, { agotada: true }), variante(RUBIO)],
+        [foto('p1', 'Rosa'), foto('p1', 'Rubio')],
+      ),
     ]);
 
-    const heroe = await obtenerHeroePortada();
+    const { tonos } = await obtenerHeroePortada();
 
-    expect(heroe.destacadas[0]!.imagenPrincipal).toEqual({
-      url: 'https://ejemplo.com/rosa.jpg',
-      altTexto: 'Rosa',
-    });
+    expect(tonos.map((t) => t.nombre)).toEqual(['Rubio']);
+  });
+
+  it('el sku es la variante de ese color que mostraría la tarjeta: la más barata con stock', async () => {
+    const cara = variante(ROSA, { precioActual: 900000 });
+    const barata = variante(ROSA, { precioActual: 400000 });
+    const barataAgotada = variante(ROSA, { precioActual: 100000, agotada: true });
+    findManyMock.mockResolvedValueOnce([
+      filaDestacada('p1', [cara, barata, barataAgotada], [foto('p1', 'Rosa')]),
+    ]);
+
+    const { tonos } = await obtenerHeroePortada();
+
+    expect(tonos[0]!.productos[0]!.sku).toBe(barata.sku);
+  });
+
+  it('los productos de un tono siguen el orden de portada y el color combinado trae sus dos tonos', async () => {
+    const combinado = { valor: 'Ombré', hex: '#222', hexSecundario: '#ddd', orden: 3 };
+    findManyMock.mockResolvedValueOnce([
+      filaDestacada('primero', [variante(combinado)], [foto('primero', 'Ombré')]),
+      filaDestacada('segundo', [variante(combinado)], [foto('segundo', 'Ombré')]),
+    ]);
+
+    const { tonos } = await obtenerHeroePortada();
+
+    expect(tonos).toHaveLength(1);
+    expect(tonos[0]).toMatchObject({ nombre: 'Ombré', hex: '#222', hexSecundario: '#ddd' });
+    expect(tonos[0]!.productos.map((p) => p.id)).toEqual(['primero', 'segundo']);
   });
 });

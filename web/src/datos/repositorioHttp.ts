@@ -24,7 +24,6 @@ import type {
   EdicionLimitada,
   EntradaConfiguracion,
   Producto,
-  ValorAtributo,
 } from '../tipos/index.ts';
 
 const BASE_URL = `${BASE_URL_API}/api`;
@@ -145,29 +144,9 @@ async function listarFacetas(filtros: FiltrosProducto = {}): Promise<Facetas> {
   };
 }
 
-interface ProductoHeroeApi {
-  id: string;
-  slug: string;
-  nombre: string;
-  imagenPrincipal: { url: string; altTexto: string } | null;
-  colores: ValorAtributo[];
-}
-
 async function obtenerHeroePortada(): Promise<HeroePortada> {
-  const heroe = await solicitarJson<{ destacadas: ProductoHeroeApi[]; colores: ValorAtributo[] }>(
-    '/portada',
-  );
-
-  return {
-    colores: heroe.colores,
-    destacadas: heroe.destacadas.map((producto) => ({
-      id: producto.id,
-      slug: producto.slug,
-      nombre: producto.nombre,
-      colores: producto.colores,
-      ...(producto.imagenPrincipal ? { imagenPrincipal: producto.imagenPrincipal } : {}),
-    })),
-  };
+  // La API ya devuelve la forma de HeroePortada (ver portada/servicio.ts).
+  return solicitarJson<HeroePortada>('/portada');
 }
 
 async function obtenerProducto(slug: string): Promise<Producto | null> {

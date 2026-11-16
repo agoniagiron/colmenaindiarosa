@@ -71,6 +71,18 @@ export function valoresDeVariante(variante: { valoresAtributo: { valorId: string
   return variante.valoresAtributo.map((relacion) => relacion.valorId);
 }
 
+// Solo las fotos asignadas a un valor, sin genéricas ni las de otro valor:
+// vacío si ese valor no tiene fotos propias. Para lo que se muestra BAJO un
+// color (el carrusel de portada por tono), donde una foto genérica o de otro
+// color sería mostrar algo que no es lo que se eligió. La galería de una
+// variante sigue siendo resolverImagenesVariante, que sí completa.
+export function imagenesPropiasDeValor<T extends ImagenAsociable>(
+  imagenes: readonly T[],
+  valorId: string,
+): T[] {
+  return porOrden(imagenes).filter((imagen) => imagen.valorAtributoId === valorId);
+}
+
 // La galería de una variante de un producto, por id. Para la portada, el
 // id es el de la variante mostrada (variantePrincipal.ts): la foto sale de
 // la misma variante que el precio. Con id null (producto sin variantes

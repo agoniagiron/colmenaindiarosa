@@ -17,40 +17,55 @@ const ASOMO_TOTAL_PX = ASOMO_VISIBLE_PX + GAP_PX;
 const UMBRAL_DESLIZAR_PX = 50;
 
 interface CarruselHeroeProps {
-  // El recorrido completo (todas las pelucas destacadas, agrupadas por
-  // tono y en ese orden — ver Inicio.tsx), no solo las del tono activo:
-  // el recorrido nunca se corta al llegar al final de un tono, sigue con
-  // el siguiente y da la vuelta al llegar al final.
-  //
-  // El índice es controlado por el padre (Inicio.tsx), no por este
-  // componente: así la hilera de tonos de la izquierda puede resaltar el
-  // tono que corresponde a lo que se ve acá, venga el cambio de donde
-  // venga (autoavance, flecha, punto, swipe o un tono elegido a mano).
+  // Las pelucas de UN tono, cada una con su foto de ese color (ver
+  // Inicio.tsx). El carrusel nunca pasa a otro tono.
   productos: ProductoHeroe[];
+  nombreTono: string;
+  // El índice es controlado por el padre: al cambiar de tono vuelve a 0.
   indice: number;
   onCambiarIndice: (indice: number) => void;
+  // Escaparate: recorre solo hasta que la persona toca algo. Desde la
+  // primera flecha, punto, swipe o tono, maneja ella y no avanza más.
+  avanzaSolo: boolean;
+  onInteraccion: () => void;
 }
 
-export function CarruselHeroe({ productos, indice, onCambiarIndice }: CarruselHeroeProps) {
+export function CarruselHeroe({
+  productos,
+  nombreTono,
+  indice,
+  onCambiarIndice,
+  avanzaSolo,
+  onInteraccion,
+}: CarruselHeroeProps) {
   const prefiereMovimientoReducido = usePrefiereMovimientoReducido();
   const [pausadoPorHover, setPausadoPorHover] = useState(false);
+  const hayVarias = productos.length > 1;
 
-  // Nunca se detiene sola: la única pausa es el cursor encima o un
-  // arrastre en curso. El temporizador se reinicia cada vez que `indice`
-  // cambia, sin importar el origen (autoavance, flecha, punto, swipe o un
-  // tono elegido a mano) — por eso tocar un control no lo mata para
-  // siempre: solo retrasa el próximo avance automático, que sigue solo.
+  // El cursor encima pausa; tocar un control lo detiene del todo (ver
+  // avanzaSolo). Con una sola foto no hay nada que recorrer.
   useEffect(() => {
-    if (pausadoPorHover || prefiereMovimientoReducido || productos.length <= 1) return;
+    if (!avanzaSolo || pausadoPorHover || prefiereMovimientoReducido || !hayVarias) return;
     const temporizador = setTimeout(() => {
       onCambiarIndice((indice + 1) % productos.length);
     }, INTERVALO_MS);
     return () => clearTimeout(temporizador);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- onCambiarIndice es el setter de Inicio.tsx, estable entre renders.
-  }, [indice, pausadoPorHover, prefiereMovimientoReducido, productos.length]);
+  }, [
+    indice,
+    avanzaSolo,
+    pausadoPorHover,
+    prefiereMovimientoReducido,
+    hayVarias,
+    productos.length,
+  ]);
 
   const indiceSeguro = productos.length > 0 ? Math.min(indice, productos.length - 1) : 0;
-  const hayVarias = productos.length > 1;
+
+  function irA(nuevo: number) {
+    onInteraccion();
+    onCambiarIndice((nuevo + productos.length) % productos.length);
+  }
 
   // Arrastre con mouse o touch (pointer events cubre los dos): un umbral
   // mínimo para no confundir un tap (que debe navegar a la ficha) con un
@@ -72,8 +87,7 @@ export function CarruselHeroe({ productos, indice, onCambiarIndice }: CarruselHe
     inicioX.current = null;
     if (Math.abs(delta) < UMBRAL_DESLIZAR_PX) return;
     arrastrando.current = true;
-    if (delta < 0) onCambiarIndice((indiceSeguro + 1) % productos.length);
-    else onCambiarIndice((indiceSeguro - 1 + productos.length) % productos.length);
+    irA(delta < 0 ? indiceSeguro + 1 : indiceSeguro - 1);
   }
 
   // Captura el click que el navegador dispara después de un swipe sobre
@@ -93,17 +107,21 @@ export function CarruselHeroe({ productos, indice, onCambiarIndice }: CarruselHe
     <div
       role="group"
       aria-roledescription="carrusel"
-      aria-label="Pelucas destacadas en portada"
+      aria-label={`Pelucas en tono ${nombreTono}`}
       className="relative overflow-hidden rounded-2xl"
       onMouseEnter={() => setPausadoPorHover(true)}
       onMouseLeave={() => setPausadoPorHover(false)}
     >
       <div
         className="flex aspect-[4/5] touch-pan-y transition-transform duration-500 ease-out lg:aspect-[11/10]"
-        style={{
-          gap: `${GAP_PX}px`,
-          transform: `translateX(calc(-1 * ${indiceSeguro} * (100% - ${ASOMO_VISIBLE_PX}px)))`,
-        }}
+        style={
+          hayVarias
+            ? {
+                gap: `${GAP_PX}px`,
+                transform: `translateX(calc(-1 * ${indiceSeguro} * (100% - ${ASOMO_VISIBLE_PX}px)))`,
+              }
+            : undefined
+        }
         onPointerDown={alBajarPuntero}
         onPointerUp={alSoltarPuntero}
         onClickCapture={alClicCapturado}
@@ -111,74 +129,76 @@ export function CarruselHeroe({ productos, indice, onCambiarIndice }: CarruselHe
         {productos.map((producto, i) => (
           <Link
             key={producto.id}
-            to={`/producto/${producto.slug}`}
+            to={`/producto/${producto.slug}?variante=${encodeURIComponent(producto.sku)}`}
             className="relative block shrink-0"
-            style={{ width: `calc(100% - ${ASOMO_TOTAL_PX}px)` }}
+            // Una sola foto ocupa todo el ancho: sin asomo de una siguiente
+            // que no existe ni hueco al costado.
+            style={{ width: hayVarias ? `calc(100% - ${ASOMO_TOTAL_PX}px)` : '100%' }}
             tabIndex={i === indiceSeguro ? 0 : -1}
             aria-hidden={i === indiceSeguro ? undefined : true}
           >
             <ImagenProducto
-              nombre={producto.nombre}
-              colorHex={producto.colores[0]?.hex}
-              url={producto.imagenPrincipal?.url}
+              nombre={producto.imagen.altTexto || producto.nombre}
+              url={producto.imagen.url}
               className="h-full w-full"
             />
           </Link>
         ))}
       </div>
 
-      {/* Degradado para que las flechas y el contador blancos se lean
-          incluso sobre fotos claras (el caso más común con nuestras
-          fotos). */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-[120px] bg-gradient-to-t from-black/35 to-transparent"
-      />
-
       {hayVarias ? (
-        <div className="pointer-events-none absolute inset-x-4 bottom-4 flex items-center justify-between">
-          <div className="pointer-events-auto flex items-center gap-3">
-            <button
-              type="button"
-              aria-label="Peluca anterior"
-              onClick={() =>
-                onCambiarIndice((indiceSeguro - 1 + productos.length) % productos.length)
-              }
-              className="rounded-full p-1.5 text-white transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-            >
-              <FlechaIcono direccion="izquierda" />
-            </button>
-            <button
-              type="button"
-              aria-label="Peluca siguiente"
-              onClick={() => onCambiarIndice((indiceSeguro + 1) % productos.length)}
-              className="rounded-full p-1.5 text-white transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-            >
-              <FlechaIcono direccion="derecha" />
-            </button>
+        <>
+          {/* Degradado para que las flechas y el contador blancos se lean
+              incluso sobre fotos claras (el caso más común con nuestras
+              fotos). */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-[120px] bg-gradient-to-t from-black/35 to-transparent"
+          />
 
-            {/* Mismo arreglo `productos` que el contador de abajo: un
-                punto por foto, sin desincronizarse nunca entre sí. */}
-            <div role="group" aria-label="Ir a una peluca" className="flex items-center gap-1.5">
-              {productos.map((producto, i) => (
-                <button
-                  key={producto.id}
-                  type="button"
-                  aria-label={`Ir a ${producto.nombre}`}
-                  aria-current={i === indiceSeguro}
-                  onClick={() => onCambiarIndice(i)}
-                  className={`h-2 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
-                    i === indiceSeguro ? 'w-5 bg-white' : 'w-2 bg-white/50 hover:bg-white/80'
-                  }`}
-                />
-              ))}
+          <div className="pointer-events-none absolute inset-x-4 bottom-4 flex items-center justify-between">
+            <div className="pointer-events-auto flex items-center gap-3">
+              <button
+                type="button"
+                aria-label="Peluca anterior"
+                onClick={() => irA(indiceSeguro - 1)}
+                className="rounded-full p-1.5 text-white transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              >
+                <FlechaIcono direccion="izquierda" />
+              </button>
+              <button
+                type="button"
+                aria-label="Peluca siguiente"
+                onClick={() => irA(indiceSeguro + 1)}
+                className="rounded-full p-1.5 text-white transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              >
+                <FlechaIcono direccion="derecha" />
+              </button>
+
+              {/* Mismo arreglo `productos` que el contador de abajo: un
+                  punto por foto, sin desincronizarse nunca entre sí. */}
+              <div role="group" aria-label="Ir a una peluca" className="flex items-center gap-1.5">
+                {productos.map((producto, i) => (
+                  <button
+                    key={producto.id}
+                    type="button"
+                    aria-label={`Ir a ${producto.nombre}`}
+                    aria-current={i === indiceSeguro}
+                    onClick={() => irA(i)}
+                    className={`h-2 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${
+                      i === indiceSeguro ? 'w-5 bg-white' : 'w-2 bg-white/50 hover:bg-white/80'
+                    }`}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
 
-          <span className="pointer-events-none text-xs font-medium tracking-[0.08em] text-white">
-            {String(indiceSeguro + 1).padStart(2, '0')} / {String(productos.length).padStart(2, '0')}
-          </span>
-        </div>
+            <span className="pointer-events-none text-xs font-medium tracking-[0.08em] text-white">
+              {String(indiceSeguro + 1).padStart(2, '0')} /{' '}
+              {String(productos.length).padStart(2, '0')}
+            </span>
+          </div>
+        </>
       ) : null}
     </div>
   );

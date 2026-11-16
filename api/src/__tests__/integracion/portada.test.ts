@@ -79,7 +79,7 @@ describeConDbReal('GET /api/portada contra PostgreSQL real', () => {
     await prisma.$disconnect();
   });
 
-  it('devuelve las destacadas con su foto principal y sus colores, y la unión ordenada', async () => {
+  it('arma los tonos con la foto de cada color; un color sin foto propia no sale', async () => {
     const producto = await prisma.producto.create({
       data: {
         nombre: `Peluca héroe ${SUFIJO}`,
@@ -90,27 +90,40 @@ describeConDbReal('GET /api/portada contra PostgreSQL real', () => {
     });
     idsProducto.push(producto.id);
 
-    const variante = await prisma.varianteProducto.create({
-      data: {
-        productoId: producto.id,
-        sku: `SKU-HEROE-${SUFIJO}`,
-        precioActual: 250000,
-        stockActual: 10,
-        stockReservado: 0,
-        activa: true,
-      },
-    });
-    await prisma.varianteValorAtributo.create({
-      data: { varianteId: variante.id, valorId: valorCastanoId },
-    });
+    // Castaño con foto propia; rubio solo con la genérica.
+    for (const [sufijoSku, valorId] of [
+      ['CAS', valorCastanoId],
+      ['RUB', valorRubioId],
+    ] as const) {
+      const variante = await prisma.varianteProducto.create({
+        data: {
+          productoId: producto.id,
+          sku: `SKU-HEROE-${sufijoSku}-${SUFIJO}`,
+          precioActual: 250000,
+          stockActual: 10,
+          stockReservado: 0,
+          activa: true,
+        },
+      });
+      await prisma.varianteValorAtributo.create({ data: { varianteId: variante.id, valorId } });
+    }
 
-    await prisma.imagenProducto.create({
-      data: {
-        productoId: producto.id,
-        url: `https://ejemplo.com/${SUFIJO}.jpg`,
-        altTexto: 'Peluca del héroe',
-        orden: 0,
-      },
+    await prisma.imagenProducto.createMany({
+      data: [
+        {
+          productoId: producto.id,
+          url: `https://ejemplo.com/${SUFIJO}-generica.jpg`,
+          altTexto: 'Genérica',
+          orden: 0,
+        },
+        {
+          productoId: producto.id,
+          url: `https://ejemplo.com/${SUFIJO}-castano.jpg`,
+          altTexto: 'Castaño',
+          valorAtributoId: valorCastanoId,
+          orden: 1,
+        },
+      ],
     });
 
     await prisma.productoDestacado.create({
@@ -118,16 +131,24 @@ describeConDbReal('GET /api/portada contra PostgreSQL real', () => {
     });
 
     const respuesta = await request(app).get('/api/portada').expect(200);
+    const tonos = respuesta.body.tonos as {
+      nombre: string;
+      hex?: string;
+      productos: { id: string; sku: string; imagen: { url: string } }[];
+    }[];
 
-    const destacada = respuesta.body.destacadas.find((d: { id: string }) => d.id === producto.id);
-    expect(destacada).toMatchObject({
-      slug: `peluca-heroe-${SUFIJO}`,
-      imagenPrincipal: { url: `https://ejemplo.com/${SUFIJO}.jpg`, altTexto: 'Peluca del héroe' },
-      colores: [{ nombre: `Castaño ${SUFIJO}`, hex: '#4a2d1b' }],
-    });
-    expect(respuesta.body.colores).toEqual(
-      expect.arrayContaining([{ nombre: `Castaño ${SUFIJO}`, hex: '#4a2d1b' }]),
-    );
+    const castano = tonos.find((t) => t.nombre === `Castaño ${SUFIJO}`);
+    expect(castano).toMatchObject({ hex: '#4a2d1b' });
+    expect(castano!.productos).toEqual([
+      {
+        id: producto.id,
+        slug: `peluca-heroe-${SUFIJO}`,
+        nombre: `Peluca héroe ${SUFIJO}`,
+        sku: `SKU-HEROE-CAS-${SUFIJO}`,
+        imagen: { url: `https://ejemplo.com/${SUFIJO}-castano.jpg`, altTexto: 'Castaño' },
+      },
+    ]);
+    expect(tonos.some((t) => t.nombre === `Rubio ${SUFIJO}`)).toBe(false);
   });
 
   it('seccion:"portada" no aparece como Destacado en el catálogo ni en ?destacado=true', async () => {

@@ -17,10 +17,10 @@ import type {
   HeroePortada,
   OrdenProducto,
   Pagina,
-  ProductoHeroe,
   Repositorio,
   ResultadoPaginado,
   TonoConConteo,
+  TonoPortada,
 } from './repositorio.ts';
 import type {
   Categoria,
@@ -30,7 +30,6 @@ import type {
   EdicionLimitada,
   EntradaConfiguracion,
   Producto,
-  ValorAtributo,
   VarianteProducto,
 } from '../tipos/index.ts';
 
@@ -208,46 +207,42 @@ async function listarFacetas(filtros: FiltrosProducto = {}): Promise<Facetas> {
 
 const SLUG_CATEGORIA_PORTADA = 'cat-pelucas';
 
-function estaAgotado(producto: Producto): boolean {
-  return producto.variantes.every((v) => v.stockActual - v.stockReservado <= 0);
-}
-
 // No hay un concepto de "marcado para portada" en los datos de muestra:
 // se reutiliza el flag `destacado` ya existente, acotado a Pelucas, como
 // equivalente de prueba de producto_destacado con seccion:'portada' (ver
-// api/src/modulos/portada/servicio.ts). Mismo criterio de disponibilidad
-// que el real: una peluca agotada no entra al héroe.
+// api/src/modulos/portada/servicio.ts). Mismo armado por tono: bajo cada
+// color, las pelucas con una variante disponible de ese color, con su foto.
+// La muestra no distingue foto propia de genérica: usa la primera de la
+// galería de esa variante, y sin fotos el producto no entra en ese tono.
 async function obtenerHeroePortada(): Promise<HeroePortada> {
   await esperar(RETARDO_MS);
 
   const destacadas = PRODUCTOS.filter(
-    (p) => p.categoriaId === SLUG_CATEGORIA_PORTADA && p.destacado && !estaAgotado(p),
+    (p) => p.categoriaId === SLUG_CATEGORIA_PORTADA && p.destacado,
   );
 
-  const coloresUnion = new Map<string, ValorAtributo>();
-  const productosHeroe: ProductoHeroe[] = destacadas.map((producto) => {
-    const coloresProducto = new Map<string, ValorAtributo>();
+  const tonos = new Map<string, TonoPortada>();
+  for (const producto of destacadas) {
+    const vistos = new Set<string>();
     for (const variante of producto.variantes) {
-      if (variante.color && !coloresProducto.has(variante.color.nombre)) {
-        coloresProducto.set(variante.color.nombre, variante.color);
-        if (!coloresUnion.has(variante.color.nombre)) {
-          coloresUnion.set(variante.color.nombre, variante.color);
-        }
-      }
+      const color = variante.color;
+      const foto = variante.imagenes[0];
+      if (!color || !foto || vistos.has(color.nombre)) continue;
+      if (variante.stockActual - variante.stockReservado <= 0) continue;
+      vistos.add(color.nombre);
+      const tono = tonos.get(color.nombre) ?? { ...color, productos: [] };
+      tono.productos.push({
+        id: producto.id,
+        slug: producto.slug,
+        nombre: producto.nombre,
+        sku: variante.sku,
+        imagen: { url: foto.url, altTexto: foto.altTexto },
+      });
+      tonos.set(color.nombre, tono);
     }
-    const imagenPrincipal = producto.imagenes[0];
-    return {
-      id: producto.id,
-      slug: producto.slug,
-      nombre: producto.nombre,
-      colores: Array.from(coloresProducto.values()),
-      ...(imagenPrincipal
-        ? { imagenPrincipal: { url: imagenPrincipal.url, altTexto: imagenPrincipal.altTexto } }
-        : {}),
-    };
-  });
+  }
 
-  return { destacadas: productosHeroe, colores: Array.from(coloresUnion.values()) };
+  return { tonos: [...tonos.values()] };
 }
 
 async function obtenerProducto(slug: string): Promise<Producto | null> {
